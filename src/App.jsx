@@ -71,6 +71,38 @@ export default function App() {
     }
   }, [darkMode]);
 
+  // --- Idle Detection & Auto-Reload ---
+  useEffect(() => {
+    const IDLE_TIME = 5 * 60 * 1000; // 10 seconds for testing (change to 5 * 60 * 1000 for 5 minutes)
+    let idleTimer;
+
+    const resetTimer = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        console.log('Page idle for too long, reloading...');
+        window.location.reload();
+      }, IDLE_TIME);
+    };
+
+    // Events that indicate user activity
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+
+    events.forEach(event => {
+      window.addEventListener(event, resetTimer);
+    });
+
+    // Initialize timer
+    resetTimer();
+
+    // Cleanup
+    return () => {
+      clearTimeout(idleTimer);
+      events.forEach(event => {
+        window.removeEventListener(event, resetTimer);
+      });
+    };
+  }, []);
+
   // --- Calculations ---
   // Convert hours to minutes for the hook
   const fullDayMinutes = shiftDuration * 60;
