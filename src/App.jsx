@@ -5,9 +5,11 @@ import { ShiftCalculator } from './components/ShiftCalculator';
 import { LogAnalyzer } from './components/LogAnalyzer';
 import { SettingsModal } from './components/SettingsModal';
 import { HistoryModal } from './components/HistoryModal';
+import { Toast } from './components/Toast';
 import { useShiftCalculations } from './hooks/useShiftCalculations';
 import { useLogParser } from './hooks/useLogParser';
 import { useHistory } from './hooks/useHistory';
+import { useToast } from './hooks/useToast';
 import { motion } from 'framer-motion';
 
 export default function App() {
@@ -43,6 +45,7 @@ export default function App() {
 
   // --- Hooks ---
   const { saveEntry, getAllEntries, exportToCSV } = useHistory();
+  const { toasts, showSuccess, showError, showInfo, dismiss } = useToast();
 
   // --- Effects ---
   useEffect(() => {
@@ -109,6 +112,11 @@ export default function App() {
   const shiftDetails = useShiftCalculations(startTime, fullDayMinutes, use24Hour);
   const logStats = useLogParser(logInput, use24Hour);
 
+  // Calculate work progress percentage
+  const workProgress = logStats.effectiveWorkTime > 0
+    ? Math.min((logStats.effectiveWorkTime / fullDayMinutes) * 100, 100)
+    : 0;
+
   // --- Auto-Save History ---
   useEffect(() => {
     // We auto-save if there is at least some log input or a non-default start time
@@ -164,6 +172,7 @@ export default function App() {
           setDarkMode={setDarkMode}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenHistory={() => setIsHistoryOpen(true)}
+          workProgress={workProgress}
         />
 
         <ShiftCalculator
@@ -177,6 +186,8 @@ export default function App() {
           logInput={logInput}
           setLogInput={setLogInput}
           stats={logStats}
+          showSuccess={showSuccess}
+          showError={showError}
         />
 
         <Footer />
@@ -196,7 +207,10 @@ export default function App() {
           historyEntries={getAllEntries()}
           onLoadEntry={handleLoadEntry}
           onExport={exportToCSV}
+          showSuccess={showSuccess}
         />
+
+        <Toast toasts={toasts} onDismiss={dismiss} />
 
       </div>
     </motion.div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { X, Calendar, Download, CornerUpLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-export const HistoryModal = ({ isOpen, onClose, historyEntries, onLoadEntry, onExport }) => {
+export const HistoryModal = ({ isOpen, onClose, historyEntries, onLoadEntry, onExport, showSuccess }) => {
     return (
         <AnimatePresence>
             {isOpen && (
@@ -52,7 +52,11 @@ export const HistoryModal = ({ isOpen, onClose, historyEntries, onLoadEntry, onE
                                                     </div>
                                                 </div>
                                                 <button
-                                                    onClick={() => { onLoadEntry(data); onClose(); }}
+                                                    onClick={() => {
+                                                        onLoadEntry(data);
+                                                        showSuccess && showSuccess('📥 Entry loaded successfully!');
+                                                        onClose();
+                                                    }}
                                                     className="text-xs bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-3 py-1.5 rounded-lg font-medium hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors flex items-center gap-1"
                                                 >
                                                     <CornerUpLeft className="w-3 h-3" /> Load
@@ -70,7 +74,10 @@ export const HistoryModal = ({ isOpen, onClose, historyEntries, onLoadEntry, onE
                                 {historyEntries.length} entries stored
                             </span>
                             <button
-                                onClick={onExport}
+                                onClick={() => {
+                                    onExport();
+                                    showSuccess && showSuccess('📊 Data exported to CSV!');
+                                }}
                                 disabled={historyEntries.length === 0}
                                 className="px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white rounded-lg hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                             >

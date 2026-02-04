@@ -5,7 +5,7 @@ import { useTimeHelpers } from '../hooks/useTimeHelpers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CountUp } from './CountUp';
 
-export const LogAnalyzer = ({ logInput, setLogInput, stats }) => {
+export const LogAnalyzer = ({ logInput, setLogInput, stats, showSuccess, showError }) => {
     const { events, breaks, totalOutTime, effectiveWorkTime, firstInTime, lastOutTime } = stats;
     const { formatDuration } = useTimeHelpers();
     const [copied, setCopied] = useState(false);
@@ -14,12 +14,14 @@ export const LogAnalyzer = ({ logInput, setLogInput, stats }) => {
         const summary = `Start: ${firstInTime || '?'} | End: ${lastOutTime || '?'} | Breaks: ${totalOutTime}m | Net Work: ${formatDuration(effectiveWorkTime)}`;
         navigator.clipboard.writeText(summary);
         setCopied(true);
+        showSuccess && showSuccess('📋 Summary copied to clipboard!');
         setTimeout(() => setCopied(false), 2000);
     };
 
     const handleClearLogs = () => {
         if (confirm("Clear all logs?")) {
             setLogInput("");
+            showSuccess && showSuccess('🗑️ Logs cleared');
         }
     };
 

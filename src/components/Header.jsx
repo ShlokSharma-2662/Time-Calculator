@@ -1,14 +1,18 @@
 import React from 'react';
 import { Clock, Sun, Moon, Settings, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { CircularProgress } from './CircularProgress';
 
-export const Header = ({ darkMode, setDarkMode, onOpenSettings, onOpenHistory }) => {
+export const Header = ({ darkMode, setDarkMode, onOpenSettings, onOpenHistory, workProgress = 0 }) => {
     return (
         <header className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
                 <div className="rounded-lg shadow-lg overflow-hidden">
                     <img src="/logo.png" alt="Daily Calculations" className="w-12 h-12" />
                 </div>
+                {workProgress > 0 && (
+                    <CircularProgress percentage={workProgress} size={50} />
+                )}
                 <div>
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Daily Calculations</h1>
                     <p className="text-slate-500 dark:text-slate-400 text-sm">Friendly. Daily Routine. Cyclic.</p>
