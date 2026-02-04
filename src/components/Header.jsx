@@ -6,12 +6,12 @@ export const Header = ({ darkMode, setDarkMode, onOpenSettings, onOpenHistory })
     return (
         <header className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
-                <div className="bg-indigo-600 p-2 rounded-lg shadow-lg">
-                    <Clock className="w-8 h-8 text-white" />
+                <div className="rounded-lg shadow-lg overflow-hidden">
+                    <img src="/logo.png" alt="Daily Calculations" className="w-12 h-12" />
                 </div>
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">WorkShift Calc</h1>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">Manage your day efficiently</p>
+                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Daily Calculations</h1>
+                    <p className="text-slate-500 dark:text-slate-400 text-sm">Friendly. Daily Routine. Cyclic.</p>
                 </div>
             </div>
             <div className="flex gap-2">

@@ -1,0 +1,22 @@
+{
+    "manifest_version": 3,
+    "name": "Daily Calculations",
+    "version": "1.0.0",
+    "description": "Friendly. Daily Routine. Cyclic.",
+    "action": {
+        "default_popup": "index.html",
+        "default_icon": {
+            "16": "logo.png",
+            "48": "logo.png",
+            "128": "logo.png"
+        }
+    },
+    "icons": {
+        "16": "logo.png",
+        "48": "logo.png",
+        "128": "logo.png"
+    },
+    "permissions": [
+        "storage"
+    ]
+}
