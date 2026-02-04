@@ -77,4 +77,4 @@ Tailor the app to your specific work policies.
 
 ## Credits
 
-**Developed by [Shlok Sharma](https://github.com/shloksharma)**
+**Developed by [Shlok Sharma](https://github.com/ShlokSharma-2662)**
