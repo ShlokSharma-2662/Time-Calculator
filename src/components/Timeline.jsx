@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { motion } from 'framer-motion';
 
 export const Timeline = ({ events }) => {
     const intervals = useMemo(() => {
@@ -52,15 +53,17 @@ export const Timeline = ({ events }) => {
             </div>
             <div className="relative h-6 w-full bg-slate-100 dark:bg-slate-700/50 rounded-full overflow-hidden flex">
                 {intervals.blocks.map((block) => (
-                    <div
+                    <motion.div
                         key={block.id}
-                        className={`absolute h-full transition-all duration-300 ${block.type === 'WORK'
+                        initial={{ width: 0 }}
+                        animate={{ width: `${block.width}%` }}
+                        transition={{ duration: 0.5, delay: block.id * 0.1 }}
+                        className={`absolute h-full ${block.type === 'WORK'
                                 ? 'bg-indigo-500 dark:bg-indigo-600 z-10'
                                 : 'bg-amber-300 dark:bg-amber-500/50 z-0'
                             }`}
                         style={{
-                            left: `${block.left}%`,
-                            width: `${block.width}%`
+                            left: `${block.left}%`
                         }}
                         title={`${block.type}: ${block.startLabel} - ${block.endLabel} (${block.duration}m)`}
                     />
