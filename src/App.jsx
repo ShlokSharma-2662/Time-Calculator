@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { ShiftCalculator } from './components/ShiftCalculator';
 import { LogAnalyzer } from './components/LogAnalyzer';
+import { ShiftAnalytics } from './components/ShiftAnalytics';
 import { LeaveManagement } from './components/LeaveManagement';
 import { SettingsModal } from './components/SettingsModal';
 import { HistoryModal } from './components/HistoryModal';
@@ -201,6 +202,16 @@ export default function App() {
               stats={logStats}
               showSuccess={showSuccess}
               showError={showError}
+            />
+
+            <ShiftAnalytics
+              currentShift={{
+                startTime,
+                totalBreak: logStats.totalOutTime,
+                workingHours: logStats.effectiveWorkTime / 60,
+                fullDayEnd: shiftDetails.fullDay,
+                halfDayEnd: shiftDetails.halfDay
+              }}
             />
           </>
         ) : (
