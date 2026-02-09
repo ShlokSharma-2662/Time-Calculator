@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { ShiftCalculator } from './components/ShiftCalculator';
 import { LogAnalyzer } from './components/LogAnalyzer';
+import { LeaveManagement } from './components/LeaveManagement';
 import { SettingsModal } from './components/SettingsModal';
 import { HistoryModal } from './components/HistoryModal';
 import { Toast } from './components/Toast';
@@ -42,6 +43,9 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [synced, setSynced] = useState(false);
+  const [activeView, setActiveView] = useState(() => {
+    return localStorage.getItem('activeView') || 'shift';
+  });
 
   // --- Hooks ---
   const { saveEntry, getAllEntries, exportToCSV } = useHistory();
@@ -73,6 +77,10 @@ export default function App() {
       localStorage.setItem('theme', 'light');
     }
   }, [darkMode]);
+
+  useEffect(() => {
+    localStorage.setItem('activeView', activeView);
+  }, [activeView]);
 
   // --- Idle Detection & Auto-Reload ---
   useEffect(() => {
@@ -173,22 +181,32 @@ export default function App() {
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenHistory={() => setIsHistoryOpen(true)}
           workProgress={workProgress}
+          activeView={activeView}
+          setActiveView={setActiveView}
         />
 
-        <ShiftCalculator
-          startTime={startTime}
-          setStartTime={setStartTime}
-          synced={synced}
-          shiftDetails={shiftDetails}
-        />
+        {/* Conditional View Rendering */}
+        {activeView === 'shift' ? (
+          <>
+            <ShiftCalculator
+              startTime={startTime}
+              setStartTime={setStartTime}
+              synced={synced}
+              shiftDetails={shiftDetails}
+            />
 
-        <LogAnalyzer
-          logInput={logInput}
-          setLogInput={setLogInput}
-          stats={logStats}
-          showSuccess={showSuccess}
-          showError={showError}
-        />
+            <LogAnalyzer
+              logInput={logInput}
+              setLogInput={setLogInput}
+              stats={logStats}
+              showSuccess={showSuccess}
+              showError={showError}
+            />
+          </>
+        ) : (
+          <LeaveManagement />
+        )}
+
 
         <Footer />
 
