@@ -118,8 +118,8 @@ export default function App() {
   // --- Calculations ---
   // Convert hours to minutes for the hook
   const fullDayMinutes = shiftDuration * 60;
-  const shiftDetails = useShiftCalculations(startTime, fullDayMinutes, use24Hour);
   const logStats = useLogParser(logInput, use24Hour);
+  const shiftDetails = useShiftCalculations(startTime, fullDayMinutes, use24Hour, logStats.totalOutTime);
 
   // Calculate work progress percentage
   const workProgress = logStats.effectiveWorkTime > 0

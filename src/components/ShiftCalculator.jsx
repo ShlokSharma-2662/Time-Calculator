@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, CheckCircle2, Briefcase } from 'lucide-react';
+import { Sun, CheckCircle2, Briefcase, Clock3 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const ShiftCalculator = ({ startTime, setStartTime, synced, shiftDetails }) => {
@@ -68,6 +68,20 @@ export const ShiftCalculator = ({ startTime, setStartTime, synced, shiftDetails 
                         <div className="text-indigo-400 dark:text-indigo-300 text-xs mt-1">Full Shift</div>
                     </div>
                     <Briefcase className="w-10 h-10 text-indigo-200 dark:text-slate-600" />
+                </motion.div>
+
+                <motion.div
+                    variants={item}
+                    whileHover={{ y: -5, boxShadow: "0 10px 30px -10px rgba(0,0,0,0.1)" }}
+                    whileTap={{ scale: 0.98 }}
+                    className="bg-gradient-to-br from-amber-50 to-white dark:from-slate-700 dark:to-slate-800 border border-amber-100 dark:border-slate-600 p-5 rounded-xl flex justify-between items-center shadow-sm cursor-default"
+                >
+                    <div>
+                        <span className="text-amber-600 dark:text-amber-300 font-medium text-sm uppercase tracking-wide">Shift End</span>
+                        <div className="text-4xl font-bold text-amber-900 dark:text-white mt-1">{shiftDetails.adjustedEnd}</div>
+                        <div className="text-amber-500 dark:text-amber-300 text-xs mt-1">Includes logged break time</div>
+                    </div>
+                    <Clock3 className="w-10 h-10 text-amber-200 dark:text-slate-600" />
                 </motion.div>
 
                 {/* Grid for Secondary Times */}

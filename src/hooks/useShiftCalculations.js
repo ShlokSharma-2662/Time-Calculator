@@ -1,7 +1,12 @@
 import { useMemo } from 'react';
 import { useTimeHelpers } from './useTimeHelpers';
 
-export const useShiftCalculations = (startTime, fullDayDuration = 540, use24Hour = false) => {
+export const useShiftCalculations = (
+    startTime,
+    fullDayDuration = 540,
+    use24Hour = false,
+    extraBreakMinutes = 0
+) => {
     const { timeToMinutes, minutesToTime } = useTimeHelpers();
 
     const startMinutes = useMemo(() => timeToMinutes(startTime), [startTime, timeToMinutes]);
@@ -14,10 +19,11 @@ export const useShiftCalculations = (startTime, fullDayDuration = 540, use24Hour
 
         return {
             fullDay: minutesToTime(startMinutes + fullDayDuration, use24Hour),
+            adjustedEnd: minutesToTime(startMinutes + fullDayDuration + extraBreakMinutes, use24Hour),
             halfDay: minutesToTime(startMinutes + halfDayDuration, use24Hour),
             shortLeave: minutesToTime(startMinutes + shortLeaveDuration, use24Hour),
         };
-    }, [startMinutes, fullDayDuration, use24Hour, minutesToTime]);
+    }, [startMinutes, fullDayDuration, use24Hour, extraBreakMinutes, minutesToTime]);
 
     return shiftDetails;
 };
