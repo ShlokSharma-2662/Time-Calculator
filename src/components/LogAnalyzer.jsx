@@ -9,6 +9,8 @@ export const LogAnalyzer = ({ logInput, setLogInput, stats, showSuccess, showErr
     const { events, breaks, totalOutTime, effectiveWorkTime, firstInTime, lastOutTime } = stats;
     const { formatDuration } = useTimeHelpers();
     const [copied, setCopied] = useState(false);
+    const breakAllowanceMinutes = 60;
+    const countedBreakTime = Math.max(totalOutTime - breakAllowanceMinutes, 0);
 
     const handleCopySummary = () => {
         const summary = `Start: ${firstInTime || '?'} | End: ${lastOutTime || '?'} | Breaks: ${totalOutTime}m | Net Work: ${formatDuration(effectiveWorkTime)}`;
@@ -76,8 +78,7 @@ export const LogAnalyzer = ({ logInput, setLogInput, stats, showSuccess, showErr
                             {/* Visual Timeline */}
                             <Timeline events={events} />
 
-                            <div className="grid grid-cols-2 gap-4">
-                                {/* Net Work Time Card */}
+                            <div className="grid gap-4 md:grid-cols-3">
                                 <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50">
                                     <div className="text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider mb-1">Effective Work</div>
                                     <div className="text-2xl font-bold text-indigo-900 dark:text-indigo-100">
@@ -85,13 +86,24 @@ export const LogAnalyzer = ({ logInput, setLogInput, stats, showSuccess, showErr
                                     </div>
                                 </div>
 
-                                {/* Total Out Time Card */}
                                 <div className={`p-4 rounded-xl border ${totalOutTime > 60 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/50' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/50'} flex flex-col justify-center`}>
                                     <div className={`text-xs font-bold uppercase tracking-wider mb-1 ${totalOutTime > 60 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
                                         Total Breaks
                                     </div>
                                     <div className={`text-2xl font-bold ${totalOutTime > 60 ? 'text-red-800 dark:text-red-200' : 'text-emerald-800 dark:text-emerald-200'}`}>
                                         <CountUp value={totalOutTime} /> min
+                                    </div>
+                                </div>
+
+                                <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 flex flex-col justify-center">
+                                    <div className="text-amber-700 dark:text-amber-300 text-xs font-bold uppercase tracking-wider mb-1">
+                                        Counted Toward Shift
+                                    </div>
+                                    <div className="text-2xl font-bold text-amber-900 dark:text-amber-100">
+                                        <CountUp value={countedBreakTime} /> min
+                                    </div>
+                                    <div className="text-xs text-amber-700/80 dark:text-amber-200/80 mt-1">
+                                        After {breakAllowanceMinutes} min allowance
                                     </div>
                                 </div>
                             </div>
