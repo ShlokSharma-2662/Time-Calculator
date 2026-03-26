@@ -1,8 +1,11 @@
 import React, { useRef } from 'react';
-import { X, Download, Upload, Trash2 } from 'lucide-react';
+import { X, Download, Upload, Trash2, Calendar } from 'lucide-react';
 import { downloadBackup, importAllData, clearAllData } from '../utils/dataManagement';
+import { useUI } from '../context/UIContext';
+import { HolidayManager } from './HolidayManager';
 
 export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration, use24Hour, setUse24Hour }) => {
+    const { showSuccess, showError, confirm } = useUI();
     const fileInputRef = useRef(null);
 
     if (!isOpen) return null;
@@ -16,22 +19,26 @@ export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration
             try {
                 const json = JSON.parse(event.target.result);
                 if (importAllData(json)) {
-                    alert('Data restored successfully! The page will now reload.');
-                    window.location.reload();
+                    showSuccess('Data restored successfully! The page will now reload.');
+                    setTimeout(() => window.location.reload(), 2000);
                 }
             } catch (err) {
-                alert('Error restoring data: ' + err.message);
+                showError('Error restoring data: ' + err.message);
             }
         };
         reader.readAsText(file);
     };
 
     const handleClear = () => {
-        if (window.confirm('Are you sure you want to clear all data? This cannot be undone.')) {
-            clearAllData();
-            alert('Data cleared! The page will now reload.');
-            window.location.reload();
-        }
+        confirm({
+            title: 'Clear All Data?',
+            message: 'Are you sure you want to clear all data? This cannot be undone.',
+            onConfirm: () => {
+                clearAllData();
+                showSuccess('Data cleared! The page will now reload.');
+                setTimeout(() => window.location.reload(), 2000);
+            }
+        });
     };
 
     return (
@@ -44,7 +51,7 @@ export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration
                     </button>
                 </div>
 
-                <div className="p-6 space-y-6">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6 max-h-[min(650px,85vh)] scrollbar-thin">
                     {/* Shift Duration */}
                     <div>
                         <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
@@ -68,6 +75,11 @@ export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration
                         >
                             <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${use24Hour ? 'translate-x-6' : 'translate-x-0'}`} />
                         </button>
+                    </div>
+
+                    {/* Holiday Management */}
+                    <div className="pt-6 border-t border-slate-100 dark:border-slate-700">
+                        <HolidayManager />
                     </div>
 
                     {/* Data Management Section */}

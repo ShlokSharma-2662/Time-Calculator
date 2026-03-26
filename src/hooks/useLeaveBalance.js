@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useUI } from '../context/UIContext';
 
 /**
  * Custom hook for managing leave balance with localStorage persistence
@@ -67,15 +68,21 @@ export function useLeaveBalance() {
         }
     };
 
+    const { confirm } = useUI();
+
     /**
      * Clear all balance data
      */
     const clearAll = () => {
-        if (confirm('Are you sure you want to clear all balance data?')) {
-            setCurrent(null);
-            setHistory([]);
-            localStorage.removeItem(STORAGE_KEY);
-        }
+        confirm({
+            title: 'Clear Leave Data?',
+            message: 'Are you sure you want to clear all balance data? This cannot be undone.',
+            onConfirm: () => {
+                setCurrent(null);
+                setHistory([]);
+                localStorage.removeItem(STORAGE_KEY);
+            }
+        });
     };
 
     /**

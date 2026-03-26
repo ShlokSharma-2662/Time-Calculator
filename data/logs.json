@@ -1,0 +1,15 @@
+[
+  {
+    "0": "2026-02-04",
+    "1": {
+      "startTime": "07:55",
+      "logInput": "04-Feb-26\t07:55 AM\tIn\t10.1.249.2\tGU 5th Floor Left\t04-Feb-26\t04-Feb-26 07:55 AM\t \n04-Feb-26\t10:25 AM\tOut\t10.1.249.2\tGU 5th Floor Left\t04-Feb-26\t04-Feb-26 10:25 AM\t \n04-Feb-26\t10:26 AM\tIn\t10.1.249.2\tGU 4th Floor Left\t04-Feb-26\t04-Feb-26 10:26 AM\t \n04-Feb-26\t10:28 AM\tOut\t10.1.249.2\tGU 4th Floor Left\t04-Feb-26\t04-Feb-26 10:28 AM\t \n04-Feb-26\t10:29 AM\tIn\t10.1.249.2\tGU 5th Floor Left\t04-Feb-26\t04-Feb-26 10:29 AM\t ",
+      "totalOutTime": 2,
+      "effectiveWorkTime": 151,
+      "firstInTime": "07:55",
+      "lastOutTime": "10:28"
+    },
+    "userId": "1774502639727",
+    "updatedAt": "2026-03-26T05:26:06.891Z"
+  }
+]

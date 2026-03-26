@@ -1,128 +1,97 @@
-# WorkShift Calc
+# 🚀 WorkShift Calc v3.0
 
-WorkShift Calc is a local-first React utility for tracking workdays, parsing attendance logs, and planning leave. It combines a shift calculator, attendance analyzer, leave tools, and lightweight history export in a single browser-based app.
+**WorkShift Calc** is a high-performance, cloud-sync-enabled React application designed to modernize work-life tracking. Featuring a premium glassmorphic UI, it combines a precision shift calculator, attendance log analyzer, and advanced multi-month analytics into a single, professional dashboard.
 
-## What It Does
+---
 
-### Shift Calculator
+## ✨ v3.0 Modernization Highlights
 
-- Calculates full-day, half-day, and short-leave exit times from a chosen start time
-- Lets you change shift duration and toggle 12-hour or 24-hour formatting
-- Auto-syncs the start time from parsed attendance logs when an `IN` entry is detected
-- Shows current work progress visually during the day
+This version marks a significant architectural shift toward enterprise-grade stability and cross-device availability.
 
-### Attendance Log Analyzer
+### 🌐 Secure Cloud Sync & Google Auth
 
-- Parses raw biometric or HR log text, including messy pasted input
-- Calculates effective work time after subtracting breaks
-- Identifies break windows between `OUT` and `IN` entries
-- Displays a visual timeline of work and break segments
-- Supports copying summarized results for reporting
+- **Google Sign-In**: Integrated with Firebase Authentication for seamless, secure login.
+- **Cloud Persistence**: Automatic daily backups of your shift history to Firestore.
+- **Bi-Directional Sync**: "Pull" latest data from the cloud to restore history on new devices instantly.
 
-### Leave Management
+### 📊 Advanced Analytics & Goals
 
-- `EL Encashment Calculator` for carry-forward and encashable earned leave estimates
-- `Sandwich Leave Checker` to evaluate whether weekends or holidays get counted as leave
-- `Smart Analytics` for leave insights, risk indicators, and date suggestions
-- Leave balance and leave-planning history stored locally for later reuse
+- **Monthly Summary (NEW)**: Complete tracking of monthly work hours, days worked, and progress toward a 180h target.
+- **Weekly Trend (v2.0)**: 45h goal assessment with dynamic, glowing progress bars.
+- **Interactive Heatmap**: 52-week activity visualization with synchronized month/day labels and "Latest-First" perspective.
+- **SVG Trend Charts**: High-fidelity line charts for daily hours with accurate X/Y axis labeling and interactive tooltips.
 
-### History and Persistence
+### 📅 Integrated Holiday Management
 
-- Saves shift inputs, log text, theme, selected view, and settings in browser storage
-- Auto-saves day-wise shift history
-- Exports saved shift history to CSV
-- Works fully client-side with no backend dependency
+- **Public holiday Suite**: Detects and highlights public holidays across all views (Dashboard, Heatmap, History Calendar).
+- **Custom Holiday Manager**: Add personal or region-specific holidays via the Settings menu with full persistence and UI markers.
+- **Sandwich Rule Awareness**: Analytics and leave checkers intelligently account for holidays to provide accurate compliance assessments.
 
-## Tech Stack
+### 📝 Smart Log Analyzer
 
-- React 19
-- Vite 7
-- Tailwind CSS 4
-- Framer Motion
-- Lucide React
-- `vite-plugin-pwa` for installable PWA support
+- **Fragmented Session Handling**: Automatically identifies breaks and calculates effective work time from messy biometric raw data.
+- **Contextual Badges**: Highlights holidays directly within your activity list for better reporting context.
 
-## Project Structure
+---
 
-```text
-src/
-  components/    UI modules for shift, logs, leave, history, and analytics
-  hooks/         Custom hooks for calculations, parsing, history, toast state
-  utils/         Pure logic for leave rules, EL calculations, and persistence helpers
-public/          PWA assets and manifest
-extension/       Built browser-extension style popup package
-```
+## 🎨 Design Philosophy (V3)
 
-## Running Locally
+- **Premium Glassmorphism**: Built with `backdrop-blur`, sophisticated HSL gradients, and modern typography (Inter/Outfit).
+- **Interactive Experience**: Leverages `Framer Motion` for fluid layout transitions, tab switching, and micro-animations.
+- **Adaptive UI**: Optimized for mobile and desktop, featuring a flexible, vertically oriented activity-to-analytics flow.
 
-### Prerequisites
+---
 
-- Node.js 20+ recommended
-- npm
+## 🛠️ Modern Tech Stack
 
-### Install
+- **Core**: React 19, Vite 7
+- **Database/Auth**: Firebase (Auth & Firestore)
+- **Styling**: Tailwind CSS 4, Framer Motion
+- **Visualization**: Recharts & Custom SVG Engine
+- **Icons**: Lucide React
+- **PWA**: `vite-plugin-pwa` for desktop/mobile "App" installability.
 
-```bash
-npm install
-```
+---
 
-### Start The Dev Server
+## 🔒 Security Architecture
 
-```bash
-npm run dev
-```
+WorkShift v3.0 prioritizes data privacy and security through several layers of protection:
 
-The app will run through Vite's local development server.
+- **Environment Protection**: All service credentials are moved to the `.env` layer using Vite-prefixed variables.
+- **Firestore Security Rules**: Strict owner-level access policies (`request.auth.uid`) ensure your work history remains private.
+- **Safe Inputs**: Comprehensive sanitization for all user-defined meta-data (like holiday names) to prevent XSS.
+- **Content Security Policy**: Robust CSP headers to restrict unauthorized script execution and data exfiltration.
 
-### Build Production Assets
+---
 
-```bash
-npm run build
-```
+## 🚀 Getting Started
 
-### Preview The Production Build
+1. **Setup Environment**:
+   Create a `.env` file in the root directory with your Firebase configuration:
 
-```bash
-npm run preview
-```
+   ```env
+   VITE_FIREBASE_API_KEY=YOUR_KEY
+   VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID
+   ...
+   ```
 
-### Lint
+2. **Run Locally**:
 
-```bash
-npm run lint
-```
+   ```bash
+   npm install
+   npm run dev
+   ```
 
-## PWA and Extension Notes
+3. **Deploy**:
 
-- The app is configured as a Progressive Web App through [`vite.config.js`](/D:/Azure%20DevOps/WorkShift/Time-Calculator/vite.config.js).
-- Manifest assets for the web app live in [`public/manifest.json`](/D:/Azure%20DevOps/WorkShift/Time-Calculator/public/manifest.json).
-- A packaged browser popup build is present in the [`extension/`](/D:/Azure%20DevOps/WorkShift/Time-Calculator/extension) folder with its own manifest at [`extension/manifest.json`](/D:/Azure%20DevOps/WorkShift/Time-Calculator/extension/manifest.json).
+   ```bash
+   npm run build
+   # Deploy the 'dist' folder to Firebase Hosting or Netlify
+   ```
 
-## Local Storage Behavior
+---
 
-The app stores data in the browser using `localStorage`, including:
+## ✍️ Author & Vision
 
-- start time and pasted log input
-- theme preference
-- shift duration and time-format preference
-- active view selection
-- shift history and leave-related history
-
-No server-side persistence is required for normal use.
-
-## Typical Workflow
-
-1. Enter or auto-detect the day's start time.
-2. Paste attendance logs to compute effective work time and breaks.
-3. Review end-of-day milestones and progress.
-4. Save or export history when needed.
-5. Switch to leave tools for EL planning or sandwich-rule checks.
-
-## Repository Notes
-
-- The current UI branding uses the title `Daily Calculations` inside the app, while the package and repository identify the project as `WorkShift Calc`.
-- Some leave-policy text is tailored to FY 2025-26 and should be adjusted if policy assumptions change.
-
-## Author
-
-[Shlok Sharma](https://github.com/ShlokSharma-2662)
+**[Shlok Sharma](https://github.com/ShlokSharma-2662)**  
+*Modernizing productivity, one shift at a time.*

@@ -30,10 +30,10 @@ export const HOLIDAYS_BY_FY = {
 };
 
 /**
- * Get all holidays as a flat array of date strings
+ * Get all hardcoded holiday dates as a flat array
  * @returns {string[]} Array of holiday dates in 'YYYY-MM-DD' format
  */
-function getAllHolidayDates() {
+function getHardcodedHolidayDates() {
     const allHolidays = [];
     Object.values(HOLIDAYS_BY_FY).forEach(fyHolidays => {
         fyHolidays.forEach(holiday => allHolidays.push(holiday.date));
@@ -42,32 +42,49 @@ function getAllHolidayDates() {
 }
 
 /**
+ * Company holidays - dynamically updated from hardcoded + localStorage
+ * Format: 'YYYY-MM-DD'
+ */
+export let COMPANY_HOLIDAYS = getHardcodedHolidayDates();
+
+/**
+ * Refresh the COMPANY_HOLIDAYS list from localStorage
+ */
+export function refreshHolidays() {
+    try {
+        const customHolidays = JSON.parse(localStorage.getItem('workShift_holidays') || '[]');
+        const customDates = customHolidays.map(h => h.date);
+        const hardcodedDates = getHardcodedHolidayDates();
+
+        // Remove duplicates
+        COMPANY_HOLIDAYS = Array.from(new Set([...hardcodedDates, ...customDates]));
+    } catch (e) {
+        console.error('Error refreshing holidays:', e);
+    }
+}
+
+// Initial refresh on module load
+refreshHolidays();
+
+/**
  * Get holiday name for a given date
  * @param {string} dateString - Date in 'YYYY-MM-DD' format
  * @returns {string|null} Holiday name or null if not a holiday
  */
 export function getHolidayName(dateString) {
+    // Check custom holidays first
+    try {
+        const customHolidays = JSON.parse(localStorage.getItem('workShift_holidays') || '[]');
+        const custom = customHolidays.find(h => h.date === dateString);
+        if (custom) return custom.name;
+    } catch (e) { }
+
+    // Check hardcoded holidays
     for (const fyHolidays of Object.values(HOLIDAYS_BY_FY)) {
         const holiday = fyHolidays.find(h => h.date === dateString);
         if (holiday) return holiday.name;
     }
     return null;
-}
-
-/**
- * Company holidays - all holidays from all fiscal years
- * Format: 'YYYY-MM-DD'
- */
-export const COMPANY_HOLIDAYS = getAllHolidayDates();
-
-/**
- * Check if a date is a weekend (Saturday or Sunday)
- * @param {Date} date 
- * @returns {boolean}
- */
-export function isWeekend(date) {
-    const day = date.getDay();
-    return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
 }
 
 /**
@@ -77,8 +94,21 @@ export function isWeekend(date) {
  * @returns {boolean}
  */
 export function isHoliday(date, holidays = COMPANY_HOLIDAYS) {
-    const dateString = date.toISOString().split('T')[0]; // Get YYYY-MM-DD
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateString = `${year}-${month}-${day}`;
     return holidays.includes(dateString);
+}
+
+/**
+ * Check if a date is a weekend (Saturday or Sunday)
+ * @param {Date} date 
+ * @returns {boolean}
+ */
+export function isWeekend(date) {
+    const day = date.getDay();
+    return day === 0 || day === 6; // 0 = Sunday, 6 = Saturday
 }
 
 /**

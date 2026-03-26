@@ -24,11 +24,11 @@ export const ShiftCalculator = ({ startTime, setStartTime, synced, shiftDetails 
         const updateDiff = () => {
             const now = new Date();
             const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-            const targetTimeStr = shiftDetails[`${activeTarget}Adjusted`];
-            if (!targetTimeStr) return;
-            const [h, m] = targetTimeStr.split(':').map(Number);
-            const targetTotalMinutes = h * 60 + m;
-            setDiffMinutes(targetTotalMinutes - currentTotalMinutes);
+            const targetTotalMinutes = shiftDetails[`${activeTarget}AdjustedMinutes`];
+            
+            if (targetTotalMinutes !== undefined) {
+                setDiffMinutes(targetTotalMinutes - currentTotalMinutes);
+            }
         };
         updateDiff();
         const interval = setInterval(updateDiff, 10000);

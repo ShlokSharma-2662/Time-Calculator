@@ -4,9 +4,12 @@ import { Sandwich, Calendar, AlertTriangle, CheckCircle2, XCircle, Eye, EyeOff, 
 import { evaluateSandwichLeave, formatDateDisplay, getDateTypeLabel, COMPANY_HOLIDAYS } from '../utils/sandwichLeaveLogic';
 import { LeaveCalendar } from './LeaveCalendar';
 import { addLeaveToHistory } from '../utils/leaveHistory';
+import { useUI } from '../context/UIContext';
 
 export function SandwichLeaveChecker({ onLeaveChange }) {
+    const { showSuccess } = useUI();
     const [startDate, setStartDate] = useState('');
+    // ... rest
     const [endDate, setEndDate] = useState('');
     const [leaveType, setLeaveType] = useState('EL');
     const [result, setResult] = useState(null);
@@ -40,7 +43,7 @@ export function SandwichLeaveChecker({ onLeaveChange }) {
                 days: result.totalLeaveDays,
                 sandwiched: result.isSandwich
             });
-            alert('Leave saved to history! ✅');
+            showSuccess('Leave saved to history successfully! ✅');
         }
     };
 

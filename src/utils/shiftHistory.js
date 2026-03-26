@@ -4,76 +4,67 @@
  */
 
 const STORAGE_KEY = 'shift_analytics_data';
-const MAX_SHIFTS = 365; // Keep last 365 shifts
+const HISTORY_STORAGE_KEY = 'workShift_history';
+
+/**
+ * Helper to transform main history object to shifts array
+ */
+export function transformHistoryToShifts(history) {
+    if (!history) return [];
+    
+    return Object.entries(history)
+        .map(([date, data]) => ({
+            date: date,
+            startTime: data.startTime || '00:00',
+            totalBreak: data.totalOutTime || 0,
+            workingHours: data.effectiveWorkTime ? Math.round((data.effectiveWorkTime / 60) * 10) / 10 : 0,
+            fullDayEnd: data.lastOutTime,
+            halfDayEnd: null, // Not explicitly tracked in raw logs
+            timestamp: new Date(date).toISOString()
+        }))
+        .sort((a, b) => new Date(b.date) - new Date(a.date));
+}
 
 /**
  * Get all shift data
+ * Note: Now expects history to be passed from the hook/context for real-time sync
  */
-export function getShiftHistory() {
+export function getShiftHistory(history) {
+    const shifts = transformHistoryToShifts(history);
     const stored = localStorage.getItem(STORAGE_KEY);
+    let goals = {
+        targetStartTime: '09:30',
+        weeklyHoursTarget: 45,
+        maxBreakMinutes: 60
+    };
+
     if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (parsed.goals) goals = parsed.goals;
     }
+
     return {
-        shifts: [],
-        stats: {
-            totalShifts: 0,
-            avgStartTime: null,
-            avgHours: 0,
-            avgBreak: 0,
-            attendanceRate: 0,
-            currentStreak: 0
-        },
-        goals: {
-            targetStartTime: '09:30',
-            weeklyHoursTarget: 45,
-            maxBreakMinutes: 60
-        }
+        shifts,
+        stats: calculateStats(shifts),
+        goals
     };
 }
 
 /**
- * Save a new shift
+ * Save a new shift (for backward compatibility or explicit save)
  */
 export function saveShift(shiftData) {
-    const history = getShiftHistory();
-
-    const newShift = {
-        id: Date.now(),
-        date: shiftData.date || new Date().toISOString().split('T')[0],
-        startTime: shiftData.startTime,
-        totalBreak: shiftData.totalBreak || 0,
-        workingHours: shiftData.workingHours || 0,
-        fullDayEnd: shiftData.fullDayEnd,
-        halfDayEnd: shiftData.halfDayEnd,
-        timestamp: new Date().toISOString()
-    };
-
-    // Check if shift for this date already exists
-    const existingIndex = history.shifts.findIndex(s => s.date === newShift.date);
-    if (existingIndex >= 0) {
-        history.shifts[existingIndex] = newShift;
-    } else {
-        history.shifts.unshift(newShift); // Add to beginning
-    }
-
-    // Limit to MAX_SHIFTS
-    if (history.shifts.length > MAX_SHIFTS) {
-        history.shifts = history.shifts.slice(0, MAX_SHIFTS);
-    }
-
-    // Recalculate stats
-    history.stats = calculateStats(history.shifts);
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-    return newShift;
+    // We mainly rely on the App's auto-save to workShift_history now.
+    // This function can remain for explicit analytics-only data if needed,
+    // but we'll prioritize the unified history.
+    console.log("Analytics saveShift called with:", shiftData);
 }
 
 /**
  * Calculate comprehensive statistics
  */
 function calculateStats(shifts) {
-    if (shifts.length === 0) {
+    if (!shifts || shifts.length === 0) {
         return {
             totalShifts: 0,
             avgStartTime: null,
@@ -87,9 +78,10 @@ function calculateStats(shifts) {
     // Average start time
     const startTimes = shifts.filter(s => s.startTime).map(s => {
         const [hours, minutes] = s.startTime.split(':').map(Number);
-        return hours * 60 + minutes; // Convert to minutes since midnight
+        return (hours || 0) * 60 + (minutes || 0); // Convert to minutes since midnight
     });
-    const avgMinutes = startTimes.reduce((sum, t) => sum + t, 0) / startTimes.length;
+    
+    const avgMinutes = startTimes.length > 0 ? startTimes.reduce((sum, t) => sum + t, 0) / startTimes.length : 570; // Default 9:30
     const avgHrsCalc = Math.floor(avgMinutes / 60);
     const avgMins = Math.floor(avgMinutes % 60);
     const avgStartTime = `${String(avgHrsCalc).padStart(2, '0')}:${String(avgMins).padStart(2, '0')}`;
@@ -145,7 +137,7 @@ function getWorkingDaysSince(startDate) {
  * Calculate current attendance streak
  */
 function calculateStreak(shifts) {
-    if (shifts.length === 0) return 0;
+    if (!shifts || shifts.length === 0) return 0;
 
     // Sort by date (newest first)
     const sorted = [...shifts].sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -168,7 +160,10 @@ function calculateStreak(shifts) {
             streak++;
             currentDate.setDate(currentDate.getDate() - 1);
         } else {
-            break;
+            // Check if streak is still alive (either shift is today or was yesterday)
+            const diff = (today.getTime() - shiftDate.getTime()) / (1000 * 60 * 60 * 24);
+            if (diff > 1 && streak === 0) break; // Streak broken
+            if (streak > 0) break; 
         }
     }
 
@@ -176,24 +171,22 @@ function calculateStreak(shifts) {
 }
 
 /**
- * Get quick stats for dashboard
+ * The following functions now all accept 'history' for unified data source
  */
-export function getQuickStats() {
-    const history = getShiftHistory();
-    return history.stats;
+
+export function getQuickStats(history) {
+    const data = getShiftHistory(history);
+    return data.stats;
 }
 
-/**
- * Get this week's summary
- */
-export function getWeeklySummary() {
-    const history = getShiftHistory();
+export function getWeeklySummary(history) {
+    const data = getShiftHistory(history);
     const today = new Date();
     const startOfWeek = new Date(today);
     startOfWeek.setDate(today.getDate() - today.getDay() + 1); // Monday
     startOfWeek.setHours(0, 0, 0, 0);
 
-    const thisWeek = history.shifts.filter(s => {
+    const thisWeek = data.shifts.filter(s => {
         const shiftDate = new Date(s.date);
         return shiftDate >= startOfWeek;
     });
@@ -209,53 +202,35 @@ export function getWeeklySummary() {
     };
 }
 
-/**
- * Get goals
- */
-export function getGoals() {
-    const history = getShiftHistory();
-    return history.goals;
+export function getMonthlySummary(history) {
+    const data = getShiftHistory(history);
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const thisMonth = data.shifts.filter(s => {
+        const shiftDate = new Date(s.date);
+        return shiftDate >= startOfMonth;
+    });
+
+    const totalHours = thisMonth.reduce((sum, s) => sum + s.workingHours, 0);
+    const avgHours = thisMonth.length > 0 ? totalHours / thisMonth.length : 0;
+
+    return {
+        totalHours: parseFloat(totalHours.toFixed(1)),
+        avgHours: parseFloat(avgHours.toFixed(1)),
+        daysWorked: thisMonth.length,
+        shifts: thisMonth
+    };
 }
 
-/**
- * Update goals
- */
-export function updateGoals(newGoals) {
-    const history = getShiftHistory();
-    history.goals = { ...history.goals, ...newGoals };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-}
-
-/**
- * Clear all history
- */
-export function clearHistory() {
-    localStorage.removeItem(STORAGE_KEY);
-}
-
-
-/**
- * Get recent shifts (last N)
- */
-export function getRecentShifts(count = 10) {
-    const history = getShiftHistory();
-    return history.shifts.slice(0, count);
-}
-
-/******************************************************************************
- * PHASE 2: TREND ANALYSIS & PATTERN DETECTION
- ******************************************************************************/
-
-/**
- * Get hours trend for last N days
- */
-export function getHoursTrend(days = 30) {
-    const history = getShiftHistory();
+export function getHoursTrend(history, days = 30) {
+    const data = getShiftHistory(history);
     const today = new Date();
     const startDate = new Date(today);
     startDate.setDate(startDate.getDate() - days);
 
-    const trendData = history.shifts
+    const trendData = data.shifts
         .filter(s => new Date(s.date) >= startDate)
         .sort((a, b) => new Date(a.date) - new Date(b.date))
         .map(s => ({
@@ -267,13 +242,10 @@ export function getHoursTrend(days = 30) {
     return trendData;
 }
 
-/**
- * Analyze break patterns
- */
-export function analyzeBreakPatterns() {
-    const history = getShiftHistory();
+export function analyzeBreakPatterns(history) {
+    const data = getShiftHistory(history);
 
-    if (history.shifts.length === 0) {
+    if (data.shifts.length === 0) {
         return {
             avgBreak: 0,
             maxBreak: 0,
@@ -282,15 +254,14 @@ export function analyzeBreakPatterns() {
         };
     }
 
-    const breaks = history.shifts
+    const breaks = data.shifts
         .filter(s => s.totalBreak > 0)
         .map(s => s.totalBreak);
 
-    const avgBreak = breaks.reduce((sum, b) => sum + b, 0) / breaks.length;
-    const maxBreak = Math.max(...breaks);
-    const minBreak = Math.min(...breaks);
+    const avgBreak = breaks.reduce((sum, b) => sum + b, 0) / (breaks.length || 1);
+    const maxBreak = breaks.length > 0 ? Math.max(...breaks) : 0;
+    const minBreak = breaks.length > 0 ? Math.min(...breaks) : 0;
 
-    // Distribution: 0-30, 31-60, 61-90, 90+
     const distribution = [
         { range: '0-30 min', count: breaks.filter(b => b <= 30).length },
         { range: '31-60 min', count: breaks.filter(b => b > 30 && b <= 60).length },
@@ -306,20 +277,17 @@ export function analyzeBreakPatterns() {
     };
 }
 
-/**
- * Calculate punctuality score (0-100)
- */
-export function getPunctualityScore() {
-    const history = getShiftHistory();
-    const goals = history.goals;
+export function getPunctualityScore(history) {
+    const data = getShiftHistory(history);
+    const goals = data.goals;
 
-    if (history.shifts.length === 0) return 100;
+    if (data.shifts.length === 0) return 100;
 
     const targetTime = goals.targetStartTime || '09:30';
     const [targetHr, targetMin] = targetTime.split(':').map(Number);
     const targetMinutes = targetHr * 60 + targetMin;
 
-    const recentShifts = history.shifts.slice(0, 30); // Last 30 shifts
+    const recentShifts = data.shifts.slice(0, 30); // Last 30 shifts
 
     let onTimeCount = 0;
     recentShifts.forEach(shift => {
@@ -334,25 +302,22 @@ export function getPunctualityScore() {
         }
     });
 
-    return Math.round((onTimeCount / recentShifts.length) * 100);
+    return Math.round((onTimeCount / (recentShifts.length || 1)) * 100);
 }
 
-/**
- * Get monthly comparison
- */
-export function getMonthlyComparison() {
-    const history = getShiftHistory();
+export function getMonthlyComparison(history) {
+    const data = getShiftHistory(history);
     const thisMonth = new Date().getMonth();
     const thisYear = new Date().getFullYear();
     const lastMonth = thisMonth === 0 ? 11 : thisMonth - 1;
     const lastMonthYear = thisMonth === 0 ? thisYear - 1 : thisYear;
 
-    const thisMonthShifts = history.shifts.filter(s => {
+    const thisMonthShifts = data.shifts.filter(s => {
         const date = new Date(s.date);
         return date.getMonth() === thisMonth && date.getFullYear() === thisYear;
     });
 
-    const lastMonthShifts = history.shifts.filter(s => {
+    const lastMonthShifts = data.shifts.filter(s => {
         const date = new Date(s.date);
         return date.getMonth() === lastMonth && date.getFullYear() === lastMonthYear;
     });
@@ -383,13 +348,9 @@ export function getMonthlyComparison() {
     };
 }
 
-/**
- * Calculate consistency rating (0-100)
- * Based on variance in start times
- */
-export function calculateConsistencyRating() {
-    const history = getShiftHistory();
-    const recentShifts = history.shifts.slice(0, 30);
+export function calculateConsistencyRating(history) {
+    const data = getShiftHistory(history);
+    const recentShifts = data.shifts.slice(0, 30);
 
     if (recentShifts.length < 5) return 100; // Too few data points
 
@@ -397,69 +358,26 @@ export function calculateConsistencyRating() {
         .filter(s => s.startTime)
         .map(s => {
             const [hr, min] = s.startTime.split(':').map(Number);
-            return hr * 60 + min;
+            return (hr || 0) * 60 + (min || 0);
         });
 
     if (startMinutes.length === 0) return 100;
 
-    // Calculate standard deviation
     const avg = startMinutes.reduce((sum, t) => sum + t, 0) / startMinutes.length;
     const variance = startMinutes.reduce((sum, t) => sum + Math.pow(t - avg, 2), 0) / startMinutes.length;
     const stdDev = Math.sqrt(variance);
 
-    // Convert to score: 0 stdDev = 100, 60 min stdDev = 0
     const score = Math.max(0, 100 - (stdDev / 60 * 100));
-
     return Math.round(score);
 }
 
-/******************************************************************************
- * PHASE 3: PREDICTIONS, GOALS & EXPORT
- ******************************************************************************/
-
-/**
- * Suggest optimal start time based on history
- */
-export function suggestOptimalStartTime() {
-    const history = getShiftHistory();
-    const recentShifts = history.shifts.slice(0, 30);
-
-    if (recentShifts.length < 5) {
-        return {
-            suggested: history.goals.targetStartTime || '09:30',
-            reason: 'Insufficient data. Using target time.'
-        };
-    }
-
-    // Find most consistent start time
-    const startMinutes = recentShifts
-        .filter(s => s.startTime)
-        .map(s => {
-            const [hr, min] = s.startTime.split(':').map(Number);
-            return hr * 60 + min;
-        });
-
-    const avg = startMinutes.reduce((sum, t) => sum + t, 0) / startMinutes.length;
-    const hours = Math.floor(avg / 60);
-    const mins = Math.round(avg % 60);
-
-    return {
-        suggested: `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`,
-        reason: 'Based on your 30-day average'
-    };
-}
-
-/**
- * Get smart recommendations
- */
-export function getRecommendations() {
-    const history = getShiftHistory();
-    const stats = history.stats;
-    const goals = history.goals;
+export function getRecommendations(history) {
+    const data = getShiftHistory(history);
+    const stats = data.stats;
+    const goals = data.goals;
     const recommendations = [];
 
-    // Punctuality recommendation
-    const punctuality = getPunctualityScore();
+    const punctuality = getPunctualityScore(history);
     if (punctuality < 70) {
         recommendations.push({
             type: 'warning',
@@ -469,7 +387,6 @@ export function getRecommendations() {
         });
     }
 
-    // Break recommendation
     if (stats.avgBreak > goals.maxBreakMinutes) {
         recommendations.push({
             type: 'info',
@@ -479,8 +396,7 @@ export function getRecommendations() {
         });
     }
 
-    // Consistency recommendation
-    const consistency = calculateConsistencyRating();
+    const consistency = calculateConsistencyRating(history);
     if (consistency < 60) {
         recommendations.push({
             type: 'tip',
@@ -490,7 +406,6 @@ export function getRecommendations() {
         });
     }
 
-    // Work-life balance (if avg hours > 9)
     if (stats.avgHours > 9) {
         recommendations.push({
             type: 'warning',
@@ -500,7 +415,6 @@ export function getRecommendations() {
         });
     }
 
-    // Positive feedback
     if (stats.currentStreak > 5) {
         recommendations.push({
             type: 'success',
@@ -513,33 +427,49 @@ export function getRecommendations() {
     return recommendations;
 }
 
-/**
- * Export shifts to CSV
- */
-export function exportToCSV() {
-    const history = getShiftHistory();
+export function checkGoalProgress(history) {
+    const data = getShiftHistory(history);
+    const goals = data.goals;
+    const stats = data.stats;
+    const weekly = getWeeklySummary(history);
+    const punctuality = getPunctualityScore(history);
 
-    if (history.shifts.length === 0) {
-        return null;
-    }
+    return {
+        weeklyHours: {
+            current: weekly.totalHours,
+            target: goals.weeklyHoursTarget,
+            progress: (weekly.totalHours / goals.weeklyHoursTarget) * 100,
+            status: weekly.totalHours >= goals.weeklyHoursTarget ? 'achieved' : 'inProgress'
+        },
+        punctuality: {
+            current: punctuality,
+            target: 90,
+            progress: punctuality,
+            status: punctuality >= 90 ? 'achieved' : 'inProgress'
+        },
+        breakTime: {
+            current: stats.avgBreak,
+            target: goals.maxBreakMinutes,
+            progress: ((goals.maxBreakMinutes - stats.avgBreak) / goals.maxBreakMinutes) * 100,
+            status: stats.avgBreak <= goals.maxBreakMinutes ? 'achieved' : 'exceeded'
+        }
+    };
+}
 
-    // CSV Header
+export function exportToCSV(history) {
+    const data = getShiftHistory(history);
+    if (data.shifts.length === 0) return null;
+
     let csv = 'Date,Start Time,Total Break (min),Working Hours,Full Day End,Half Day End\n';
-
-    // Add rows
-    history.shifts.forEach(shift => {
-        csv += `${shift.date},${shift.startTime},${shift.totalBreak},${shift.workingHours},${shift.fullDayEnd},${shift.halfDayEnd}\n`;
+    data.shifts.forEach(shift => {
+        csv += `${shift.date},${shift.startTime},${shift.totalBreak},${shift.workingHours},${shift.fullDayEnd},${shift.halfDayEnd || ''}\n`;
     });
-
     return csv;
 }
 
-/**
- * Get stats for clipboard
- */
-export function getStatsForClipboard() {
-    const stats = getQuickStats();
-    const weekly = getWeeklySummary();
+export function getStatsForClipboard(history) {
+    const stats = getQuickStats(history);
+    const weekly = getWeeklySummary(history);
 
     return `📊 Shift Analytics Summary
     
@@ -553,40 +483,42 @@ This Week: ${weekly.totalHours}h (${weekly.daysWorked} days)
 Total Shifts Recorded: ${stats.totalShifts}`;
 }
 
-/**
- * Get heatmap data for calendar
- */
-export function getHeatmapData(year, month) {
-    const history = getShiftHistory();
+export function getGoals() {
+    // Goals are still special to analytics
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.goals) return parsed.goals;
+    }
+    return {
+        targetStartTime: '09:30',
+        weeklyHoursTarget: 45,
+        maxBreakMinutes: 60
+    };
+}
 
-    const monthShifts = history.shifts.filter(s => {
-        const date = new Date(s.date);
-        return date.getFullYear() === year && date.getMonth() === month;
-    });
+export function updateGoals(newGoals) {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    let data = stored ? JSON.parse(stored) : { shifts: [], stats: {}, goals: {} };
+    data.goals = { ...data.goals, ...newGoals };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
 
-    // Create map of date -> hours
-    const heatmap = {};
-    monthShifts.forEach(shift => {
-        const day = new Date(shift.date).getDate();
-        heatmap[day] = {
-            hours: shift.workingHours,
-            intensity: shift.workingHours >= 8 ? 'high' : shift.workingHours >= 4 ? 'medium' : 'low'
-        };
-    });
-
-    return heatmap;
+export function clearHistory() {
+    // We don't clear the main history here, only the analytics specific data (goals)
+    localStorage.removeItem(STORAGE_KEY);
 }
 
 /**
  * Get heatmap data for the last 52 weeks
  */
-export function getYearlyHeatmapData() {
-    const history = getShiftHistory();
+export function getYearlyHeatmapData(history) {
+    const data = getShiftHistory(history);
     const today = new Date();
     const oneYearAgo = new Date();
     oneYearAgo.setDate(today.getDate() - 364); // 52 weeks
 
-    const yearlyShifts = history.shifts.filter(s => {
+    const yearlyShifts = data.shifts.filter(s => {
         const date = new Date(s.date);
         return date >= oneYearAgo && date <= today;
     });
@@ -603,36 +535,4 @@ export function getYearlyHeatmapData() {
     });
 
     return heatmap;
-}
-
-/**
- * Check goal progress
- */
-export function checkGoalProgress() {
-    const history = getShiftHistory();
-    const goals = history.goals;
-    const stats = history.stats;
-    const weekly = getWeeklySummary();
-    const punctuality = getPunctualityScore();
-
-    return {
-        weeklyHours: {
-            current: weekly.totalHours,
-            target: goals.weeklyHoursTarget,
-            progress: (weekly.totalHours / goals.weeklyHoursTarget) * 100,
-            status: weekly.totalHours >= goals.weeklyHoursTarget ? 'achieved' : 'inProgress'
-        },
-        punctuality: {
-            current: punctuality,
-            target: 90, // Default target
-            progress: punctuality,
-            status: punctuality >= 90 ? 'achieved' : 'inProgress'
-        },
-        breakTime: {
-            current: stats.avgBreak,
-            target: goals.maxBreakMinutes,
-            progress: ((goals.maxBreakMinutes - stats.avgBreak) / goals.maxBreakMinutes) * 100,
-            status: stats.avgBreak <= goals.maxBreakMinutes ? 'achieved' : 'exceeded'
-        }
-    };
 }

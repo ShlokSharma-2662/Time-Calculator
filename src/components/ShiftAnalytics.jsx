@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     TrendingUp, Clock, Coffee, Calendar, Target,
@@ -9,6 +9,7 @@ import { WorkHeatmap } from './WorkHeatmap';
 import {
     getQuickStats,
     getWeeklySummary,
+    getMonthlySummary,
     saveShift,
     getHoursTrend,
     analyzeBreakPatterns,
@@ -20,12 +21,16 @@ import {
     exportToCSV,
     getStatsForClipboard
 } from '../utils/shiftHistory';
+import { useUI } from '../context/UIContext';
+import { getHolidayName } from '../utils/sandwichLeaveLogic';
 
-export function ShiftAnalytics({ currentShift }) {
+export function ShiftAnalytics({ currentShift, history }) {
+    const { showSuccess, showInfo } = useUI();
     const [expanded, setExpanded] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
     const [stats, setStats] = useState(null);
     const [weeklySummary, setWeeklySummary] = useState(null);
+    const [monthlySummary, setMonthlySummary] = useState(null);
     const [trendData, setTrendData] = useState([]);
     const [breakPatterns, setBreakPatterns] = useState(null);
     const [punctualityScore, setPunctualityScore] = useState(100);
@@ -34,29 +39,30 @@ export function ShiftAnalytics({ currentShift }) {
     const [recommendations, setRecommendations] = useState([]);
     const [goalProgress, setGoalProgress] = useState(null);
 
+    const refreshStats = useCallback(() => {
+        setStats(getQuickStats(history));
+        setWeeklySummary(getWeeklySummary(history));
+        setMonthlySummary(getMonthlySummary(history));
+        setTrendData(getHoursTrend(history, 14));
+        setBreakPatterns(analyzeBreakPatterns(history));
+        setPunctualityScore(getPunctualityScore(history));
+        setMonthlyComp(getMonthlyComparison(history));
+        setConsistencyRating(calculateConsistencyRating(history));
+        setRecommendations(getRecommendations(history));
+        setGoalProgress(checkGoalProgress(history));
+    }, [history]);
+
     // Load stats
     useEffect(() => {
         refreshStats();
-    }, []);
-
-    const refreshStats = () => {
-        setStats(getQuickStats());
-        setWeeklySummary(getWeeklySummary());
-        setTrendData(getHoursTrend(14)); // Last 14 days
-        setBreakPatterns(analyzeBreakPatterns());
-        setPunctualityScore(getPunctualityScore());
-        setMonthlyComp(getMonthlyComparison());
-        setConsistencyRating(calculateConsistencyRating());
-        setRecommendations(getRecommendations());
-        setGoalProgress(checkGoalProgress());
-    };
+    }, [history, refreshStats]); // Refresh when history changes
 
     // Save current shift
     const handleSaveShift = () => {
         if (currentShift && currentShift.startTime) {
             saveShift(currentShift);
             refreshStats();
-            alert('Shift saved! ✅');
+            showSuccess('Shift saved successfully! ✅');
         }
     };
 
@@ -142,6 +148,7 @@ export function ShiftAnalytics({ currentShift }) {
                                     <OverviewTab
                                         stats={stats}
                                         weeklySummary={weeklySummary}
+                                        monthlySummary={monthlySummary}
                                         weeklyGoal={weeklyGoal}
                                         weeklyProgress={weeklyProgress}
                                         currentShift={currentShift}
@@ -153,6 +160,7 @@ export function ShiftAnalytics({ currentShift }) {
                                     <TrendsTab
                                         trendData={trendData}
                                         monthlyComp={monthlyComp}
+                                        history={history}
                                     />
                                 )}
 
@@ -168,6 +176,8 @@ export function ShiftAnalytics({ currentShift }) {
                                     <GoalsTab
                                         goalProgress={goalProgress}
                                         recommendations={recommendations}
+                                        showSuccess={showSuccess}
+                                        showInfo={showInfo}
                                     />
                                 )}
                             </AnimatePresence>
@@ -179,122 +189,226 @@ export function ShiftAnalytics({ currentShift }) {
     );
 }
 
-// Tab Button Component
 function TabButton({ active, onClick, icon, label }) {
     return (
         <button
             onClick={onClick}
-            className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${active
-                ? 'bg-blue-500 text-white shadow-md'
-                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+            className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 group ${active
+                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/25 scale-[1.02]'
+                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50'
                 }`}
         >
-            {icon}
+            <span className={`${active ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-blue-500'} transition-colors`}>
+                {icon}
+            </span>
             {label}
         </button>
     );
 }
 
 // Overview Tab
-function OverviewTab({ stats, weeklySummary, weeklyGoal, weeklyProgress, currentShift, onSaveShift }) {
+function OverviewTab({ stats, weeklySummary, monthlySummary, weeklyGoal, weeklyProgress, currentShift, onSaveShift }) {
     return (
         <motion.div
             key="overview"
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            className="space-y-4"
+            className="space-y-6"
         >
             {/* Quick Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard icon={<Clock className="w-4 h-4 text-blue-500" />} label="Avg Start" value={stats.avgStartTime || '--:--'} color="blue" delay={0.1} />
-                <StatCard icon={<Zap className="w-4 h-4 text-green-500" />} label="Avg Hours" value={`${stats.avgHours}h`} color="green" delay={0.2} />
-                <StatCard icon={<Target className="w-4 h-4 text-purple-500" />} label="Attendance" value={`${stats.attendanceRate}%`} color="purple" delay={0.3} />
-                <StatCard icon={<Coffee className="w-4 h-4 text-orange-500" />} label="Avg Break" value={`${stats.avgBreak}m`} color="orange" delay={0.4} />
+                <StatCard
+                    icon={<Clock className="w-5 h-5 text-blue-500" />}
+                    label="Avg Start"
+                    value={stats.avgStartTime || '--:--'}
+                    color="blue"
+                    delay={0.1}
+                />
+                <StatCard
+                    icon={<Zap className="w-5 h-5 text-green-500" />}
+                    label="Avg Hours"
+                    value={`${stats.avgHours}h`}
+                    color="green"
+                    delay={0.2}
+                />
+                <StatCard
+                    icon={<Target className="w-5 h-5 text-purple-500" />}
+                    label="Attendance"
+                    value={`${stats.attendanceRate}%`}
+                    color="purple"
+                    delay={0.3}
+                />
+                <StatCard
+                    icon={<Coffee className="w-5 h-5 text-orange-500" />}
+                    label="Avg Break"
+                    value={`${stats.avgBreak}m`}
+                    color="orange"
+                    delay={0.4}
+                />
             </div>
 
-            {/* Weekly Summary */}
-            {weeklySummary && (
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.5 }}
-                    className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-600"
-                >
-                    <h3 className="font-semibold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-indigo-500" />
-                        This Week
-                    </h3>
-                    <div className="flex items-baseline gap-2 mb-2">
-                        <span className="text-3xl font-bold text-indigo-600 dark:text-indigo-400">
-                            {weeklySummary.totalHours}
-                        </span>
-                        <span className="text-sm text-slate-500 dark:text-slate-400">
-                            hours • {weeklySummary.daysWorked} days
-                        </span>
-                    </div>
-                    <div className="relative h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden mb-2">
-                        <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${Math.min(weeklyProgress, 100)}%` }}
-                            transition={{ duration: 0.5, delay: 0.6 }}
-                            className="absolute h-full bg-gradient-to-r from-indigo-500 to-purple-600"
-                        />
-                    </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {weeklySummary.totalHours} / {weeklyGoal} hours goal ({Math.round(weeklyProgress)}%)
-                    </p>
-                </motion.div>
-            )}
+            {/* Weekly Summary & Streak Section */}
+            <div className="space-y-6">
+                {/* Weekly Summary */}
+                {weeklySummary && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.5 }}
+                        className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                    >
+                        {/* This Week Card */}
+                        <div className="bg-slate-900/40 dark:bg-slate-800/40 p-6 rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl -mr-16 -mt-16 group-hover:bg-indigo-500/20 transition-all duration-700"></div>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-2.5 bg-indigo-500/20 rounded-xl border border-indigo-500/30">
+                                    <Calendar className="w-5 h-5 text-indigo-400" />
+                                </div>
+                                <h4 className="font-black text-sm text-white uppercase tracking-widest">This Week</h4>
+                            </div>
+                            <div className="flex items-end gap-3 mb-6">
+                                <div className="text-5xl font-black text-white leading-none tracking-tighter tabular-nums">
+                                    {Math.floor(weeklySummary?.totalHours || 0)}
+                                </div>
+                                <div className="flex flex-col mb-1">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">hours worked</div>
+                                    <div className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mt-1">
+                                        {weeklySummary?.daysWorked || 0} days
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="h-2 w-full bg-slate-800/50 rounded-full overflow-hidden border border-white/5">
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${Math.min(100, ((weeklySummary?.totalHours || 0) / 45) * 100)}%` }}
+                                        className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
+                                    />
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                                    <span className="text-slate-500">
+                                        {Math.round(((weeklySummary?.totalHours || 0) / 45) * 100)}% of target
+                                    </span>
+                                    <span className="text-slate-400">Goal: 45h</span>
+                                </div>
+                            </div>
+                        </div>
 
-            {/* Current Streak */}
-            {stats.currentStreak > 0 && (
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.6 }}
-                    className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4"
-                >
-                    <div className="flex items-center gap-3">
-                        <Award className="w-8 h-8 text-yellow-600 dark:text-yellow-400" />
-                        <div>
-                            <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                                Current Streak
-                            </p>
-                            <p className="text-2xl font-bold text-yellow-700 dark:text-yellow-300">
-                                🔥 {stats.currentStreak} {stats.currentStreak === 1 ? 'day' : 'days'}
+                        {/* This Month Card (NEW) */}
+                        <div className="bg-slate-900/40 dark:bg-slate-800/40 p-6 rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden group">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-3xl -mr-16 -mt-16 group-hover:bg-purple-500/20 transition-all duration-700"></div>
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-2.5 bg-purple-500/20 rounded-xl border border-purple-500/30">
+                                    <Calendar className="w-5 h-5 text-purple-400" />
+                                </div>
+                                <h4 className="font-black text-sm text-white uppercase tracking-widest">This Month</h4>
+                            </div>
+                            <div className="flex items-end gap-3 mb-6">
+                                <div className="text-5xl font-black text-white leading-none tracking-tighter tabular-nums">
+                                    {Math.floor(monthlySummary?.totalHours || 0)}
+                                </div>
+                                <div className="flex flex-col mb-1">
+                                    <div className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">hours worked</div>
+                                    <div className="text-[10px] font-black text-purple-400 uppercase tracking-widest mt-1">
+                                        {monthlySummary?.daysWorked || 0} days
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="h-2 w-full bg-slate-800/50 rounded-full overflow-hidden border border-white/5">
+                                    <motion.div
+                                        initial={{ width: 0 }}
+                                        animate={{ width: `${Math.min(100, ((monthlySummary?.totalHours || 0) / 180) * 100)}%` }}
+                                        className="h-full bg-gradient-to-r from-purple-500 via-fuchsia-500 to-rose-500"
+                                    />
+                                </div>
+                                <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
+                                    <span className="text-slate-500">
+                                        {Math.round(((monthlySummary?.totalHours || 0) / 180) * 100)}% of target
+                                    </span>
+                                    <span className="text-slate-400">Goal: 180h</span>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+
+                {/* Current Streak - Now Horizontal at the end */}
+                {stats.currentStreak > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.6 }}
+                        className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-900/20 dark:to-orange-900/30 border border-amber-200/50 dark:border-amber-800/30 rounded-2xl p-6 flex items-center justify-between relative overflow-hidden group"
+                    >
+                        <div className="absolute right-0 top-0 h-full w-32 bg-gradient-to-l from-amber-500/10 to-transparent pointer-events-none"></div>
+                        <div className="flex items-center gap-6">
+                            <div className="bg-amber-100 dark:bg-amber-900/50 p-4 rounded-2xl shadow-inner">
+                                <Award className="w-10 h-10 text-amber-600 dark:text-amber-400 animate-pulse" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-1">
+                                    Continuous Achievement
+                                </p>
+                                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">
+                                    You've maintained an active streak of consistency!
+                                </p>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-5xl font-black text-amber-600 dark:text-amber-300 flex items-center gap-3">
+                                <span className="text-3xl">🔥</span> {stats.currentStreak}
+                                <span className="text-xl font-bold text-amber-800/70 dark:text-amber-400/70">
+                                    {stats.currentStreak === 1 ? 'day' : 'days'}
+                                </span>
                             </p>
                         </div>
+                    </motion.div>
+                )}
+            </div>
+
+            {/* Save Current Session (if active) */}
+            {currentShift && currentShift.startTime && (
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-800/30 rounded-2xl p-4 flex items-center justify-between"
+                >
+                    <div className="flex items-center gap-3">
+                        <div className="bg-blue-500/10 p-2 rounded-lg">
+                            <Activity className="w-5 h-5 text-blue-500" />
+                        </div>
+                        <div>
+                            <p className="text-sm font-bold text-slate-800 dark:text-white">Active Session Detected</p>
+                            <p className="text-xs text-slate-500">Ready to save your current progress?</p>
+                        </div>
                     </div>
+                    <button
+                        onClick={onSaveShift}
+                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                    >
+                        <Save className="w-4 h-4" />
+                        Save Now
+                    </button>
                 </motion.div>
             )}
 
-            {/* Save Shift Button */}
-            {currentShift && currentShift.startTime && (
-                <motion.button
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.7 }}
-                    onClick={onSaveShift}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-blue-500 to-cyan-600 text-white font-semibold hover:from-blue-600 hover:to-cyan-700 transition-all shadow-lg hover:shadow-xl"
-                >
-                    <Save className="w-5 h-5" />
-                    Save Current Shift
-                </motion.button>
-            )}
-
-            <div className="text-center text-sm text-slate-500 dark:text-slate-400">
-                📊 {stats.totalShifts} total {stats.totalShifts === 1 ? 'shift' : 'shifts'} recorded
+            <div className="text-center text-xs font-bold text-slate-400 dark:text-slate-500 pt-2 uppercase tracking-widest">
+                📊 {stats.totalShifts} Total Shifts Logged
             </div>
         </motion.div>
     );
 }
 
 // Trends Tab
-function TrendsTab({ trendData, monthlyComp }) {
-    const maxHours = trendData.length > 0 ? Math.max(...trendData.map(d => d.hours)) : 10;
-    const chartHeight = 150;
+function TrendsTab({ trendData, monthlyComp, history }) {
+    const maxHours = trendData.length > 0 ? Math.max(...trendData.map(d => d.hours), 12) : 12;
+    const chartHeight = 180; // Increased height for labels
+    const padding = { top: 20, right: 20, bottom: 40, left: 40 };
     const chartWidth = 500;
+    const effectiveWidth = chartWidth - padding.left - padding.right;
+    const effectiveHeight = chartHeight - padding.top - padding.bottom;
 
     return (
         <motion.div
@@ -302,46 +416,64 @@ function TrendsTab({ trendData, monthlyComp }) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            className="space-y-4"
+            className="space-y-6"
         >
             {/* Work Pattern Heatmap */}
-            <WorkHeatmap />
+            <WorkHeatmap history={history} />
 
             {/* Hours Trend Chart */}
-            <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                <h3 className="font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                    <TrendingUp className="w-5 h-5 text-blue-500" />
+            <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                <h3 className="font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-3">
+                    <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
+                        <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    </div>
                     Hours Trend (Last 14 Days)
                 </h3>
                 {trendData.length > 0 ? (
                     <div className="overflow-x-auto">
-                        <svg className="w-full" viewBox={`0 0 ${chartWidth} ${chartHeight}`} preserveAspectRatio="none">
-                            {/* Grid lines */}
-                            {[0, 1, 2, 3, 4].map(i => (
-                                <line
-                                    key={i}
-                                    x1="0"
-                                    y1={(chartHeight / 4) * i}
-                                    x2={chartWidth}
-                                    y2={(chartHeight / 4) * i}
-                                    stroke="currentColor"
-                                    strokeWidth="0.5"
-                                    className="text-slate-200 dark:text-slate-700"
-                                />
-                            ))}
+                        <svg className="w-full min-w-[500px]" viewBox={`0 0 ${chartWidth} ${chartHeight}`}>
+                            {/* Y-Axis Labels & Grid Lines */}
+                            {[0, 4, 8, 12].map(hours => {
+                                const y = padding.top + effectiveHeight - (hours / maxHours) * effectiveHeight;
+                                return (
+                                    <g key={hours}>
+                                        <line
+                                            x1={padding.left}
+                                            y1={y}
+                                            x2={chartWidth - padding.right}
+                                            y2={y}
+                                            stroke="currentColor"
+                                            strokeWidth="0.5"
+                                            strokeDasharray="4 4"
+                                            className="text-slate-200 dark:text-slate-700"
+                                        />
+                                        <text
+                                            x={padding.left - 10}
+                                            y={y}
+                                            textAnchor="end"
+                                            alignmentBaseline="middle"
+                                            className="text-[10px] font-black fill-slate-400 tabular-nums uppercase"
+                                        >
+                                            {hours}h
+                                        </text>
+                                    </g>
+                                );
+                            })}
+
                             {/* Line path */}
                             <path
                                 d={trendData.map((d, i) => {
-                                    const x = (i / (trendData.length - 1 || 1)) * chartWidth;
-                                    const y = chartHeight - (d.hours / maxHours) * chartHeight;
+                                    const x = padding.left + (i / (trendData.length - 1 || 1)) * effectiveWidth;
+                                    const y = padding.top + effectiveHeight - (d.hours / maxHours) * effectiveHeight;
                                     return `${i === 0 ? 'M' : 'L'} ${x} ${y}`;
                                 }).join(' ')}
                                 fill="none"
                                 stroke="url(#lineGradient)"
-                                strokeWidth="3"
+                                strokeWidth="4"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
                             />
+
                             {/* Gradient definition */}
                             <defs>
                                 <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -349,25 +481,82 @@ function TrendsTab({ trendData, monthlyComp }) {
                                     <stop offset="100%" stopColor="#06b6d4" />
                                 </linearGradient>
                             </defs>
-                            {/* Data points */}
+
+                            {/* Data points & X-Axis Labels */}
                             {trendData.map((d, i) => {
-                                const x = (i / (trendData.length - 1 || 1)) * chartWidth;
-                                const y = chartHeight - (d.hours / maxHours) * chartHeight;
+                                const x = padding.left + (i / (trendData.length - 1 || 1)) * effectiveWidth;
+                                const y = padding.top + effectiveHeight - (d.hours / maxHours) * effectiveHeight;
+                                const date = new Date(d.date);
+                                const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                                const dayNum = date.getDate();
+                                const holidayName = getHolidayName(d.date);
+
                                 return (
-                                    <circle
-                                        key={i}
-                                        cx={x}
-                                        cy={y}
-                                        r="4"
-                                        fill="#3b82f6"
-                                        className="dark:fill-cyan-400"
-                                    />
+                                    <g key={i} className="group cursor-help">
+                                        <circle
+                                            cx={x}
+                                            cy={y}
+                                            r="5"
+                                            fill={holidayName ? "#6366f1" : "#3b82f6"}
+                                            className={`${holidayName ? 'fill-indigo-500' : 'dark:fill-cyan-400'} stroke-white dark:stroke-slate-800 stroke-2`}
+                                        />
+                                        {/* X-Axis Label */}
+                                        <text
+                                            x={x}
+                                            y={chartHeight - 10}
+                                            textAnchor="middle"
+                                            className={`text-[9px] font-black uppercase tracking-tighter ${holidayName ? 'fill-indigo-500' : 'fill-slate-400 dark:fill-slate-500'}`}
+                                        >
+                                            {dayName}
+                                        </text>
+                                        <text
+                                            x={x}
+                                            y={chartHeight - 22}
+                                            textAnchor="middle"
+                                            className={`text-[8px] font-bold ${holidayName ? 'fill-indigo-400' : 'fill-slate-300 dark:fill-slate-600'}`}
+                                        >
+                                            {dayNum}
+                                        </text>
+
+                                        {/* Hover Tooltip (Basic SVG) */}
+                                        <g className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                                            <rect
+                                                x={x - 40}
+                                                y={y - 45}
+                                                width="80"
+                                                height={holidayName ? 35 : 25}
+                                                rx="6"
+                                                className="fill-slate-900 border border-white/10 shadow-2xl"
+                                            />
+                                            <text
+                                                x={x}
+                                                y={y - 32}
+                                                textAnchor="middle"
+                                                className="text-[10px] fill-white font-black"
+                                            >
+                                                {d.hours}h Worked
+                                            </text>
+                                            {holidayName && (
+                                                <text
+                                                    x={x}
+                                                    y={y - 20}
+                                                    textAnchor="middle"
+                                                    className="text-[8px] fill-indigo-400 font-bold"
+                                                >
+                                                    {holidayName}
+                                                </text>
+                                            )}
+                                        </g>
+                                    </g>
                                 );
                             })}
                         </svg>
                     </div>
                 ) : (
-                    <p className="text-center text-slate-500 py-8">No trend data yet</p>
+                    <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-900/10">
+                        <TrendingUp className="w-8 h-8 text-slate-300 dark:text-slate-700 mb-2" />
+                        <p className="text-sm font-bold text-slate-400 italic">No trend data yet</p>
+                    </div>
                 )}
             </div>
 
@@ -408,60 +597,64 @@ function PatternsTab({ breakPatterns, punctualityScore, consistencyRating }) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: 20 }}
-            className="space-y-4"
+            className="space-y-6"
         >
             {/* Punctuality & Consistency */}
-            <div className="grid grid-cols-2 gap-4">
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Gauge className="w-4 h-4 text-green-500" />
-                        <span className="text-xs font-medium text-slate-500">Punctuality</span>
-                    </div>
-                    <p className="text-3xl font-bold text-green-600 dark:text-green-400">{punctualityScore}%</p>
-                </div>
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Activity className="w-4 h-4 text-purple-500" />
-                        <span className="text-xs font-medium text-slate-500">Consistency</span>
-                    </div>
-                    <p className="text-3xl font-bold text-purple-600 dark:text-purple-400">{consistencyRating}%</p>
-                </div>
+            <div className="grid grid-cols-2 gap-6">
+                <StatCard
+                    icon={<Gauge className="w-5 h-5 text-emerald-500" />}
+                    label="Punctuality"
+                    value={`${punctualityScore}%`}
+                    color="green"
+                    delay={0.1}
+                />
+                <StatCard
+                    icon={<Activity className="w-5 h-5 text-purple-500" />}
+                    label="Consistency"
+                    value={`${consistencyRating}%`}
+                    color="purple"
+                    delay={0.2}
+                />
             </div>
 
             {/* Break Analysis */}
             {breakPatterns && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                    <h3 className="font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                        <Coffee className="w-5 h-5 text-orange-500" />
+                <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
+                    <h3 className="font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-3">
+                        <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-lg">
+                            <Coffee className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                        </div>
                         Break Analysis
                     </h3>
-                    <div className="grid grid-cols-3 gap-4 mb-4">
-                        <div>
-                            <p className="text-xs text-slate-500">Average</p>
-                            <p className="text-xl font-bold text-orange-600 dark:text-orange-400">{breakPatterns.avgBreak}m</p>
+                    <div className="grid grid-cols-3 gap-4 mb-8">
+                        <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Average</p>
+                            <p className="text-2xl font-black text-orange-600 dark:text-orange-400">{breakPatterns.avgBreak}m</p>
                         </div>
-                        <div>
-                            <p className="text-xs text-slate-500">Min</p>
-                            <p className="text-xl font-bold text-green-600 dark:text-green-400">{breakPatterns.minBreak}m</p>
+                        <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Minimum</p>
+                            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{breakPatterns.minBreak}m</p>
                         </div>
-                        <div>
-                            <p className="text-xs text-slate-500">Max</p>
-                            <p className="text-xl font-bold text-red-600 dark:text-red-400">{breakPatterns.maxBreak}m</p>
+                        <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Maximum</p>
+                            <p className="text-2xl font-black text-rose-600 dark:text-rose-400">{breakPatterns.maxBreak}m</p>
                         </div>
                     </div>
                     {breakPatterns.distribution.length > 0 && (
-                        <div className="space-y-2">
-                            <p className="text-xs font-medium text-slate-600 dark:text-slate-400">Distribution:</p>
+                        <div className="space-y-4">
+                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Frequency Distribution</p>
                             {breakPatterns.distribution.map((item, idx) => (
-                                <div key={idx} className="flex items-center gap-2">
-                                    <span className="text-xs text-slate-500 w-20">{item.range}</span>
-                                    <div className="flex-1 h-4 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-orange-500 rounded-full"
-                                            style={{ width: `${item.count * 20}%` }}
+                                <div key={idx} className="flex items-center gap-4 group">
+                                    <span className="text-xs font-bold text-slate-400 w-24">{item.range}</span>
+                                    <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-700/50 rounded-full overflow-hidden">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${(item.count / Math.max(...breakPatterns.distribution.map(d => d.count))) * 100}%` }}
+                                            transition={{ duration: 1, delay: 0.5 + (idx * 0.1) }}
+                                            className="h-full bg-gradient-to-r from-orange-400 to-rose-500 rounded-full"
                                         />
                                     </div>
-                                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-400 w-8">{item.count}</span>
+                                    <span className="text-xs font-black text-slate-600 dark:text-slate-300 w-8 text-right">{item.count}</span>
                                 </div>
                             ))}
                         </div>
@@ -474,31 +667,51 @@ function PatternsTab({ breakPatterns, punctualityScore, consistencyRating }) {
 
 // Stat Card Component
 function StatCard({ icon, label, value, color, delay }) {
-    const colors = {
-        blue: 'text-blue-600 dark:text-blue-400',
-        green: 'text-green-600 dark:text-green-400',
-        purple: 'text-purple-600 dark:text-purple-400',
-        orange: 'text-orange-600 dark:text-orange-400'
+    const colorMap = {
+        blue: {
+            bg: 'bg-blue-50 dark:bg-blue-900/10',
+            text: 'text-blue-600 dark:text-blue-400',
+            border: 'border-blue-100 dark:border-blue-800/30'
+        },
+        green: {
+            bg: 'bg-emerald-50 dark:bg-emerald-900/10',
+            text: 'text-emerald-600 dark:text-emerald-400',
+            border: 'border-emerald-100 dark:border-emerald-800/30'
+        },
+        purple: {
+            bg: 'bg-purple-50 dark:bg-purple-900/10',
+            text: 'text-purple-600 dark:text-purple-400',
+            border: 'border-purple-100 dark:border-purple-800/30'
+        },
+        orange: {
+            bg: 'bg-orange-50 dark:bg-orange-900/10',
+            text: 'text-orange-600 dark:text-orange-400',
+            border: 'border-orange-100 dark:border-orange-800/30'
+        }
     };
+
+    const style = colorMap[color] || colorMap.blue;
 
     return (
         <motion.div
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay }}
-            className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-600"
+            className={`p-5 rounded-2xl border ${style.border} ${style.bg} backdrop-blur-sm flex flex-col gap-3 group transition-all hover:scale-[1.02] hover:shadow-lg`}
         >
-            <div className="flex items-center gap-2 mb-2">
-                {icon}
-                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</span>
+            <div className="flex items-center gap-3">
+                <div className="p-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 group-hover:scale-110 transition-transform">
+                    {icon}
+                </div>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</span>
             </div>
-            <p className={`text-2xl font-bold ${colors[color]}`}>{value}</p>
+            <p className={`text-2xl font-black ${style.text} tracking-tight`}>{value}</p>
         </motion.div>
     );
 }
 
 // Goals Tab
-function GoalsTab({ goalProgress, recommendations }) {
+function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
     const handleExportCSV = () => {
         const csv = exportToCSV();
         if (csv) {
@@ -509,16 +722,16 @@ function GoalsTab({ goalProgress, recommendations }) {
             a.download = `shift_analytics_${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
             URL.revokeObjectURL(url);
-            alert('Exported to CSV! 📥');
+            showSuccess('Exported to CSV successfully! 📥');
         } else {
-            alert('No data to export');
+            showInfo('No data to export.');
         }
     };
 
     const handleCopyStats = () => {
         const stats = getStatsForClipboard();
         navigator.clipboard.writeText(stats);
-        alert('Copied to clipboard! 📋');
+        showSuccess('Copied to clipboard! 📋');
     };
 
     return (
