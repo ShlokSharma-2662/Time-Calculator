@@ -11,7 +11,7 @@ const HISTORY_STORAGE_KEY = 'workShift_history';
  */
 export function transformHistoryToShifts(history) {
     if (!history) return [];
-    
+
     return Object.entries(history)
         .map(([date, data]) => ({
             date: date,
@@ -80,7 +80,7 @@ function calculateStats(shifts) {
         const [hours, minutes] = s.startTime.split(':').map(Number);
         return (hours || 0) * 60 + (minutes || 0); // Convert to minutes since midnight
     });
-    
+
     const avgMinutes = startTimes.length > 0 ? startTimes.reduce((sum, t) => sum + t, 0) / startTimes.length : 570; // Default 9:30
     const avgHrsCalc = Math.floor(avgMinutes / 60);
     const avgMins = Math.floor(avgMinutes % 60);
@@ -163,7 +163,7 @@ function calculateStreak(shifts) {
             // Check if streak is still alive (either shift is today or was yesterday)
             const diff = (today.getTime() - shiftDate.getTime()) / (1000 * 60 * 60 * 24);
             if (diff > 1 && streak === 0) break; // Streak broken
-            if (streak > 0) break; 
+            if (streak > 0) break;
         }
     }
 
@@ -222,6 +222,72 @@ export function getMonthlySummary(history) {
         daysWorked: thisMonth.length,
         shifts: thisMonth
     };
+}
+
+/**
+ * Calculate Month-to-Date Adherence
+ * Compares actual hours vs expected hours for the current month
+ * For 'today' or any in-progress day, 'expected' is till current time
+ */
+export function getMonthToDateAdherence(history, currentDayStats, shiftDurationMinutes) {
+    const today = new Date().toISOString().slice(0, 10);
+    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const shiftDurationHours = shiftDurationMinutes / 60;
+
+    let totalActualMinutes = 0;
+    let totalTargetMinutes = 0;
+
+    // 1. Process historical entries for this month
+    Object.entries(history).forEach(([date, data]) => {
+        const d = new Date(date);
+        if (d >= startOfMonth && date !== today) {
+            totalActualMinutes += data.effectiveWorkTime || 0;
+            // For past days, we expect a full shift if there's any log
+            // If there's no log for a weekday, technically it's a 'missed' day, 
+            // but we'll stick to 'logged days' for adherence.
+            totalTargetMinutes += shiftDurationMinutes;
+        }
+    });
+
+    // 2. Process today (the active shift)
+    if (currentDayStats) {
+        const actualToday = currentDayStats.effectiveWorkTime || 0;
+        let targetToday = 0;
+
+        if (currentDayStats.lastOutTime && !currentDayStats.isCurrentlyOut) {
+            // If the day is 'Finished' (has a last out and not currently active)
+            // Or if actual work already exceeds the goal
+            if (actualToday >= shiftDurationMinutes) {
+                targetToday = shiftDurationMinutes;
+            } else {
+                // If they finished early, target is still the full shift?
+                // The user said "if log for full day is available then calculate using that"
+                targetToday = shiftDurationMinutes;
+            }
+        } else {
+            // Shift is in progress
+            // Target is either the elapsed time since start (excluding breaks)
+            // or the full shift duration if we've already crossed it.
+            if (currentDayStats.firstInTime) {
+                const [h, m] = currentDayStats.firstInTime.split(':').map(Number);
+                const startTimeMinutes = h * 60 + m;
+                const now = new Date();
+                const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+                const elapsedMinutes = Math.max(0, nowMinutes - startTimeMinutes - (currentDayStats.totalOutTime || 0));
+                targetToday = Math.min(shiftDurationMinutes, elapsedMinutes);
+            }
+        }
+
+        totalActualMinutes += actualToday;
+        totalTargetMinutes += targetToday;
+    }
+
+    if (totalTargetMinutes === 0) return 100; // Perfect adherence if nothing expected yet
+    const adherence = (totalActualMinutes / totalTargetMinutes) * 100;
+    return Math.min(100, Math.round(adherence));
 }
 
 export function getHoursTrend(history, days = 30) {

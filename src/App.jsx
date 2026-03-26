@@ -19,14 +19,15 @@ import { useLogParser } from './hooks/useLogParser';
 import { useHistory } from './hooks/useHistory';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
+import { getMonthToDateAdherence } from './utils/shiftHistory';
 
 function AppContent() {
   const { user, loading, logout, syncLogsToCloud, fetchLogsFromCloud } = useAuth();
-  const { 
-    showSuccess, showError, showInfo, toasts, dismissToast, 
-    confirm, confirmDialog, closeConfirm 
+  const {
+    showSuccess, showError, showInfo, toasts, dismissToast,
+    confirm, confirmDialog, closeConfirm
   } = useUI();
-  
+
   const [authMode, setAuthMode] = useState('login');
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -145,9 +146,9 @@ function AppContent() {
   const logStats = useLogParser(logInput, use24Hour, currentMinutes, startTimeMinutes, today);
   const shiftDetails = useShiftCalculations(startTime, shiftDuration * 60, use24Hour, logStats.totalOutTime);
 
-  const workProgress = logStats.effectiveWorkTime > 0
-    ? Math.min((logStats.effectiveWorkTime / (shiftDuration * 60)) * 100, 100)
-    : 0;
+  const workProgress = useMemo(() => {
+    return getMonthToDateAdherence(history, logStats, shiftDuration * 60);
+  }, [history, logStats, shiftDuration]);
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -241,14 +242,14 @@ function AppContent() {
                   history={history}
                   shiftDuration={shiftDuration}
                 />
-                <LogAnalyzer 
-                  logInput={logInput} 
-                  setLogInput={setLogInput} 
-                  stats={logStats} 
-                  currentTimeMinutes={currentMinutes} 
+                <LogAnalyzer
+                  logInput={logInput}
+                  setLogInput={setLogInput}
+                  stats={logStats}
+                  currentTimeMinutes={currentMinutes}
                 />
-                <ShiftAnalytics 
-                  currentShift={{ ...logStats, startTime }} 
+                <ShiftAnalytics
+                  currentShift={{ ...logStats, startTime }}
                   history={history}
                 />
               </div>
@@ -290,7 +291,7 @@ function AppContent() {
           showSuccess={showSuccess}
         />
 
-        <ConfirmDialog 
+        <ConfirmDialog
           isOpen={confirmDialog.isOpen}
           onClose={closeConfirm}
           onConfirm={confirmDialog.onConfirm}
