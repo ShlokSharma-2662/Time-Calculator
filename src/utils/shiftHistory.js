@@ -7,6 +7,15 @@ const STORAGE_KEY = 'shift_analytics_data';
 const HISTORY_STORAGE_KEY = 'workShift_history';
 
 /**
+ * Format date string from YYYY-MM-DD to DD-MM-YYYY
+ */
+export function formatDate(dateStr) {
+    if (!dateStr || !dateStr.includes('-')) return dateStr;
+    const [year, month, day] = dateStr.split('-');
+    return `${day}-${month}-${year}`;
+}
+
+/**
  * Helper to transform main history object to shifts array
  */
 export function transformHistoryToShifts(history) {
@@ -528,7 +537,7 @@ export function exportToCSV(history) {
 
     let csv = 'Date,Start Time,Total Break (min),Working Hours,Full Day End,Half Day End\n';
     data.shifts.forEach(shift => {
-        csv += `${shift.date},${shift.startTime},${shift.totalBreak},${shift.workingHours},${shift.fullDayEnd},${shift.halfDayEnd || ''}\n`;
+        csv += `${formatDate(shift.date)},${shift.startTime},${shift.totalBreak},${shift.workingHours},${shift.fullDayEnd},${shift.halfDayEnd || ''}\n`;
     });
     return csv;
 }

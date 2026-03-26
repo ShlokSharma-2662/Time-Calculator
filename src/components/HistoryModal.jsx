@@ -3,6 +3,7 @@ import { X, Calendar, Download, CornerUpLeft, List } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarView } from './CalendarView';
 import { getHolidayName } from '../utils/sandwichLeaveLogic';
+import { formatDate } from '../utils/shiftHistory';
 
 export const HistoryModal = ({ isOpen, onClose, historyEntries, history, onLoadEntry, onExport, showSuccess }) => {
     const [view, setView] = useState('list'); // 'list' | 'calendar'
@@ -25,7 +26,7 @@ export const HistoryModal = ({ isOpen, onClose, historyEntries, history, onLoadE
                                 <h3 className="font-black text-xl text-slate-900 dark:text-white flex items-center gap-3 uppercase tracking-tight">
                                     <div className="p-2 bg-indigo-500 rounded-xl shadow-lg shadow-indigo-500/30">
                                         <Calendar className="w-5 h-5 text-white" />
-                                    </div> 
+                                    </div>
                                     History
                                 </h3>
                                 <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl transition-all text-slate-400 hover:text-indigo-500">
@@ -82,7 +83,7 @@ export const HistoryModal = ({ isOpen, onClose, historyEntries, history, onLoadE
                                                     <div className="flex justify-between items-start">
                                                         <div className="flex-1">
                                                             <div className="flex items-center gap-3 mb-1">
-                                                                <div className="font-black text-xs text-slate-900 dark:text-white uppercase tracking-tight">{date}</div>
+                                                                <div className="font-black text-xs text-slate-900 dark:text-white uppercase tracking-tight">{formatDate(date)}</div>
                                                                 {getHolidayName(date) && (
                                                                     <span className="px-2 py-0.5 bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[8px] font-black uppercase tracking-widest rounded-full border border-indigo-500/20">
                                                                         {getHolidayName(date)}
@@ -117,10 +118,10 @@ export const HistoryModal = ({ isOpen, onClose, historyEntries, history, onLoadE
                                         animate={{ opacity: 1, x: 0 }}
                                         exit={{ opacity: 0, x: -10 }}
                                     >
-                                        <CalendarView 
-                                            history={history} 
-                                            onLoadEntry={onLoadEntry} 
-                                            onClose={onClose} 
+                                        <CalendarView
+                                            history={history}
+                                            onLoadEntry={onLoadEntry}
+                                            onClose={onClose}
                                         />
                                     </motion.div>
                                 )}
