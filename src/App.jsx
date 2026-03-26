@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Dashboard } from './components/Dashboard';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { ShiftCalculator } from './components/ShiftCalculator';
@@ -27,10 +28,6 @@ export default function App() {
     return localStorage.getItem('logInput') || "";
   });
 
-  const [darkMode, setDarkMode] = useState(() => {
-    return localStorage.getItem('theme') === 'dark';
-  });
-
   // Settings State
   const [shiftDuration, setShiftDuration] = useState(() => {
     const saved = localStorage.getItem('shiftDuration');
@@ -54,6 +51,11 @@ export default function App() {
 
   // --- Effects ---
   useEffect(() => {
+    document.documentElement.classList.add('dark');
+    localStorage.setItem('theme', 'dark');
+  }, []);
+
+  useEffect(() => {
     localStorage.setItem('startTime', startTime);
   }, [startTime]);
 
@@ -68,16 +70,6 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('use24Hour', use24Hour);
   }, [use24Hour]);
-
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [darkMode]);
 
   useEffect(() => {
     localStorage.setItem('activeView', activeView);
@@ -181,17 +173,15 @@ export default function App() {
   }, [autoStartTime]); // Removed startTime dependency to avoid loops, though logic guards it
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 p-4 font-sans selection:bg-indigo-100 selection:text-indigo-700 transition-colors duration-300"
-    >
-      <div className="max-w-2xl mx-auto space-y-6">
+    <div className="min-h-screen transition-colors duration-500 selection:bg-indigo-100 selection:text-indigo-700">
+      {/* Animated Background Gradients - Adjusted for Dark Mode */}
+      <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+        <div className="absolute top-[-5%] right-[-5%] w-[40%] h-[40%] bg-indigo-500/15 blur-[100px] rounded-full animate-float"></div>
+        <div className="absolute bottom-[-5%] left-[-5%] w-[40%] h-[40%] bg-violet-500/10 blur-[100px] rounded-full animate-float [animation-delay:2s]"></div>
+      </div>
 
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
         <Header
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onOpenHistory={() => setIsHistoryOpen(true)}
           workProgress={workProgress}
@@ -199,38 +189,59 @@ export default function App() {
           setActiveView={setActiveView}
         />
 
-        {/* Conditional View Rendering */}
-        {activeView === 'shift' ? (
-          <>
-            <ShiftCalculator
-              startTime={startTime}
-              setStartTime={setStartTime}
-              synced={synced}
-              shiftDetails={shiftDetails}
-            />
+        <main className="mt-8">
+          {activeView === 'shift' ? (
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
+              {/* Left Column: Analytics & Logs (Wider) */}
+              <div className="xl:col-span-8 space-y-4">
+                <Dashboard
+                  shiftDetails={shiftDetails}
+                  logStats={logStats}
+                  workProgress={workProgress}
+                  startTime={startTime}
+                />
 
-            <LogAnalyzer
-              logInput={logInput}
-              setLogInput={setLogInput}
-              stats={logStats}
-              showSuccess={showSuccess}
-              showError={showError}
-            />
+                <LogAnalyzer
+                  logInput={logInput}
+                  setLogInput={setLogInput}
+                  stats={logStats}
+                  showSuccess={showSuccess}
+                  showError={showError}
+                  currentTimeMinutes={currentMinutes}
+                />
+              </div>
 
-            <ShiftAnalytics
-              currentShift={{
-                startTime,
-                totalBreak: logStats.totalOutTime,
-                workingHours: logStats.effectiveWorkTime / 60,
-                fullDayEnd: shiftDetails.fullDay,
-                halfDayEnd: shiftDetails.halfDay
-              }}
-            />
-          </>
-        ) : (
-          <LeaveManagement />
-        )}
+              {/* Right Column: Key Inputs & Settings (Narrower) */}
+              <div className="xl:col-span-4 sticky top-8">
+                <div className="space-y-8">
+                  <ShiftCalculator
+                    startTime={startTime}
+                    setStartTime={setStartTime}
+                    synced={synced}
+                    shiftDetails={shiftDetails}
+                  />
 
+                  {/* Additional Quick Action Card */}
+                  <div className="glass-card p-6 border-white/5 bg-indigo-500/5">
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-500 mb-4 text-center">System Overview</h4>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center text-[11px] font-bold">
+                        <span className="text-slate-500 italic">Sync Status</span>
+                        <span className="text-emerald-500">OPTIMAL</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[11px] font-bold">
+                        <span className="text-slate-500 italic">Total Logs</span>
+                        <span className="text-slate-800 dark:text-slate-100">{logStats.events.length} entries</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <LeaveManagement />
+          )}
+        </main>
 
         <Footer />
 
@@ -253,8 +264,7 @@ export default function App() {
         />
 
         <Toast toasts={toasts} onDismiss={dismiss} />
-
       </div>
-    </motion.div>
+    </div>
   );
 }

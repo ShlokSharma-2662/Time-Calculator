@@ -1,1 +1,110 @@
 @import "tailwindcss";
+
+/* Design System Variables - Enforced Dark Mode as Default */
+:root {
+  --neon-indigo: #6366f1;
+  --neon-violet: #8b5cf6;
+  --neon-rose: #f43f5e;
+
+  /* Constant Dark Values */
+  --bg-main: #020617;
+  --text-main: #f1f5f9;
+  --glass-bg: rgba(15, 23, 42, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Redundant but kept for tailwind 'dark:' classes compatibility if needed */
+.dark {
+  --bg-main: #020617;
+  --text-main: #f1f5f9;
+}
+
+/* Base Styles */
+body {
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  overflow-x: hidden;
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphic Components - Raw CSS to ensure build compatibility */
+.glass {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background-color: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+.glass-card {
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  background-color: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 1.5rem;
+  padding: 1.5rem;
+  transition-property: all;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 300ms;
+}
+
+.glass-card-hover:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.neon-text-indigo {
+  color: var(--neon-indigo);
+  text-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+.neon-text-violet {
+  color: var(--neon-violet);
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+}
+
+.radial-gradient-bg {
+  background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.1), transparent),
+    radial-gradient(circle at bottom left, rgba(139, 92, 246, 0.08), transparent);
+}
+
+/* Animations */
+@keyframes float {
+  0% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+
+  100% {
+    transform: translateY(0px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.1);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.2);
+}

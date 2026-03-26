@@ -1,82 +1,68 @@
 import React from 'react';
-import { Clock, Sun, Moon, Settings, Calendar, Briefcase, Palmtree } from 'lucide-react';
+import { Sun, Moon, Settings, Calendar, Briefcase, Palmtree } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { CircularProgress } from './CircularProgress';
 
-export const Header = ({ darkMode, setDarkMode, onOpenSettings, onOpenHistory, workProgress = 0, activeView = 'shift', setActiveView }) => {
+export const Header = ({ onOpenSettings, onOpenHistory, activeView = 'shift', setActiveView }) => {
     return (
-        <div className="space-y-4 mb-6">
+        <div className="space-y-6 mb-10">
             <header className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                    <div className="rounded-lg shadow-lg overflow-hidden">
-                        <img src="/logo.png" alt="Daily Calculations" className="w-12 h-12" />
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <Briefcase className="w-6 h-6 text-white" />
                     </div>
-                    {activeView === 'shift' && workProgress > 0 && (
-                        <CircularProgress percentage={workProgress} size={50} />
-                    )}
                     <div>
-                        <h1 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">Daily Calculations</h1>
-                        <p className="text-slate-500 dark:text-slate-400 text-sm">Friendly. Daily Routine. Cyclic.</p>
+                        <h1 className="text-xl font-black text-slate-800 dark:text-white tracking-tight uppercase">WorkShift <span className="text-indigo-500">v2.0</span></h1>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-none mt-1">Premium Performance Tracker</p>
                     </div>
                 </div>
-                <div className="flex gap-2">
-                    {activeView === 'shift' && (
-                        <motion.button
-                            whileTap={{ scale: 0.9 }}
-                            onClick={onOpenHistory}
-                            className="p-2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
-                            title="History"
-                        >
-                            <Calendar className="w-5 h-5" />
-                        </motion.button>
-                    )}
-                    {activeView === 'shift' && (
-                        <motion.button
-                            whileTap={{ scale: 0.9 }}
-                            onClick={onOpenSettings}
-                            className="p-2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
-                            title="Settings"
-                        >
-                            <Settings className="w-5 h-5" />
-                        </motion.button>
-                    )}
+
+                <div className="flex items-center gap-2 p-1.5 glass rounded-2xl border-white/20">
                     <motion.button
-                        whileTap={{ scale: 0.9, rotate: 180 }}
-                        transition={{ type: "spring", stiffness: 200 }}
-                        onClick={() => setDarkMode(!darkMode)}
-                        className="p-2 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-colors"
-                        title="Toggle Theme"
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={onOpenHistory}
+                        className="p-2.5 rounded-xl hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all font-bold text-[10px] flex items-center gap-2"
+                        title="History"
                     >
-                        {darkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+                        <Calendar className="w-4 h-4" />
+                        <span className="hidden sm:inline">HISTORY</span>
+                    </motion.button>
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={onOpenSettings}
+                        className="p-2.5 rounded-xl hover:bg-white/10 text-slate-500 dark:text-slate-400 hover:text-indigo-500 transition-all font-bold text-[10px] flex items-center gap-2"
+                        title="Settings"
+                    >
+                        <Settings className="w-4 h-4" />
+                        <span className="hidden sm:inline">SETTINGS</span>
                     </motion.button>
                 </div>
             </header>
 
             {/* Navigation Tabs */}
-            <div className="flex gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl">
-                <motion.button
-                    whileTap={{ scale: 0.97 }}
+            <nav className="flex gap-2 p-1.5 glass rounded-2xl border-white/10 max-w-sm mx-auto sm:mx-0">
+                <button
                     onClick={() => setActiveView('shift')}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${activeView === 'shift'
-                            ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-md'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${activeView === 'shift'
+                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xl'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                         }`}
                 >
-                    <Briefcase className="w-5 h-5" />
-                    <span>Shift Calculator</span>
-                </motion.button>
-                <motion.button
-                    whileTap={{ scale: 0.97 }}
+                    <Briefcase className="w-4 h-4" />
+                    Dashboard
+                </button>
+                <button
                     onClick={() => setActiveView('leave')}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all ${activeView === 'leave'
-                            ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-md'
-                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${activeView === 'leave'
+                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xl'
+                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                         }`}
                 >
-                    <Palmtree className="w-5 h-5" />
-                    <span>Leave Management</span>
-                </motion.button>
-            </div>
+                    <Palmtree className="w-4 h-4" />
+                    Archive
+                </button>
+            </nav>
         </div>
     );
 };
