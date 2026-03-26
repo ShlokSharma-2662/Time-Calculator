@@ -5,6 +5,7 @@ import {
     ChevronDown, ChevronUp, BarChart3, Award, Zap,
     Save, Activity, Gauge, PieChart, Download, Clipboard, Lightbulb
 } from 'lucide-react';
+import { WorkHeatmap } from './WorkHeatmap';
 import {
     getQuickStats,
     getWeeklySummary,
@@ -303,6 +304,9 @@ function TrendsTab({ trendData, monthlyComp }) {
             exit={{ opacity: 0, x: 20 }}
             className="space-y-4"
         >
+            {/* Work Pattern Heatmap */}
+            <WorkHeatmap />
+
             {/* Hours Trend Chart */}
             <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
                 <h3 className="font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
@@ -585,8 +589,8 @@ function GoalsTab({ goalProgress, recommendations }) {
                         <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                             <div
                                 className={`h-full rounded-full transition-all ${goalProgress.punctuality.status === 'achieved'
-                                        ? 'bg-gradient-to-r from-green-500 to-emerald-600'
-                                        : 'bg-gradient-to-r from-yellow-500 to-orange-600'
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+                                    : 'bg-gradient-to-r from-yellow-500 to-orange-600'
                                     }`}
                                 style={{ width: `${Math.min(goalProgress.punctuality.progress, 100)}%` }}
                             />
@@ -609,8 +613,8 @@ function GoalsTab({ goalProgress, recommendations }) {
                         <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                             <div
                                 className={`h-full rounded-full transition-all ${goalProgress.breakTime.status === 'achieved'
-                                        ? 'bg-gradient-to-r from-green-500 to-emerald-600'
-                                        : 'bg-gradient-to-r from-red-500 to-rose-600'
+                                    ? 'bg-gradient-to-r from-green-500 to-emerald-600'
+                                    : 'bg-gradient-to-r from-red-500 to-rose-600'
                                     }`}
                                 style={{ width: `${Math.min(Math.abs(goalProgress.breakTime.progress), 100)}%` }}
                             />
@@ -634,9 +638,9 @@ function GoalsTab({ goalProgress, recommendations }) {
                             <div
                                 key={idx}
                                 className={`p-3 rounded-lg border-l-4 ${rec.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 border-green-500' :
-                                        rec.type === 'warning' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500' :
-                                            rec.type === 'info' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500' :
-                                                'bg-slate-50 dark:bg-slate-900/20 border-slate-500'
+                                    rec.type === 'warning' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500' :
+                                        rec.type === 'info' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500' :
+                                            'bg-slate-50 dark:bg-slate-900/20 border-slate-500'
                                     }`}
                             >
                                 <div className="flex items-start gap-2">

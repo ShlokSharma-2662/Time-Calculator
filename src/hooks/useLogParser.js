@@ -3,7 +3,7 @@ import { useTimeHelpers } from './useTimeHelpers';
 
 const LOG_REGEX = /(\d{1,2}:\d{2})\s*(AM|PM)?\s*(IN|OUT)/gi;
 
-export const useLogParser = (logInput, use24Hour = false) => {
+export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0) => {
     const { minutesToTime } = useTimeHelpers();
 
     return useMemo(() => {
@@ -52,12 +52,31 @@ export const useLogParser = (logInput, use24Hour = false) => {
         }
 
         const firstIn = parsedEvents.find(e => e.type === 'IN');
+        const lastEvent = parsedEvents[parsedEvents.length - 1];
         const lastOut = [...parsedEvents].reverse().find(e => e.type === 'OUT');
 
         let netWork = 0;
         if (firstIn && lastOut) {
             const totalDuration = lastOut.minutes - firstIn.minutes;
             netWork = totalDuration - totalOut;
+        }
+
+        // Calculate real-time effective work up to 'now'
+        let realTimeWork = 0;
+        if (firstIn && currentTimeMinutes > firstIn.minutes) {
+            // If currently IN, duration is (Now - FirstIn) - Breaks
+            // If currently OUT, duration is (LastOut - FirstIn) - Breaks + (Now - LastOut) ?? 
+            // Usually, "Effective Work" only counts when you are IN.
+            // But if the user wants "Effective Work from 1st in time to current time", 
+            // we should probably follow the clock: (CurrentTime - FirstIn) - TotalBreaksSoFar
+
+            // If currently OUT, we should also subtract the ongoing break
+            let activeBreakMinutes = 0;
+            if (lastEvent && lastEvent.type === 'OUT' && currentTimeMinutes > lastEvent.minutes) {
+                activeBreakMinutes = currentTimeMinutes - lastEvent.minutes;
+            }
+
+            realTimeWork = (currentTimeMinutes - firstIn.minutes) - totalOut - activeBreakMinutes;
         }
 
         return {
@@ -67,8 +86,11 @@ export const useLogParser = (logInput, use24Hour = false) => {
             // Auto-start time always returns in 24h format for the input[type="time"]
             autoStartTime: firstIn ? minutesToTime(firstIn.minutes, true) : null,
             effectiveWorkTime: netWork > 0 ? netWork : 0,
+            realTimeEffectiveWork: realTimeWork > 0 ? realTimeWork : 0,
             firstInTime: firstIn ? firstIn.displayTime : null,
-            lastOutTime: lastOut ? lastOut.displayTime : null
+            lastOutTime: lastOut ? lastOut.displayTime : null,
+            isCurrentlyOut: lastEvent ? lastEvent.type === 'OUT' : false,
+            currentTimeMinutes
         };
-    }, [logInput, use24Hour, minutesToTime]);
+    }, [logInput, use24Hour, minutesToTime, currentTimeMinutes]);
 };

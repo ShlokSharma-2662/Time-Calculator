@@ -1,19 +1,20 @@
 import React, { useState } from 'react';
-import { ClipboardList, Trash2, CheckCircle2, Copy, ArrowRight } from 'lucide-react';
+import { ClipboardList, Trash2, CheckCircle2, Copy, ArrowRight, Timer } from 'lucide-react';
 import { Timeline } from './Timeline';
 import { useTimeHelpers } from '../hooks/useTimeHelpers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CountUp } from './CountUp';
 
 export const LogAnalyzer = ({ logInput, setLogInput, stats, showSuccess, showError }) => {
-    const { events, breaks, totalOutTime, effectiveWorkTime, firstInTime, lastOutTime } = stats;
+    const { events, breaks, totalOutTime, effectiveWorkTime, realTimeEffectiveWork, firstInTime, lastOutTime, isCurrentlyOut, currentTimeMinutes } = stats;
     const { formatDuration } = useTimeHelpers();
     const [copied, setCopied] = useState(false);
     const breakAllowanceMinutes = 60;
     const countedBreakTime = Math.max(totalOutTime - breakAllowanceMinutes, 0);
 
     const handleCopySummary = () => {
-        const summary = `Start: ${firstInTime || '?'} | End: ${lastOutTime || '?'} | Breaks: ${totalOutTime}m | Net Work: ${formatDuration(effectiveWorkTime)}`;
+        const workToSave = realTimeEffectiveWork || effectiveWorkTime;
+        const summary = `Start: ${firstInTime || '?'} | End: ${lastOutTime || (isCurrentlyOut ? 'Currently Out' : 'Active')} | Breaks: ${totalOutTime}m | Net Work: ${formatDuration(workToSave)}`;
         navigator.clipboard.writeText(summary);
         setCopied(true);
         showSuccess && showSuccess('📋 Summary copied to clipboard!');
@@ -76,14 +77,28 @@ export const LogAnalyzer = ({ logInput, setLogInput, stats, showSuccess, showErr
                         >
 
                             {/* Visual Timeline */}
-                            <Timeline events={events} />
+                            <Timeline events={events} currentMinutes={currentTimeMinutes} />
 
-                            <div className="grid gap-4 md:grid-cols-3">
+                            <div className="grid gap-4 md:grid-cols-4">
                                 <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-800/50">
-                                    <div className="text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider mb-1">Effective Work</div>
+                                    <div className="text-indigo-600 dark:text-indigo-400 text-xs font-bold uppercase tracking-wider mb-1 flex items-center gap-2">
+                                        <Timer className="w-3 h-3 animate-pulse" />
+                                        Work (Since 1st In)
+                                    </div>
                                     <div className="text-2xl font-bold text-indigo-900 dark:text-indigo-100">
+                                        <CountUp value={Math.floor(realTimeEffectiveWork / 60)} />h <CountUp value={realTimeEffectiveWork % 60} />m
+                                    </div>
+                                    <p className="text-[9px] text-indigo-600/60 dark:text-indigo-400/60 mt-1">Net time up to now</p>
+                                </div>
+
+                                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-800">
+                                    <div className="text-slate-500 dark:text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
+                                        Log Result (In-Out)
+                                    </div>
+                                    <div className="text-2xl font-bold text-slate-800 dark:text-slate-200">
                                         <CountUp value={Math.floor(effectiveWorkTime / 60)} />h <CountUp value={effectiveWorkTime % 60} />m
                                     </div>
+                                    <p className="text-[9px] text-slate-400 dark:text-slate-500 mt-1">Based only on log lines</p>
                                 </div>
 
                                 <div className={`p-4 rounded-xl border ${totalOutTime > 60 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-900/50' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-900/50'} flex flex-col justify-center`}>

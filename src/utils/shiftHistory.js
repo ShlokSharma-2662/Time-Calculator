@@ -578,6 +578,34 @@ export function getHeatmapData(year, month) {
 }
 
 /**
+ * Get heatmap data for the last 52 weeks
+ */
+export function getYearlyHeatmapData() {
+    const history = getShiftHistory();
+    const today = new Date();
+    const oneYearAgo = new Date();
+    oneYearAgo.setDate(today.getDate() - 364); // 52 weeks
+
+    const yearlyShifts = history.shifts.filter(s => {
+        const date = new Date(s.date);
+        return date >= oneYearAgo && date <= today;
+    });
+
+    const heatmap = {};
+    yearlyShifts.forEach(shift => {
+        heatmap[shift.date] = {
+            hours: shift.workingHours,
+            intensity: shift.workingHours >= 9 ? 4 :
+                shift.workingHours >= 8 ? 3 :
+                    shift.workingHours >= 6 ? 2 :
+                        shift.workingHours > 0 ? 1 : 0
+        };
+    });
+
+    return heatmap;
+}
+
+/**
  * Check goal progress
  */
 export function checkGoalProgress() {

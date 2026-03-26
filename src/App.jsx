@@ -116,9 +116,22 @@ export default function App() {
   }, []);
 
   // --- Calculations ---
+  const [currentMinutes, setCurrentMinutes] = useState(() => {
+    const now = new Date();
+    return now.getHours() * 60 + now.getMinutes();
+  });
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = new Date();
+      setCurrentMinutes(now.getHours() * 60 + now.getMinutes());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
   // Convert hours to minutes for the hook
   const fullDayMinutes = shiftDuration * 60;
-  const logStats = useLogParser(logInput, use24Hour);
+  const logStats = useLogParser(logInput, use24Hour, currentMinutes);
   const shiftDetails = useShiftCalculations(startTime, fullDayMinutes, use24Hour, logStats.totalOutTime);
 
   // Calculate work progress percentage

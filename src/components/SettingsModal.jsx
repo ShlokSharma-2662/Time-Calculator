@@ -1,8 +1,38 @@
-import React from 'react';
-import { X } from 'lucide-react';
+import React, { useRef } from 'react';
+import { X, Download, Upload, Trash2 } from 'lucide-react';
+import { downloadBackup, importAllData, clearAllData } from '../utils/dataManagement';
 
 export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration, use24Hour, setUse24Hour }) => {
+    const fileInputRef = useRef(null);
+
     if (!isOpen) return null;
+
+    const handleRestore = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const json = JSON.parse(event.target.result);
+                if (importAllData(json)) {
+                    alert('Data restored successfully! The page will now reload.');
+                    window.location.reload();
+                }
+            } catch (err) {
+                alert('Error restoring data: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    };
+
+    const handleClear = () => {
+        if (window.confirm('Are you sure you want to clear all data? This cannot be undone.')) {
+            clearAllData();
+            alert('Data cleared! The page will now reload.');
+            window.location.reload();
+        }
+    };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
@@ -37,6 +67,44 @@ export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration
                             className={`w-12 h-6 rounded-full p-1 transition-colors duration-200 ease-in-out ${use24Hour ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-600'}`}
                         >
                             <div className={`w-4 h-4 rounded-full bg-white shadow-sm transform transition-transform duration-200 ${use24Hour ? 'translate-x-6' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
+
+                    {/* Data Management Section */}
+                    <div className="pt-6 border-t border-slate-100 dark:border-slate-700 space-y-4">
+                        <h4 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider">Data Management</h4>
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <button
+                                onClick={downloadBackup}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors font-medium text-sm"
+                            >
+                                <Download className="w-4 h-4" />
+                                Backup
+                            </button>
+
+                            <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="flex items-center justify-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors font-medium text-sm"
+                            >
+                                <Upload className="w-4 h-4" />
+                                Restore
+                            </button>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleRestore}
+                                className="hidden"
+                                accept=".json"
+                            />
+                        </div>
+
+                        <button
+                            onClick={handleClear}
+                            className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors font-medium text-sm"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                            Clear All Data
                         </button>
                     </div>
                 </div>
