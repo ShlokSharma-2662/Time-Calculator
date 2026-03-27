@@ -3,11 +3,23 @@ import { motion } from 'framer-motion';
 import { GlassCard } from './GlassCard';
 import { CircularProgress } from './CircularProgress';
 import { WeeklyTrend } from './WeeklyTrend';
-import { Zap, Clock, Timer, LogIn, LogOut, ArrowUpRight, Sun } from 'lucide-react';
+import { ArrowUpRight, Sun, Zap, Clock, Timer, LogIn, LogOut } from 'lucide-react';
+import { useTimeHelpers } from '../hooks/useTimeHelpers';
 import { getHolidayName } from '../utils/sandwichLeaveLogic';
+import { getLeaveForDate, LEAVE_TYPES } from '../utils/leaveHistory';
 
-export const Dashboard = ({ shiftDetails, logStats, workProgress, startTime, history, shiftDuration }) => {
-    const isOvertime = logStats.realTimeEffectiveWork > (shiftDetails.fullDayMinutes || 540);
+export const Dashboard = ({
+    shiftDetails,
+    logStats,
+    workProgress,
+    activeLeave = null,
+    mtdProgress,
+    history,
+    shiftDuration
+}) => {
+    const isOvertime = logStats.isOvertime;
+    const { minutesToTime } = useTimeHelpers();
+    const use24Hour = false; // Add this or pass from props if needed
 
     // Calculate productivity relative to goal
     const productivityPercent = useMemo(() => {
@@ -18,6 +30,7 @@ export const Dashboard = ({ shiftDetails, logStats, workProgress, startTime, his
 
         const totalPercent = recentDays.reduce((acc, [, data]) => {
             const effective = data?.effectiveWorkTime || 0;
+            // Note: effectiveWorkTime already includes virtual leave minutes from the parser
             return acc + (effective / targetMinutes) * 100;
         }, 0);
 
@@ -36,14 +49,29 @@ export const Dashboard = ({ shiftDetails, logStats, workProgress, startTime, his
                             strokeWidth={16}
                             color={isOvertime ? "#f43f5e" : "#6366f1"}
                         />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-4">
-                            <span className="text-[10px] font-black text-indigo-300/50 uppercase tracking-[0.2em] mb-2 leading-none">Overall Progress</span>
-                            <span className="text-7xl font-black text-white tabular-nums leading-none">
-                                {Math.floor(workProgress)}<span className="text-2xl text-slate-400/60 ml-1">%</span>
-                            </span>
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full">
+                            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">Overall Progress</div>
+                            <div className="text-7xl font-black text-slate-800 dark:text-white tracking-tighter flex items-center justify-center">
+                                {Math.floor(workProgress)}<span className="text-3xl text-indigo-500/50 ml-1">%</span>
+                            </div>
+
+                            {/* Leave Indicator Badge */}
+                            {activeLeave && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20 dark:border-indigo-500/30 rounded-full"
+                                >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                                    <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">
+                                        {activeLeave.type.toUpperCase()} APPLIED
+                                    </span>
+                                </motion.div>
+                            )}
+
                             <div className="mt-6 flex flex-col items-center gap-3">
                                 {getHolidayName(new Date().toISOString().slice(0, 10)) && (
-                                    <motion.div 
+                                    <motion.div
                                         initial={{ scale: 0.9, opacity: 0 }}
                                         animate={{ scale: 1, opacity: 1 }}
                                         className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 shadow-lg shadow-indigo-500/5 mb-1"
@@ -74,15 +102,15 @@ export const Dashboard = ({ shiftDetails, logStats, workProgress, startTime, his
                     </div>
                 </GlassCard>
 
-                <GlassCard title="Est. Exit" icon={LogOut} subtitle={`${shiftDetails.fullDayLabel} Target`}>
+                <GlassCard title="Est. Exit" icon={LogOut} subtitle={shiftDetails.activeTargetLabel}>
                     <div className="text-4xl font-black text-white mt-2 tabular-nums">
-                        {shiftDetails.fullDayAdjusted}
+                        {shiftDetails.isFullLeave ? '--:--' : shiftDetails.activeTargetAdjusted}
                     </div>
                 </GlassCard>
 
-                <GlassCard title="Shift Start" icon={LogIn} subtitle="Automatically detected">
+                <GlassCard title="Shift Start" icon={LogIn} subtitle={activeLeave ? activeLeave.type : "Automatically detected"}>
                     <div className="text-4xl font-black text-white mt-2 tabular-nums">
-                        {startTime}
+                        {minutesToTime(shiftDetails.startMinutes, use24Hour)}
                     </div>
                 </GlassCard>
 

@@ -1,9 +1,13 @@
-/**
- * Leave History Tracking
- * Manages historical leave data and analytics
- */
-
 const STORAGE_KEY = 'leave_history_data';
+
+import { formatDate } from './dateUtils';
+
+export const LEAVE_TYPES = {
+    FULL: 'Full Day',
+    HALF_1: 'Half Day (1st Half)',
+    HALF_2: 'Half Day (2nd Half)',
+    SHORT: 'Short Time Off'
+};
 
 /**
  * Get all leave history
@@ -26,28 +30,86 @@ export function getLeaveHistory() {
 
 /**
  * Add leave to history
+ * @param {Object} leaveData - { date, startDate, endDate, type, days, sandwiched, durationMinutes }
+ */
+/**
+ * Add leave to history
  */
 export function addLeaveToHistory(leaveData) {
     const history = getLeaveHistory();
-
     const newLeave = {
         id: Date.now().toString(),
         ...leaveData,
+        startDate: leaveData.startDate || leaveData.date,
+        endDate: leaveData.endDate || leaveData.date,
+        days: leaveData.days || (leaveData.type === LEAVE_TYPES.FULL ? 1 : 0.5),
         timestamp: new Date().toISOString()
     };
 
-    history.leaves.unshift(newLeave); // Add to beginning
+    history.leaves.unshift(newLeave);
 
-    // Keep only last 50 entries
-    if (history.leaves.length > 50) {
-        history.leaves = history.leaves.slice(0, 50);
-    }
+    if (history.leaves.length > 200) history.leaves = history.leaves.slice(0, 200);
 
-    // Recalculate stats
     history.stats = calculateStats(history.leaves);
-
     localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
     return newLeave;
+}
+
+/**
+ * Save or update leave entry (used for cloud restoration)
+ */
+export function saveLeaveEntry(leaveData) {
+    const history = getLeaveHistory();
+    const dateStr = leaveData.date || leaveData.startDate;
+
+    // Check if entry already exists for this date (preventing duplicates during sync)
+    const existingIndex = history.leaves.findIndex(l => l.date === dateStr);
+
+    if (existingIndex > -1) {
+        history.leaves[existingIndex] = {
+            ...history.leaves[existingIndex],
+            ...leaveData,
+            updatedAt: new Date().toISOString()
+        };
+    } else {
+        const newLeave = {
+            id: leaveData.id || Date.now().toString(),
+            date: dateStr,
+            startDate: dateStr,
+            endDate: dateStr,
+            type: leaveData.type,
+            durationMinutes: leaveData.durationMinutes || 0,
+            days: leaveData.days || (leaveData.type === LEAVE_TYPES.FULL ? 1 : 0.5),
+            timestamp: new Date().toISOString()
+        };
+        history.leaves.unshift(newLeave);
+    }
+
+    history.stats = calculateStats(history.leaves);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+/**
+ * Remove leave from history
+ */
+export function removeLeaveFromHistory(id) {
+    const history = getLeaveHistory();
+    history.leaves = history.leaves.filter(l => l.id !== id);
+    history.stats = calculateStats(history.leaves);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+/**
+ * Get leave for a specific date
+ */
+export function getLeaveForDate(dateStr) {
+    const history = getLeaveHistory();
+    // Return the first leave that covers this date
+    return history.leaves.find(leave => {
+        if (leave.date === dateStr) return true;
+        if (leave.startDate <= dateStr && leave.endDate >= dateStr) return true;
+        return false;
+    });
 }
 
 /**

@@ -89,10 +89,14 @@ export const AuthProvider = ({ children }) => {
     for (const log of logs) {
       const [date, data] = Array.isArray(log) ? log : [log.date, log];
       if (!date) continue;
+
+      // Sanitize data specifically for Firestore (replaces undefined with key removal)
+      const sanitizedData = JSON.parse(JSON.stringify(data));
+
       const ref = doc(db, 'users', user.uid, 'logs', date);
       batch.set(ref, {
         date,
-        ...(typeof data === 'object' ? data : { raw: data }),
+        ...(typeof sanitizedData === 'object' ? sanitizedData : { raw: sanitizedData }),
         updatedAt: new Date().toISOString()
       }, { merge: true });
     }

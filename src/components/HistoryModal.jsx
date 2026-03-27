@@ -3,7 +3,7 @@ import { X, Calendar, Download, CornerUpLeft, List } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CalendarView } from './CalendarView';
 import { getHolidayName } from '../utils/sandwichLeaveLogic';
-import { formatDate } from '../utils/shiftHistory';
+import { formatDate } from '../utils/dateUtils';
 
 export const HistoryModal = ({ isOpen, onClose, historyEntries, history, onLoadEntry, onExport, showSuccess }) => {
     const [view, setView] = useState('list'); // 'list' | 'calendar'

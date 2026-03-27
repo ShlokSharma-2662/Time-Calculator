@@ -34,10 +34,10 @@ export const useHistory = () => {
     };
 
     const exportToCSV = () => {
-        const headers = ['Date', 'Start Time', 'First In', 'Last Out', 'Breaks (min)', 'Effective Work (h:m)'];
+        const headers = ['Date', 'Start Time', 'First In', 'Last Out', 'Breaks (min)', 'Effective Work (h:m)', 'Leave Type'];
         const rows = getAllEntries().map(([date, data]) => {
             // Basic validation
-            if (!data) return [date, '-', '-', '-', '-', '-'];
+            if (!data) return [date, '-', '-', '-', '-', '-', '-'];
 
             return [
                 date,
@@ -45,14 +45,14 @@ export const useHistory = () => {
                 data.firstInTime || '-',
                 data.lastOutTime || '-',
                 data.totalOutTime || '0',
-                // Simple format since we don't have the helper function here, or pass raw minutes
-                data.effectiveWorkTime ? `${Math.floor(data.effectiveWorkTime / 60)}h ${data.effectiveWorkTime % 60}m` : '0h 0m'
+                data.effectiveWorkTime ? `${Math.floor(data.effectiveWorkTime / 60)}h ${data.effectiveWorkTime % 60}m` : '0h 0m',
+                data.activeLeave ? (data.activeLeave.type === 'Short Time Off' ? `${data.activeLeave.durationMinutes}m Off` : data.activeLeave.type) : '-'
             ];
         });
 
         const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.join(','))
+            headers.map(h => `"${h}"`).join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
         ].join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

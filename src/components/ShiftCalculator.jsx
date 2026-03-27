@@ -1,10 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, CheckCircle2, Briefcase, Clock3, ShieldCheck, Coffee, Timer, History, Goal } from 'lucide-react';
+import { Sun, CheckCircle2, Briefcase, Clock3, ShieldCheck, Coffee, Timer, History, Goal, Calendar, Clock, Lock, Unlock, Zap, Settings, Info, Moon } from 'lucide-react';
+import { LEAVE_TYPES } from '../utils/leaveHistory';
+import { useUI } from '../context/UIContext';
 import { motion } from 'framer-motion';
 import { useTimeHelpers } from '../hooks/useTimeHelpers';
 import { GlassCard } from './GlassCard';
 
-export const ShiftCalculator = ({ startTime, setStartTime, synced, shiftDetails }) => {
+export const ShiftCalculator = ({
+    startTime,
+    setStartTime,
+    synced,
+    shiftDetails,
+    activeLeave
+}) => {
     const { formatDuration } = useTimeHelpers();
     const [activeTarget, setActiveTarget] = useState('fullDay');
 
@@ -21,11 +29,17 @@ export const ShiftCalculator = ({ startTime, setStartTime, synced, shiftDetails 
     const [diffMinutes, setDiffMinutes] = useState(0);
 
     useEffect(() => {
+        if (shiftDetails.detectedTargetKey && shiftDetails.detectedTargetKey !== activeTarget) {
+            setActiveTarget(shiftDetails.detectedTargetKey);
+        }
+    }, [shiftDetails.detectedTargetKey]);
+
+    useEffect(() => {
         const updateDiff = () => {
             const now = new Date();
             const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
             const targetTotalMinutes = shiftDetails[`${activeTarget}AdjustedMinutes`];
-            
+
             if (targetTotalMinutes !== undefined) {
                 setDiffMinutes(targetTotalMinutes - currentTotalMinutes);
             }
@@ -66,6 +80,11 @@ export const ShiftCalculator = ({ startTime, setStartTime, synced, shiftDetails 
                     onChange={(e) => setStartTime(e.target.value)}
                     className="w-full text-7xl font-black bg-transparent border-none focus:outline-none py-6 text-center tracking-tighter tabular-nums text-slate-900 dark:text-white"
                 />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1 text-center">
+                    {activeLeave?.type === LEAVE_TYPES.HALF_1 ? '1ST HALF LEAVE' :
+                        activeLeave?.type === LEAVE_TYPES.HALF_2 ? '2ND HALF LEAVE' :
+                            'AUTOMATICALLY DETECTED'}
+                </p>
 
                 <div className="flex flex-wrap justify-center gap-2">
                     {['now', '09:00', '09:30', '10:00'].map(p => (
@@ -112,7 +131,7 @@ export const ShiftCalculator = ({ startTime, setStartTime, synced, shiftDetails 
                             TARGET END TIME
                         </span>
                         <div className={`text-6xl font-black tabular-nums tracking-tighter ${isOvertime ? 'text-rose-700 dark:text-rose-400' : 'text-slate-900 dark:text-white'}`}>
-                            {shiftDetails[targetAdjustedKey]}
+                            {shiftDetails.isFullLeave ? '--:--' : shiftDetails[targetAdjustedKey]}
                         </div>
 
                         <div className="mt-6">

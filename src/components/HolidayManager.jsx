@@ -3,7 +3,7 @@ import { Calendar, Plus, Trash2, ShieldAlert } from 'lucide-react';
 import { getMergedHolidays, addCustomHoliday, removeCustomHoliday } from '../utils/holidayPersistence';
 import { HOLIDAYS_BY_FY, refreshHolidays } from '../utils/sandwichLeaveLogic';
 import { useUI } from '../context/UIContext';
-import { formatDate } from '../utils/shiftHistory';
+import { formatDate } from '../utils/dateUtils';
 
 export function HolidayManager() {
     const { showSuccess, showError, confirm } = useUI();

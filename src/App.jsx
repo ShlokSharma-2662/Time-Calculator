@@ -20,6 +20,8 @@ import { useHistory } from './hooks/useHistory';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
 import { getMonthToDateAdherence } from './utils/shiftHistory';
+import { getLeaveForDate, LEAVE_TYPES } from './utils/leaveHistory';
+import { normalizeDate } from './utils/dateUtils';
 
 function AppContent() {
   const { user, loading, logout, syncLogsToCloud, fetchLogsFromCloud } = useAuth();
@@ -100,6 +102,15 @@ function AppContent() {
       for (const log of cloudLogs) {
         const { id, date, updatedAt, ...data } = log;
         saveEntry(date || id, data);
+
+        // If the cloud log contains leave data, ensure it's reflected in local leave history
+        if (data.activeLeave) {
+          const { saveLeaveEntry } = await import('./utils/leaveHistory');
+          saveLeaveEntry({
+            date: date || id,
+            ...data.activeLeave
+          });
+        }
       }
       showSuccess(`☁️ Restored ${cloudLogs.length} entries from cloud`);
     } catch (err) {
@@ -143,12 +154,27 @@ function AppContent() {
   }, [startTime]);
 
   const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-  const logStats = useLogParser(logInput, use24Hour, currentMinutes, startTimeMinutes, today);
-  const shiftDetails = useShiftCalculations(startTime, shiftDuration * 60, use24Hour, logStats.totalOutTime);
 
-  const workProgress = useMemo(() => {
+  const currentParsedDate = useMemo(() => {
+    const DATE_REGEX = /(\d{4}-\d{2}-\d{2})|(\d{1,2}[\/-][A-Za-z]{3}[\/-]\d{2,4})|(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/g;
+    const match = logInput.match(DATE_REGEX);
+    return normalizeDate(match ? match[0] : today);
+  }, [logInput, today]);
+
+  const activeLeave = useMemo(() => getLeaveForDate(currentParsedDate), [currentParsedDate, history]);
+
+  const logStats = useLogParser(logInput, use24Hour, currentMinutes, startTimeMinutes, today, activeLeave);
+  const shiftDetails = useShiftCalculations(logStats.firstInTime || startTime, shiftDuration * 60, use24Hour, logStats.totalOutTime, currentParsedDate);
+
+  const mtdProgress = useMemo(() => {
     return getMonthToDateAdherence(history, logStats, shiftDuration * 60);
   }, [history, logStats, shiftDuration]);
+
+  const currentDayProgress = useMemo(() => {
+    const targetMinutes = shiftDuration * 60;
+    if (targetMinutes === 0) return 0;
+    return Math.min(100, Math.round((logStats.effectiveWorkTime / targetMinutes) * 100));
+  }, [logStats.effectiveWorkTime, shiftDuration]);
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);
@@ -161,7 +187,8 @@ function AppContent() {
         totalOutTime: logStats.totalOutTime,
         effectiveWorkTime: logStats.effectiveWorkTime,
         firstInTime: logStats.firstInTime,
-        lastOutTime: logStats.lastOutTime
+        lastOutTime: logStats.lastOutTime,
+        activeLeave: activeLeave || null // Save leave info with the log (Firestore needs null, not undefined)
       };
       saveEntry(targetDate, entryData);
 
@@ -225,7 +252,6 @@ function AppContent() {
           onSync={syncLogs}
           onRestore={restoreFromCloud}
           user={user}
-          workProgress={workProgress}
           activeView={activeView}
           setActiveView={setActiveView}
         />
@@ -235,10 +261,12 @@ function AppContent() {
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
               <div className="xl:col-span-8 space-y-8">
                 <Dashboard
+                  workProgress={currentDayProgress}
                   shiftDetails={shiftDetails}
                   logStats={logStats}
-                  workProgress={workProgress}
-                  startTime={startTime}
+                  isOvertime={logStats.isOvertime}
+                  activeLeave={activeLeave}
+                  mtdProgress={mtdProgress}
                   history={history}
                   shiftDuration={shiftDuration}
                 />

@@ -20,7 +20,6 @@ export const useTimeHelpers = () => {
         const h12 = h % 12 || 12;
         return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
     };
-
     const formatDuration = (minutes) => {
         const h = Math.floor(minutes / 60);
         const m = minutes % 60;

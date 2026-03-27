@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useTimeHelpers } from './useTimeHelpers';
+import { LEAVE_TYPES } from '../utils/leaveHistory';
 
 const LOG_REGEX = /(\d{1,2}:\d{2})\s*(AM|PM)?\s*(IN|OUT)/gi;
 const DATE_REGEX = /(\d{4}-\d{2}-\d{2})|(\d{1,2}[\/-][A-Za-z]{3}[\/-]\d{2,4})|(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/g;
@@ -9,7 +10,7 @@ const MONTH_MAP = {
     jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
 };
 
-export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0, startTimeMinutes = null, today = null) => {
+export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0, startTimeMinutes = null, today = null, leave = null) => {
     const { minutesToTime } = useTimeHelpers();
 
     return useMemo(() => {
@@ -102,19 +103,42 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
             realTimeWork = netWork;
         }
 
+        // --- Leave Injection (Virtual Time) ---
+        let leaveMinutes = 0;
+        if (leave) {
+            if (leave.type === LEAVE_TYPES.FULL) leaveMinutes = 540; // 9h
+            else if (leave.type && (leave.type === LEAVE_TYPES.HALF_1 || leave.type === LEAVE_TYPES.HALF_2 || leave.type.includes('Half'))) leaveMinutes = 270; // 4.5h
+            else if (leave.type === LEAVE_TYPES.SHORT) leaveMinutes = leave.durationMinutes || 0;
+        }
+
+        const effectiveWorkWithLeave = (netWork > 0 ? netWork : (realTimeWork > 0 ? realTimeWork : 0)) + leaveMinutes;
+        const realTimeWithLeave = (realTimeWork > 0 ? realTimeWork : 0) + leaveMinutes;
+
+        // Virtual Shift Start (if 1st half leave)
+        let virtualFirstInTime = firstIn ? firstIn.displayTime : (leave?.type === LEAVE_TYPES.FULL ? minutesToTime(startTimeMinutes || 540, use24Hour) : null);
+
+        if (leave && leave.type === LEAVE_TYPES.HALF_1) {
+            // Priority: Configured Start Time > 8:01 AM (fallback)
+            const effectiveStartMins = (startTimeMinutes !== null) ? startTimeMinutes : 481;
+            virtualFirstInTime = minutesToTime(effectiveStartMins, use24Hour);
+        } else if (leave && leave.type === LEAVE_TYPES.FULL) {
+            virtualFirstInTime = minutesToTime(startTimeMinutes || 540, use24Hour);
+        }
+
         return {
             events: parsedEvents,
             breaks: computedBreaks,
             totalOutTime: totalOut,
             autoStartTime: firstIn ? minutesToTime(firstIn.minutes, true) : null,
-            effectiveWorkTime: netWork > 0 ? netWork : (realTimeWork > 0 ? realTimeWork : 0),
-            realTimeEffectiveWork: realTimeWork > 0 ? realTimeWork : 0,
-            firstInTime: firstIn ? firstIn.displayTime : null,
+            effectiveWorkTime: effectiveWorkWithLeave,
+            realTimeEffectiveWork: realTimeWithLeave,
+            firstInTime: virtualFirstInTime,
             lastOutTime: lastOut ? lastOut.displayTime : null,
             isCurrentlyOut: lastEvent ? lastEvent.type === 'OUT' : false,
             detectedDate,
             isHistorical,
-            currentTimeMinutes
+            currentTimeMinutes,
+            leaveMinutes
         };
     }, [logInput, use24Hour, minutesToTime, currentTimeMinutes, startTimeMinutes, today]);
 };

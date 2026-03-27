@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ELEncashmentCalculator } from './ELEncashmentCalculator';
 import { SandwichLeaveChecker } from './SandwichLeaveChecker';
 import { SmartAnalytics } from './SmartAnalytics';
+import { LeaveTracker } from './LeaveTracker';
 
 export function LeaveManagement() {
     const [currentLeave, setCurrentLeave] = useState(null);
@@ -12,16 +13,23 @@ export function LeaveManagement() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.5 }}
-            className="space-y-6"
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
         >
-            {/* Smart Analytics Module */}
-            <SmartAnalytics currentLeave={currentLeave} />
+            <div className="space-y-6">
+                {/* Module 3: Leave Tracker (Management) */}
+                <LeaveTracker />
 
-            {/* Module 1: EL Encashment Calculator */}
-            <ELEncashmentCalculator />
+                {/* Module 1: EL Encashment Calculator */}
+                <ELEncashmentCalculator />
+            </div>
 
-            {/* Module 2: Sandwich Leave Checker */}
-            <SandwichLeaveChecker onLeaveChange={setCurrentLeave} />
+            <div className="space-y-6">
+                {/* Smart Analytics Module */}
+                <SmartAnalytics currentLeave={currentLeave} />
+
+                {/* Module 2: Sandwich Leave Checker */}
+                <SandwichLeaveChecker onLeaveChange={setCurrentLeave} />
+            </div>
 
             {/* Info Footer */}
             <motion.div

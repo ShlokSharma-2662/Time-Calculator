@@ -6,14 +6,11 @@
 const STORAGE_KEY = 'shift_analytics_data';
 const HISTORY_STORAGE_KEY = 'workShift_history';
 
-/**
- * Format date string from YYYY-MM-DD to DD-MM-YYYY
- */
-export function formatDate(dateStr) {
-    if (!dateStr || !dateStr.includes('-')) return dateStr;
-    const [year, month, day] = dateStr.split('-');
-    return `${day}-${month}-${year}`;
-}
+import { getMergedHolidays } from './holidayPersistence';
+import { HOLIDAYS_BY_FY } from './sandwichLeaveLogic';
+import { getLeaveForDate, LEAVE_TYPES } from './leaveHistory';
+
+import { formatDate } from '../utils/dateUtils';
 
 /**
  * Helper to transform main history object to shifts array
@@ -239,62 +236,58 @@ export function getMonthlySummary(history) {
  * For 'today' or any in-progress day, 'expected' is till current time
  */
 export function getMonthToDateAdherence(history, currentDayStats, shiftDurationMinutes) {
-    const today = new Date().toISOString().slice(0, 10);
-    const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     startOfMonth.setHours(0, 0, 0, 0);
-
-    const shiftDurationHours = shiftDurationMinutes / 60;
 
     let totalActualMinutes = 0;
     let totalTargetMinutes = 0;
 
-    // 1. Process historical entries for this month
-    Object.entries(history).forEach(([date, data]) => {
-        const d = new Date(date);
-        if (d >= startOfMonth && date !== today) {
-            totalActualMinutes += data.effectiveWorkTime || 0;
-            // For past days, we expect a full shift if there's any log
-            // If there's no log for a weekday, technically it's a 'missed' day, 
-            // but we'll stick to 'logged days' for adherence.
-            totalTargetMinutes += shiftDurationMinutes;
+    // Get all days from start of month to today
+    const daysInMonthToToday = [];
+    const tempDate = new Date(startOfMonth);
+    while (tempDate <= now) {
+        daysInMonthToToday.push(tempDate.toISOString().slice(0, 10));
+        tempDate.setDate(tempDate.getDate() + 1);
+    }
+
+    daysInMonthToToday.forEach(dateStr => {
+        const isToday = dateStr === todayStr;
+        const d = new Date(dateStr);
+        const isWknd = d.getDay() === 0 || d.getDay() === 6;
+
+        const dayTargetMinutes = shiftDurationMinutes;
+
+        if (isToday) {
+            if (currentDayStats && currentDayStats.firstInTime) {
+                const isFinished = !!currentDayStats.shiftEndTime;
+                const [h, m] = currentDayStats.firstInTime.split(':').map(Number);
+                const startTimeMinutes = h * 60 + m;
+                const nowMinutes = now.getHours() * 60 + now.getMinutes();
+                const elapsedSinceStart = Math.max(0, nowMinutes - startTimeMinutes);
+
+                // Note: Actual is now already leave-inclusive from the parser
+                const currentTarget = isFinished
+                    ? dayTargetMinutes
+                    : Math.min(dayTargetMinutes, elapsedSinceStart);
+
+                totalActualMinutes += currentDayStats.effectiveWorkTime || 0;
+                totalTargetMinutes += currentTarget;
+            }
+        } else {
+            const dayData = history[dateStr];
+            if (dayData) {
+                totalActualMinutes += dayData.effectiveWorkTime || 0;
+                totalTargetMinutes += dayTargetMinutes;
+            } else if (!isWknd && dayTargetMinutes > 0) {
+                // Weekday with no log and no full leave = missed day
+                totalTargetMinutes += dayTargetMinutes;
+            }
         }
     });
 
-    // 2. Process today (the active shift)
-    if (currentDayStats) {
-        const actualToday = currentDayStats.effectiveWorkTime || 0;
-        let targetToday = 0;
-
-        if (currentDayStats.lastOutTime && !currentDayStats.isCurrentlyOut) {
-            // If the day is 'Finished' (has a last out and not currently active)
-            // Or if actual work already exceeds the goal
-            if (actualToday >= shiftDurationMinutes) {
-                targetToday = shiftDurationMinutes;
-            } else {
-                // If they finished early, target is still the full shift?
-                // The user said "if log for full day is available then calculate using that"
-                targetToday = shiftDurationMinutes;
-            }
-        } else {
-            // Shift is in progress
-            // Target is either the elapsed time since start (excluding breaks)
-            // or the full shift duration if we've already crossed it.
-            if (currentDayStats.firstInTime) {
-                const [h, m] = currentDayStats.firstInTime.split(':').map(Number);
-                const startTimeMinutes = h * 60 + m;
-                const now = new Date();
-                const nowMinutes = now.getHours() * 60 + now.getMinutes();
-
-                const elapsedMinutes = Math.max(0, nowMinutes - startTimeMinutes - (currentDayStats.totalOutTime || 0));
-                targetToday = Math.min(shiftDurationMinutes, elapsedMinutes);
-            }
-        }
-
-        totalActualMinutes += actualToday;
-        totalTargetMinutes += targetToday;
-    }
-
-    if (totalTargetMinutes === 0) return 100; // Perfect adherence if nothing expected yet
+    if (totalTargetMinutes === 0) return 100;
     const adherence = (totalActualMinutes / totalTargetMinutes) * 100;
     return Math.min(100, Math.round(adherence));
 }
