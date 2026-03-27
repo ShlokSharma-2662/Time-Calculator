@@ -26,6 +26,14 @@ export const useShiftCalculations = (
         const fullDayMins = startMinutes + fullDayDuration;
         const fullDayAdjustedMins = fullDayMins + extraChargeableBreakMinutes;
 
+        const halfDayDuration = Math.floor(fullDayDuration / 2);
+        const halfDayMins = startMinutes + halfDayDuration;
+        const halfDayAdjustedMins = halfDayMins + extraChargeableBreakMinutes;
+
+        const shortDuration = Math.max(fullDayDuration - 90, 0);
+        const shortLeaveMins = startMinutes + shortDuration;
+        const shortLeaveAdjustedMins = shortLeaveMins + extraChargeableBreakMinutes;
+
         return {
             activeTargetLabel: leave ? (leave.type === LEAVE_TYPES.FULL ? 'Full Leave' : 'Leave Applied') : 'Full Day',
             activeTargetAdjusted: minutesToTime(fullDayAdjustedMins, use24Hour),
@@ -36,6 +44,16 @@ export const useShiftCalculations = (
             fullDayMinutes: fullDayMins,
             fullDayAdjusted: minutesToTime(fullDayAdjustedMins, use24Hour),
             fullDayAdjustedMinutes: fullDayAdjustedMins,
+
+            halfDay: minutesToTime(halfDayMins, use24Hour),
+            halfDayMinutes: halfDayMins,
+            halfDayAdjusted: minutesToTime(halfDayAdjustedMins, use24Hour),
+            halfDayAdjustedMinutes: halfDayAdjustedMins,
+
+            shortLeave: minutesToTime(shortLeaveMins, use24Hour),
+            shortLeaveMinutes: shortLeaveMins,
+            shortLeaveAdjusted: minutesToTime(shortLeaveAdjustedMins, use24Hour),
+            shortLeaveAdjustedMinutes: shortLeaveAdjustedMins,
 
             includedBreakAllowanceMinutes: INCLUDED_BREAK_ALLOWANCE_MINUTES,
             extraChargeableBreakMinutes,
