@@ -1,17 +1,24 @@
-# 🚀 WorkShift Calc v3.0
+# 🚀 WorkShift Calc v5.0
 
 **WorkShift Calc** is a high-performance, cloud-sync-enabled React application designed to modernize work-life tracking. Featuring a premium glassmorphic UI, it combines a precision shift calculator, attendance log analyzer, and advanced multi-month analytics into a single, professional dashboard.
 
 ---
 
-## ✨ v3.0 Modernization Highlights
+## ✨ v5.0 Enterprise Highlights
 
-This version marks a significant architectural shift toward enterprise-grade stability and cross-device availability.
+This version introduces robust infrastructure for migrating years of historical data into the cloud.
+
+### 📁 Legacy Leave Migration (NEW)
+
+- **HR-Grade Importer**: Seamlessly import `.xls` / `.xlsx` exports from Spine, Keka, and GreytHR portals.
+- **Smart Deduplication**: Avoids duplicate tallies with bit-exact record signatures (Date + Type + Magnitude).
+- **Visual Sync Check**: Real-time "Already Synchronized" badges in the preview dashboard before committing to the cloud.
+- **Danger Zone Reset**: Secure, two-step "Legacy Purge" to wipe cloud history for a 100% clean refresh.
 
 ### 🌐 Secure Cloud Sync & Google Auth
 
 - **Google Sign-In**: Integrated with Firebase Authentication for seamless, secure login.
-- **Cloud Persistence**: Automatic daily backups of your shift history to Firestore.
+- **Cloud Persistence**: Automatic daily backups of your shift history and leave registry to Firestore.
 - **Bi-Directional Sync**: "Pull" latest data from the cloud to restore history on new devices instantly.
 
 ### 📊 Advanced Analytics & Goals
@@ -46,6 +53,7 @@ This version marks a significant architectural shift toward enterprise-grade sta
 
 - **Core**: React 19, Vite 7
 - **Database/Auth**: Firebase (Auth & Firestore)
+- **Parsing Engine**: `xlsx` (Excel), `papaparse` (CSV)
 - **Styling**: Tailwind CSS 4, Framer Motion
 - **Visualization**: Recharts & Custom SVG Engine
 - **Icons**: Lucide React
