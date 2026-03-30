@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Clock, Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
     Search, Filter, LayoutGrid, Timer, AlertCircle, CheckCircle2,
-    Coffee, Zap, TrendingUp, Edit2, Check, X
+    Coffee, Zap, TrendingUp, Edit2, Check, X, Eye
 } from 'lucide-react';
 import { transformHistoryToShifts, getGoals } from '../utils/shiftHistory';
 import { useAuth } from '../context/AuthContext';
@@ -22,6 +22,7 @@ export function AttendanceLog() {
     const [editingDate, setEditingDate] = useState(null);
     const [editValues, setEditValues] = useState({ startTime: '', lastOutTime: '', totalBreak: 0 });
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [viewingShift, setViewingShift] = useState(null);
 
     const [leaveHistory, setLeaveHistory] = useState([]);
 
@@ -286,16 +287,16 @@ export function AttendanceLog() {
                         transition={{ duration: 0.4, ease: "easeInOut" }}
                         className="overflow-hidden"
                     >
-                        <div className="w-full">
+                        <div className="w-full pb-2">
                             <table className="w-full text-left border-collapse">
                                 <thead>
                                     <tr className="bg-white/[0.03] text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 border-y border-white/5">
-                                        <th className="px-6 py-5 w-[18%]">Shift Date</th>
-                                        <th className="px-4 py-5 w-[16%]">In Time</th>
-                                        <th className="px-4 py-5 w-[16%]">Out Time</th>
-                                        <th className="px-4 py-5 w-[16%]">Working</th>
+                                        <th className="px-6 py-5 w-[16%]">Shift Date</th>
+                                        <th className="px-4 py-5 w-[14%]">In Time</th>
+                                        <th className="px-4 py-5 w-[14%]">Out Time</th>
+                                        <th className="px-4 py-5 w-[14%]">Working</th>
                                         <th className="px-4 py-5 w-[14%] text-center">Break</th>
-                                        <th className="px-6 py-5 text-right w-[20%]">Status</th>
+                                        <th className="px-6 py-5 text-right w-[28%]">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5">
@@ -358,18 +359,33 @@ export function AttendanceLog() {
                                                         {shift.totalBreak}m
                                                     </div>
                                                 </td>
-                                                <td className="px-6 py-5 text-right whitespace-nowrap">
-                                                    <div className="flex items-center justify-end gap-3 transition-opacity">
-                                                        <span className={`px-2.5 py-1.5 rounded-full text-[8.5px] font-black uppercase tracking-widest border border-current transition-all shadow-sm ${status.color} ${status.bg} border-opacity-20 flex items-center gap-1.5`}>
-                                                            {status.isPulse && <span className="w-1 h-1 rounded-full bg-current animate-pulse shadow-[0_0_8px_currentColor]"></span>}
-                                                            {status.label}
-                                                        </span>
-                                                        <button
-                                                            onClick={() => handleStartEdit(shift)}
-                                                            className="p-2 opacity-0 group-hover:opacity-100 bg-white/5 text-slate-500 rounded-xl hover:bg-indigo-500 hover:text-white transition-all shadow-lg border border-white/5"
-                                                        >
-                                                            <Edit2 className="w-3.5 h-3.5" />
-                                                        </button>
+                                                <td className="px-6 py-5 whitespace-nowrap align-middle w-[140px]">
+                                                    <div className="relative flex justify-end items-center h-[34px] w-full">
+                                                        {/* Status Badge */}
+                                                        <div className="absolute right-0 flex items-center transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] group-hover:opacity-0 group-hover:translate-x-4 pointer-events-none">
+                                                            <span className={`px-2.5 py-1.5 rounded-full text-[8.5px] font-black uppercase tracking-widest border border-current shadow-sm ${status.color} ${status.bg} border-opacity-20 flex items-center gap-1.5`}>
+                                                                {status.isPulse && <span className="w-1 h-1 rounded-full bg-current animate-pulse shadow-[0_0_8px_currentColor]"></span>}
+                                                                {status.label}
+                                                            </span>
+                                                        </div>
+
+                                                        {/* Action Buttons */}
+                                                        <div className="absolute right-0 flex items-center gap-1.5 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] opacity-0 -translate-x-4 group-hover:translate-x-0 group-hover:opacity-100">
+                                                            <button
+                                                                onClick={() => setViewingShift(shift)}
+                                                                className="p-1.5 bg-white/5 text-slate-400 rounded-lg hover:bg-indigo-500 hover:text-white transition-colors border border-white/5 shadow-md flex items-center justify-center"
+                                                                title="View Details"
+                                                            >
+                                                                <Eye className="w-4 h-4" />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleStartEdit(shift)}
+                                                                className="p-1.5 bg-white/5 text-slate-400 rounded-lg hover:bg-amber-500 hover:text-white transition-colors border border-white/5 shadow-md flex items-center justify-center"
+                                                                title="Edit Shift"
+                                                            >
+                                                                <Edit2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </td>
                                             </motion.tr>
@@ -555,6 +571,148 @@ export function AttendanceLog() {
                                 >
                                     <CheckCircle2 className="w-4 h-4" />
                                     Save Changes
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* View Details Modal Overlay */}
+            <AnimatePresence>
+                {viewingShift && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            onClick={() => setViewingShift(null)}
+                            className="absolute inset-0 bg-slate-950/60 backdrop-blur-md"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            className="glass-card w-full max-w-lg relative z-10 overflow-hidden shadow-2xl shadow-indigo-500/10 border border-indigo-500/20"
+                        >
+                            <div className="p-6 border-b border-indigo-500/10 flex items-center justify-between bg-indigo-500/5">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-indigo-500/20 rounded-xl text-indigo-400">
+                                        <Eye className="w-5 h-5" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-lg font-black text-white tracking-tight">Shift Details</h3>
+                                        <p className="text-[10px] font-bold text-indigo-300 uppercase tracking-widest">{viewingShift.date}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setViewingShift(null)} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+
+                            <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">First In</p>
+                                        <p className="text-lg font-mono text-white">{history[viewingShift.date]?.firstInTime || viewingShift.startTime || '--:--'}</p>
+                                    </div>
+                                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Last Out</p>
+                                        <p className="text-lg font-mono text-white">{history[viewingShift.date]?.lastOutTime || viewingShift.fullDayEnd || '--:--'}</p>
+                                    </div>
+                                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Total Break</p>
+                                        <p className="text-lg font-mono text-white">{viewingShift.totalBreak || '0'}m</p>
+                                    </div>
+                                    <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Effective Work</p>
+                                        <p className="text-lg font-black text-emerald-400">{viewingShift.workingHours || '0.0'}h</p>
+                                    </div>
+                                </div>
+
+                                {(() => {
+                                    const rawLog = history[viewingShift.date]?.logInput;
+                                    if (!rawLog) return null;
+
+                                    const parseTimeString = (timeStr) => {
+                                        if (!timeStr) return null;
+                                        const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+                                        if (!match) return timeStr;
+                                        let [_, hours, minutes, ampm] = match;
+                                        hours = parseInt(hours);
+                                        if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
+                                        if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
+                                        return `${String(hours).padStart(2, '0')}:${minutes}`;
+                                    };
+
+                                    const punchMatches = [];
+                                    const punchRegex = /(\d{1,2}:\d{2}\s*(?:AM|PM))\s+(In|Out)\b/gi;
+                                    let match;
+                                    while ((match = punchRegex.exec(rawLog)) !== null) {
+                                        punchMatches.push({
+                                            timeStr: match[1],
+                                            time24: parseTimeString(match[1]),
+                                            type: match[2].toLowerCase()
+                                        });
+                                    }
+
+                                    // Sort by 24h time to ensure chronological display
+                                    punchMatches.sort((a, b) => {
+                                        const [hA, mA] = a.time24.split(':').map(Number);
+                                        const [hB, mB] = b.time24.split(':').map(Number);
+                                        return (hA * 60 + mA) - (hB * 60 + mB);
+                                    });
+
+                                    return (
+                                        <div className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                                    <LayoutGrid className="w-3 h-3 text-indigo-400" />
+                                                    Punched Timeline
+                                                </label>
+                                            </div>
+
+                                            {punchMatches.length > 0 ? (
+                                                <div className="p-5 bg-white/5 border border-white/10 rounded-xl relative pr-4">
+                                                    <div className="absolute left-[31px] top-6 bottom-6 w-px bg-white/10 shadow-[0_0_10px_rgba(255,255,255,0.1)]"></div>
+                                                    <div className="space-y-4 relative z-10">
+                                                        {punchMatches.map((punch, idx) => (
+                                                            <motion.div
+                                                                initial={{ opacity: 0, x: -10 }}
+                                                                animate={{ opacity: 1, x: 0 }}
+                                                                transition={{ delay: idx * 0.05 }}
+                                                                key={idx}
+                                                                className="flex items-center gap-4"
+                                                            >
+                                                                <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center bg-slate-900 shadow-lg ${punch.type === 'in' ? 'border-emerald-500 shadow-emerald-500/20' : 'border-rose-500 shadow-rose-500/20'}`}>
+                                                                    <div className={`w-1.5 h-1.5 rounded-full ${punch.type === 'in' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
+                                                                </div>
+                                                                <div className="flex-1 flex justify-between items-center px-4 py-2.5 bg-white/5 hover:bg-white/10 transition-colors border border-white/5 rounded-lg shadow-inner">
+                                                                    <span className="font-mono text-sm text-white drop-shadow-md">{punch.timeStr}</span>
+                                                                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md shadow-sm ${punch.type === 'in' ? 'text-emerald-400 bg-emerald-400/10 border border-emerald-500/20' : 'text-rose-400 bg-rose-400/10 border border-rose-500/20'}`}>
+                                                                        Punch {punch.type}
+                                                                    </span>
+                                                                </div>
+                                                            </motion.div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="p-4 bg-indigo-950/30 border border-indigo-500/20 rounded-xl whitespace-pre-wrap font-mono text-[10px] text-indigo-200/50">
+                                                    {rawLog}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
+                            <div className="p-6 border-t border-white/5 bg-black/20 flex items-center justify-end">
+                                <button
+                                    onClick={() => setViewingShift(null)}
+                                    className="px-6 py-2.5 bg-white/5 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-all border border-white/10"
+                                >
+                                    Close
                                 </button>
                             </div>
                         </motion.div>
