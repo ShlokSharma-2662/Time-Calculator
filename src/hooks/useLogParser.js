@@ -111,8 +111,11 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
             else if (leave.type === LEAVE_TYPES.SHORT) leaveMinutes = leave.durationMinutes || 0;
         }
 
-        const effectiveWorkWithLeave = (netWork > 0 ? netWork : (realTimeWork > 0 ? realTimeWork : 0)) + leaveMinutes;
-        const realTimeWithLeave = (realTimeWork > 0 ? realTimeWork : 0) + leaveMinutes;
+        // realTimeWork perfectly handles ticking when IN and freezing when OUT. 
+        // For historical days, it is correctly mapped to netWork.
+        const baseWork = Math.max(0, realTimeWork);
+        const effectiveWorkWithLeave = baseWork + leaveMinutes;
+        const realTimeWithLeave = baseWork + leaveMinutes;
 
         // Virtual Shift Start (if 1st half leave)
         let virtualFirstInTime = firstIn ? firstIn.displayTime : (leave?.type === LEAVE_TYPES.FULL ? minutesToTime(startTimeMinutes || 540, use24Hour) : null);
