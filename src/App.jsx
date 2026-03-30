@@ -9,6 +9,7 @@ import { ShiftCalculator } from './components/ShiftCalculator';
 import { LogAnalyzer } from './components/LogAnalyzer';
 import { ShiftAnalytics } from './components/ShiftAnalytics';
 import { LeaveManagement } from './components/LeaveManagement';
+import { AttendanceLog } from './components/AttendanceLog';
 import { SettingsModal } from './components/SettingsModal';
 import { HistoryModal } from './components/HistoryModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
@@ -280,6 +281,11 @@ function AppContent() {
                   currentShift={{ ...logStats, startTime }}
                   history={history}
                 />
+
+                {/* Universal Logs (Attendance) */}
+                <div className="space-y-8">
+                  <AttendanceLog />
+                </div>
               </div>
 
               <div className="xl:col-span-4 sticky top-8">

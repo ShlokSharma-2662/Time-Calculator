@@ -238,10 +238,12 @@ export function LeaveManagement() {
                 </div>
             </div>
 
-            {/* Detailed Transaction Log */}
-            <motion.div variants={itemVariants} className="relative z-10">
-                <LeaveHistoryLog />
-            </motion.div>
+            {/* Transaction History Log (Archive) */}
+            <div className="mt-12 relative z-10">
+                <motion.div variants={itemVariants}>
+                    <LeaveHistoryLog />
+                </motion.div>
+            </div>
         </motion.div>
     );
 }
