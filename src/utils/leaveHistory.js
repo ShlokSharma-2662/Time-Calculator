@@ -6,8 +6,91 @@ export const LEAVE_TYPES = {
     FULL: 'Full Day',
     HALF_1: 'Half Day (1st Half)',
     HALF_2: 'Half Day (2nd Half)',
-    SHORT: 'Short Time Off'
+    SHORT: 'Short Time Off',
+    CREDIT: 'Credit'
 };
+
+export const LEAVE_CATEGORIES = {
+    EL: 'EL',
+    CO: 'CO',
+    CF: 'CF',
+    MR: 'MR',
+    PFH: 'PFH',
+    WFH: 'WFH',
+    LWP: 'LWP'
+};
+
+import { SEED_LEAVE_HISTORY } from '../data/seedHistory';
+import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { db } from '../firebase';
+
+/**
+ * Sync leaves from Firestore to localStorage
+ */
+export async function syncLeavesFromFirestore(userId) {
+    if (!userId) return;
+
+    try {
+        const historyRef = collection(db, 'users', userId, 'leaveHistory');
+        const q = query(historyRef, orderBy('date', 'desc'));
+        const snapshot = await getDocs(q);
+
+        if (snapshot.empty) return;
+
+        const cloudLeaves = snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                date: data.date.toDate().toISOString().split('T')[0],
+                id: doc.id,
+                isCloud: true
+            };
+        });
+
+        const history = getLeaveHistory();
+        const localLeaves = history.leaves;
+
+        // Unified key generation that works for both local and cloud structures
+        const generateUniversalKey = (l) => {
+            const dateStr = l.date instanceof Date ? l.date.toISOString().split('T')[0] : l.date;
+            const category = l.leaveType || l.category || 'EL';
+            const type = l.transactionType || (l.type === 'Credit' ? 'credit' : 'leave_taken');
+            const mag = Math.abs(l.days || l.consumedDays || l.creditDays || 0);
+            return `${dateStr}_${category}_${type}_${mag}`;
+        };
+
+        const existingKeys = new Set(localLeaves.map(generateUniversalKey));
+
+        const merged = [...localLeaves];
+        let addedCount = 0;
+
+        cloudLeaves.forEach(cl => {
+            const key = generateUniversalKey(cl);
+            if (!existingKeys.has(key)) {
+                merged.push({
+                    ...cl,
+                    category: cl.leaveType,
+                    type: cl.transactionType === 'leave_taken' ? 'Full Day' : 'Credit', // Approximation for legacy compat
+                    days: cl.consumedDays || -cl.creditDays, // Store credits as negative in local history
+                    remarks: cl.remarks
+                });
+                addedCount++;
+            }
+        });
+
+        if (addedCount > 0) {
+            merged.sort((a, b) => new Date(b.date) - new Date(a.date));
+            history.leaves = merged;
+            history.stats = calculateStats(merged);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+            return addedCount;
+        }
+        return 0;
+    } catch (err) {
+        console.error("Failed to sync leaves from Firestore:", err);
+        throw err;
+    }
+}
 
 /**
  * Get all leave history
@@ -17,8 +100,16 @@ export function getLeaveHistory() {
     if (stored) {
         return JSON.parse(stored);
     }
-    return {
-        leaves: [],
+
+    // Auto-seed if empty
+    const initialHistory = {
+        leaves: SEED_LEAVE_HISTORY.map((l, i) => ({
+            id: `seed-${i}`,
+            ...l,
+            startDate: l.date,
+            endDate: l.date,
+            timestamp: new Date().toISOString()
+        })),
         stats: {
             totalLeavesTaken: 0,
             averagePerMonth: 0,
@@ -26,6 +117,9 @@ export function getLeaveHistory() {
             sandwichRate: 0
         }
     };
+    initialHistory.stats = calculateStats(initialHistory.leaves);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(initialHistory));
+    return initialHistory;
 }
 
 /**
@@ -269,6 +363,76 @@ export function getInsights() {
     }
 
     return insights;
+}
+
+/**
+ * Calculate CO Status (Expiration & FIFO Allocation)
+ * CO credits are valid for 30 days.
+ */
+export function calculateCOStatus(leaves, todayStr) {
+    const today = new Date(todayStr);
+    const coLeaves = leaves.filter(l => l.category === 'CO');
+
+    // Sort credits by date ascending (oldest first)
+    const credits = coLeaves.filter(l => l.days < 0).map(l => ({
+        id: l.id,
+        date: new Date(l.date),
+        amount: Math.abs(l.days),
+        remaining: Math.abs(l.days),
+        remarks: l.remarks
+    })).sort((a, b) => a.date - b.date);
+
+    // Sort debits by date ascending
+    const debits = coLeaves.filter(l => l.days > 0).map(l => ({
+        id: l.id,
+        date: new Date(l.date),
+        amount: l.days
+    })).sort((a, b) => a.date - b.date);
+
+    // FIFO Allocation: Deduct consumptions from oldest credits first
+    debits.forEach(debit => {
+        let toAllocate = debit.amount;
+        for (let credit of credits) {
+            if (toAllocate <= 0) break;
+            if (credit.remaining <= 0) continue;
+
+            // Note: We allow consuming even if credit is technically expired at time of debit?
+            // Usually, you use the credit before it expires. 
+            // If the debit date > credit date + 30, it might be an invalid log, but we'll prioritize consumption.
+            const take = Math.min(toAllocate, credit.remaining);
+            credit.remaining -= take;
+            toAllocate -= take;
+        }
+    });
+
+    // Expiration Logic for remaining credits
+    const result = {
+        totalCredited: credits.reduce((s, c) => s + c.amount, 0),
+        totalConsumed: debits.reduce((s, d) => s + d.amount, 0),
+        active: 0,
+        expired: 0,
+        expiringSoon: [] // within 5 days
+    };
+
+    credits.forEach(credit => {
+        if (credit.remaining <= 0) return;
+
+        const expiryDate = new Date(credit.date);
+        expiryDate.setDate(expiryDate.getDate() + 30);
+
+        if (today > expiryDate) {
+            result.expired += credit.remaining;
+        } else {
+            result.active += credit.remaining;
+            // Check if expiring within 5 days
+            const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
+            if (diffDays >= 0 && diffDays <= 5) {
+                result.expiringSoon.push({ ...credit, daysLeft: diffDays });
+            }
+        }
+    });
+
+    return result;
 }
 
 /**

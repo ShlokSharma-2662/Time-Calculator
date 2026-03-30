@@ -1,11 +1,15 @@
-import React, { useRef } from 'react';
-import { X, Download, Upload, Trash2, Calendar, ArrowRight } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { X, Download, Upload, Trash2, Calendar, ArrowRight, IndianRupee, Percent, ShieldCheck, Lock, KeyRound } from 'lucide-react';
 import { downloadBackup, importAllData, clearAllData } from '../utils/dataManagement';
 import { useUI } from '../context/UIContext';
 import { HolidayManager } from './HolidayManager';
+import { useFinancialSettings } from '../hooks/useFinancialSettings';
+import { PasscodeModal } from './PasscodeModal';
 
 export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration, use24Hour, setUse24Hour }) => {
     const { showSuccess, showError, confirm } = useUI();
+    const { settings, updateSettings, isPrivacyMode, togglePrivacy, hasPasscode, setPasscode } = useFinancialSettings();
+    const [isPasscodeModalOpen, setIsPasscodeModalOpen] = useState(false);
     const fileInputRef = useRef(null);
 
     if (!isOpen) return null;
@@ -65,7 +69,7 @@ export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration
                     <div className="lg:col-span-4 p-8 py-10 border-r border-slate-100 dark:border-slate-800 overflow-y-auto scrollbar-thin transition-all bg-slate-50/30 dark:bg-slate-900/30">
                         {/* Preferences */}
                         <div className="space-y-8">
-                            <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Preferences</h4>
+                            <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">General Preferences</h4>
 
                             <div className="space-y-6">
                                 <div>
@@ -82,19 +86,79 @@ export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration
                                 </div>
 
                                 <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/50 shadow-sm">
-                                    <span className="text-sm font-bold text-slate-700 dark:text-slate-300">24-Hour Format</span>
+                                    <div className="flex items-center gap-3">
+                                        <Lock className="w-4 h-4 text-indigo-500" />
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Privacy Mode</span>
+                                    </div>
                                     <button
-                                        onClick={() => setUse24Hour(!use24Hour)}
-                                        className={`w-14 h-7 rounded-full p-1 transition-all duration-300 ${use24Hour ? 'bg-indigo-500 shadow-lg shadow-indigo-500/30' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                        onClick={() => togglePrivacy()}
+                                        className={`w-14 h-7 rounded-full p-1 transition-all duration-300 ${isPrivacyMode ? 'bg-indigo-500 shadow-lg shadow-indigo-500/30' : 'bg-slate-200 dark:bg-slate-700'}`}
                                     >
-                                        <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${use24Hour ? 'translate-x-7' : 'translate-x-0'}`} />
+                                        <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${isPrivacyMode ? 'translate-x-7' : 'translate-x-0'}`} />
                                     </button>
                                 </div>
                             </div>
                         </div>
 
+                        {/* Financial Configuration */}
+                        <div className="space-y-8 pt-8">
+                            <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-[0.2em]">Financial Engineering</h4>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-1">
+                                        <IndianRupee className="w-3.5 h-3.5" />
+                                        Annual CTC (Gross)
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={settings.annualCTC}
+                                        onChange={(e) => updateSettings({ annualCTC: Number(e.target.value) })}
+                                        className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-black text-sm"
+                                    />
+                                </div>
+
+                                <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/50 shadow-sm">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <KeyRound className="w-4 h-4 text-indigo-500" />
+                                            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Financial Passcode</span>
+                                        </div>
+                                        {hasPasscode && (
+                                            <button
+                                                onClick={() => setPasscode(null)}
+                                                className="text-[9px] font-black text-rose-500 hover:text-rose-600 uppercase tracking-widest"
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
+                                    </div>
+                                    <button
+                                        onClick={() => setIsPasscodeModalOpen(true)}
+                                        className="w-full py-2.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-600 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest border border-indigo-500/20"
+                                    >
+                                        {hasPasscode ? 'Change Passcode' : 'Set Security Passcode'}
+                                    </button>
+                                </div>
+
+                                <div>
+                                    <label className="flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 ml-1">
+                                        <Percent className="w-3.5 h-3.5" />
+                                        Basic % of Gross
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.1"
+                                        value={settings.basicPercentOfGross}
+                                        onChange={(e) => updateSettings({ basicPercentOfGross: Number(e.target.value) })}
+                                        className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all font-black text-sm"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Data Management */}
-                        <div className="space-y-8 pt-6 pb-12">
+                        <div className="space-y-8 pt-8 pb-12">
                             <h4 className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em]">Data Engineering</h4>
 
                             <div className="grid grid-cols-1 gap-3">
@@ -105,17 +169,6 @@ export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration
                                     <div className="flex items-center gap-3">
                                         <Download className="w-4 h-4 text-indigo-500" />
                                         <span>Export Backup</span>
-                                    </div>
-                                    <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
-                                </button>
-
-                                <button
-                                    onClick={() => fileInputRef.current?.click()}
-                                    className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-all font-bold text-xs group"
-                                >
-                                    <div className="flex items-center gap-3">
-                                        <Upload className="w-4 h-4 text-emerald-500" />
-                                        <span>Import Cloud/File</span>
                                     </div>
                                     <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
                                 </button>
@@ -154,6 +207,17 @@ export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration
                     </button>
                 </div>
             </div>
+
+            <PasscodeModal
+                isOpen={isPasscodeModalOpen}
+                onClose={() => setIsPasscodeModalOpen(false)}
+                onSuccess={(code) => {
+                    setPasscode(code);
+                    setIsPasscodeModalOpen(false);
+                    showSuccess('Passcode updated securely');
+                }}
+                isSettingMode={true}
+            />
         </div>
     );
 };

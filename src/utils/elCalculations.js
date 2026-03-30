@@ -14,7 +14,7 @@ export function calculateClosingBalance(openingBalance, earnedEL, availedEL) {
   const opening = Number(openingBalance) || 0;
   const earned = Number(earnedEL) || 0;
   const availed = Number(availedEL) || 0;
-  
+
   return opening + earned - availed;
 }
 
@@ -27,7 +27,7 @@ export function calculateClosingBalance(openingBalance, earnedEL, availedEL) {
 export function calculateEncashable(closingBalance, maxCarryForward) {
   const closing = Number(closingBalance) || 0;
   const maxCarry = Number(maxCarryForward) || 300;
-  
+
   const encashable = closing - maxCarry;
   return encashable > 0 ? encashable : 0;
 }
@@ -42,32 +42,56 @@ export function calculateEncashable(closingBalance, maxCarryForward) {
  */
 export function validateELInputs(openingBalance, earnedEL, availedEL, maxCarryForward) {
   const errors = [];
-  
+
   if (openingBalance < 0) {
     errors.push('Opening balance cannot be negative');
   }
-  
+
   if (earnedEL < 0) {
     errors.push('Earned EL cannot be negative');
   }
-  
+
   if (availedEL < 0) {
     errors.push('Availed EL cannot be negative');
   }
-  
+
   if (maxCarryForward < 0) {
     errors.push('Max carry forward cannot be negative');
   }
-  
+
   const closing = calculateClosingBalance(openingBalance, earnedEL, availedEL);
   if (closing < 0) {
     errors.push('Closing balance cannot be negative (availed EL exceeds available EL)');
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors
   };
+}
+
+/**
+ * Calculate accrual based on months passed
+ * @param {string} startDateString - e.g., '2025-04-01'
+ * @param {string} endDateString - e.g., current date
+ * @param {number} rate - default 1.75
+ * @returns {number} Accrued leaves
+ */
+export function calculateMonthlyAccrual(startDateString, endDateString, rate = 1.75) {
+  const start = new Date(startDateString);
+  const end = new Date(endDateString);
+
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+  if (end < start) return 0;
+
+  const years = end.getFullYear() - start.getFullYear();
+  const months = (years * 12) + (end.getMonth() - start.getMonth());
+
+  // Increment month count by 1 to include the month in progress 
+  // (e.g. Apr 2025 to Mar 2026 should be 12 months)
+  const effectiveMonths = months + 1;
+
+  return Number((effectiveMonths * rate).toFixed(2));
 }
 
 /**
@@ -80,18 +104,18 @@ export function validateELInputs(openingBalance, earnedEL, availedEL, maxCarryFo
  */
 export function calculateELEncashment(openingBalance, earnedEL, availedEL, maxCarryForward = 300) {
   const validation = validateELInputs(openingBalance, earnedEL, availedEL, maxCarryForward);
-  
+
   if (!validation.isValid) {
     return {
       success: false,
       errors: validation.errors
     };
   }
-  
+
   const closingBalance = calculateClosingBalance(openingBalance, earnedEL, availedEL);
   const encashableEL = calculateEncashable(closingBalance, maxCarryForward);
   const carryForward = closingBalance - encashableEL;
-  
+
   return {
     success: true,
     closingBalance,
