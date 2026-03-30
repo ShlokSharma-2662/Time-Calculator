@@ -25,7 +25,7 @@ import { getLeaveForDate, LEAVE_TYPES } from './utils/leaveHistory';
 import { normalizeDate } from './utils/dateUtils';
 
 function AppContent() {
-  const { user, loading, logout, syncLogsToCloud, fetchLogsFromCloud } = useAuth();
+  const { user, loading, logout, syncLogsToCloud, fetchLogsFromCloud, subscribeToLogs } = useAuth();
   const {
     showSuccess, showError, showInfo, toasts, dismissToast,
     confirm, confirmDialog, closeConfirm
@@ -64,7 +64,7 @@ function AppContent() {
   });
 
   // --- Hooks ---
-  const { history, saveEntry, getAllEntries, exportToCSV } = useHistory();
+  const { history, saveEntry, getAllEntries, exportToCSV, setFullHistory } = useHistory();
 
   // --- Firebase Sync Logic ---
   const syncLogs = async () => {
@@ -82,12 +82,26 @@ function AppContent() {
     }
   };
 
-  // Auto-sync after login
+  // Real-Time Cloud Listener
   useEffect(() => {
-    if (user) {
-      const t = setTimeout(() => syncLogs(), 1000);
-      return () => clearTimeout(t);
-    }
+    if (!user) return;
+
+    // Subscribe to Firestore changes
+    const unsubscribe = subscribeToLogs((cloudLogsArray) => {
+      if (!cloudLogsArray || cloudLogsArray.length === 0) return;
+
+      const newHistory = {};
+      cloudLogsArray.forEach(log => {
+        const { date, id, updatedAt, ...rest } = log;
+        newHistory[date] = rest.raw ? rest.raw : rest;
+      });
+
+      setFullHistory(newHistory);
+      setSynced(true);
+      setTimeout(() => setSynced(false), 2000);
+    });
+
+    return () => unsubscribe();
   }, [user]);
 
   // --- Cloud Restore ---

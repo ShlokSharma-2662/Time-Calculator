@@ -65,5 +65,9 @@ export const useHistory = () => {
         document.body.removeChild(link);
     };
 
-    return { history, saveEntry, getEntry, getAllEntries, exportToCSV };
+    const setFullHistory = (newHistoryObj) => {
+        setHistory(newHistoryObj);
+    };
+
+    return { history, saveEntry, getEntry, getAllEntries, exportToCSV, setFullHistory };
 };

@@ -17,7 +17,8 @@ import {
   getDocs,
   writeBatch,
   query,
-  orderBy
+  orderBy,
+  onSnapshot
 } from 'firebase/firestore';
 
 const AuthContext = createContext();
@@ -110,10 +111,20 @@ export const AuthProvider = ({ children }) => {
     return snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
   };
 
+  const subscribeToLogs = (callback) => {
+    if (!user) return () => { };
+    const q = query(collection(db, 'users', user.uid, 'logs'), orderBy('date', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const logs = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      callback(logs);
+    });
+    return unsubscribe;
+  };
+
   return (
     <AuthContext.Provider value={{
       user, loading, login, loginWithGoogle, register, logout,
-      syncLogsToCloud, fetchLogsFromCloud
+      syncLogsToCloud, fetchLogsFromCloud, subscribeToLogs
     }}>
       {children}
     </AuthContext.Provider>
