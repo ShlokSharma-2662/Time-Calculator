@@ -21,8 +21,32 @@ export const LEAVE_CATEGORIES = {
 };
 
 import { SEED_LEAVE_HISTORY } from '../data/seedHistory';
-import { collection, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, doc, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
+import { importToFirestore } from './leaveImporter';
+
+/**
+ * Pushes all non-cloud local leaves to Firestore
+ */
+export async function pushLeavesToFirestore(userId) {
+    if (!userId) return { importedCount: 0, skippedCount: 0 };
+
+    const { leaves } = getLeaveHistory();
+    if (!leaves || leaves.length === 0) return { importedCount: 0, skippedCount: 0 };
+
+    // Format for importToFirestore
+    const recordsToPush = leaves.map(l => ({
+        date: l.date,
+        leaveType: l.category || l.leaveType || 'EL',
+        transactionType: l.transactionType || (l.days < 0 ? 'credit' : 'leave_taken'),
+        consumedDays: l.days > 0 ? l.days : 0,
+        creditDays: l.days < 0 ? Math.abs(l.days) : 0,
+        remarks: l.remarks || '',
+        source: l.source || 'local_sync'
+    }));
+
+    return await importToFirestore(userId, recordsToPush);
+}
 
 /**
  * Sync leaves from Firestore to localStorage
@@ -37,11 +61,20 @@ export async function syncLeavesFromFirestore(userId) {
 
         if (snapshot.empty) return;
 
+        const getLocalDateString = (d) => {
+            if (typeof d === 'string') return d;
+            const dt = d instanceof Date ? d : (d.toDate ? d.toDate() : new Date(d));
+            const y = dt.getFullYear();
+            const m = (dt.getMonth() + 1).toString().padStart(2, '0');
+            const day = dt.getDate().toString().padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        };
+
         const cloudLeaves = snapshot.docs.map(doc => {
             const data = doc.data();
             return {
                 ...data,
-                date: data.date.toDate().toISOString().split('T')[0],
+                date: getLocalDateString(data.date),
                 id: doc.id,
                 isCloud: true
             };
@@ -52,7 +85,7 @@ export async function syncLeavesFromFirestore(userId) {
 
         // Unified key generation that works for both local and cloud structures
         const generateUniversalKey = (l) => {
-            const dateStr = l.date instanceof Date ? l.date.toISOString().split('T')[0] : l.date;
+            const dateStr = getLocalDateString(l.date);
             const category = l.leaveType || l.category || 'EL';
             const type = l.transactionType || (l.type === 'Credit' ? 'credit' : 'leave_taken');
             const mag = Math.abs(l.days || l.consumedDays || l.creditDays || 0);
@@ -67,10 +100,13 @@ export async function syncLeavesFromFirestore(userId) {
         cloudLeaves.forEach(cl => {
             const key = generateUniversalKey(cl);
             if (!existingKeys.has(key)) {
+                const isCredit = cl.creditDays > 0;
+                const mag = Math.abs(cl.consumedDays || cl.creditDays || 0);
+
                 merged.push({
                     ...cl,
                     category: cl.leaveType,
-                    type: cl.transactionType === 'leave_taken' ? 'Full Day' : 'Credit', // Approximation for legacy compat
+                    type: isCredit ? 'Credit' : (mag === 0.5 ? 'Half Day' : 'Full Day'),
                     days: cl.consumedDays || -cl.creditDays, // Store credits as negative in local history
                     remarks: cl.remarks
                 });

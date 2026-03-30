@@ -4,12 +4,12 @@ import {
     Upload, FileSpreadsheet, FileText, CheckCircle2,
     AlertCircle, Loader2, X, Download, ShieldCheck,
     Database, ArrowRight, Table, Fingerprint, Sparkles,
-    FileType, Zap, Trash2
+    FileType, Zap, Trash2, RefreshCw, Cloud
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { parseHRExport, parseCSVTemplate, importToFirestore, generateCompositeKey, clearLeaveHistory } from '../utils/leaveImporter';
 import { downloadCSVTemplate } from '../utils/csvTemplate';
-import { syncLeavesFromFirestore } from '../utils/leaveHistory';
+import { syncLeavesFromFirestore, pushLeavesToFirestore, getLeaveHistory } from '../utils/leaveHistory';
 import { useUI } from '../context/UIContext';
 
 export function LeaveImport({ isOpen, onClose }) {
@@ -105,22 +105,52 @@ export function LeaveImport({ isOpen, onClose }) {
     const handleCommit = async () => {
         try {
             setStatus('uploading');
+            // 1. Initial Import of the specific file records
             const { importedCount, skippedCount } = await importToFirestore(
                 user.uid,
                 records,
                 (p) => setProgress(p)
             );
 
-            await syncLeavesFromFirestore(user.uid);
+            // 2. Full Bidirectional Handshake (Push All + Pull All)
             setResults({ importedCount, skippedCount });
+            setErrorMessage("Finalizing Handshake...");
+            await pushLeavesToFirestore(user.uid);
+            await syncLeavesFromFirestore(user.uid);
+
             setStatus('success');
-            showSuccess(`Successfully migrated ${importedCount} records!`);
+            showSuccess(`Successfully migrated ${importedCount} records and synchronized Cloud!`);
             setTimeout(() => window.location.reload(), 2000);
         } catch (err) {
             console.error("Commit Error:", err);
             setStatus('error');
             setErrorMessage(err.message || "Cloud synchronization interrupted.");
             showError(err.message || "Migration failed");
+        }
+    };
+
+    const handleSync = async () => {
+        try {
+            setStatus('uploading'); // Use the processing screen
+            setErrorMessage("Initializing Handshake...");
+            setProgress(30);
+
+            // 1. Push all local to cloud
+            const pushRes = await pushLeavesToFirestore(user.uid);
+            setProgress(60);
+
+            // 2. Pull all cloud to local
+            const addedCount = await syncLeavesFromFirestore(user.uid);
+            setProgress(100);
+
+            setStatus('success');
+            setResults({ importedCount: pushRes.importedCount, skippedCount: pushRes.skippedCount });
+            showSuccess(`Sync Complete: Pushed ${pushRes.importedCount} | Pulled ${addedCount} new nodes.`);
+            setTimeout(() => window.location.reload(), 2000);
+        } catch (err) {
+            console.error("Sync Error:", err);
+            setStatus('error');
+            setErrorMessage(err.message || "Handshake failed.");
         }
     };
 
@@ -238,6 +268,37 @@ export function LeaveImport({ isOpen, onClose }) {
                         <div className="pt-8 border-t border-white/5 space-y-4">
                             <h4 className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Danger Zone</h4>
                             <button
+                                onClick={async () => {
+                                    if (await confirm('This will clear your LOCAL leave history and trigger a fresh sync from Cloud. Your Firebase data will NOT be deleted. Proceed?')) {
+                                        localStorage.removeItem('leave_history_data');
+                                        window.location.reload();
+                                    }
+                                }}
+                                className="w-full p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 hover:bg-indigo-500/10 hover:border-indigo-500/20 group transition-all flex items-center gap-4"
+                            >
+                                <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 group-hover:bg-indigo-500 group-hover:text-white transition-all">
+                                    <RefreshCw className="w-4 h-4" />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-black text-white uppercase tracking-wider mb-0.5">Reset Local Cache</p>
+                                    <p className="text-[9px] font-bold text-indigo-400/60 uppercase">Fix Sync Inconsistencies</p>
+                                </div>
+                            </button>
+
+                            <button
+                                onClick={handleSync}
+                                className="w-full p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10 hover:bg-white/10 hover:border-indigo-500/30 group transition-all flex items-center gap-4 shadow-lg shadow-indigo-500/5"
+                            >
+                                <div className="p-2 rounded-lg bg-indigo-500 text-white shadow-xl shadow-indigo-500/40">
+                                    <Cloud className="w-4 h-4 animate-pulse" />
+                                </div>
+                                <div>
+                                    <p className="text-[11px] font-black text-white uppercase tracking-wider mb-0.5">Cloud Handshake</p>
+                                    <p className="text-[9px] font-bold text-indigo-400 uppercase tracking-widest">Push & Pull Active</p>
+                                </div>
+                            </button>
+
+                            <button
                                 onClick={handleReset}
                                 className="w-full p-4 rounded-2xl bg-rose-500/5 border border-rose-500/10 hover:bg-rose-500/10 hover:border-rose-500/20 group transition-all flex items-center gap-4"
                             >
@@ -351,13 +412,14 @@ export function LeaveImport({ isOpen, onClose }) {
                                                 <tr>
                                                     <th className="p-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Date</th>
                                                     <th className="p-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Leave</th>
+                                                    <th className="p-5 text-[10px] font-black text-slate-500 uppercase tracking-widest">Type</th>
                                                     <th className="p-5 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Magnitude</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-white/5">
                                                 {previewRecords.map((r, i) => (
                                                     <tr key={i} className="group/row hover:bg-white/[0.01]">
-                                                        <td className="p-5 text-[11px] font-bold text-slate-400">{r.date.toLocaleDateString()}</td>
+                                                        <td className="p-5 text-[11px] font-bold text-slate-400">{r.date}</td>
                                                         <td className="p-5">
                                                             <div className="flex items-center gap-3">
                                                                 <span className="px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-400 text-[10px] font-black border border-indigo-500/20">{r.leaveType}</span>
@@ -368,7 +430,10 @@ export function LeaveImport({ isOpen, onClose }) {
                                                                 )}
                                                             </div>
                                                         </td>
-                                                        <td className="p-5 text-[11px] font-black text-white text-right">{r.consumedDays || r.creditDays}</td>
+                                                        <td className="p-5 text-[10px] font-bold text-slate-500 uppercase tracking-tighter">{r.type}</td>
+                                                        <td className="p-5 text-[11px] font-black text-white text-right">
+                                                            {(r.consumedDays || r.creditDays || 0).toFixed(2)}
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>

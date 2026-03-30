@@ -27,21 +27,20 @@ const parseHRDate = (raw) => {
     if (parts.length !== 3) return null;
 
     const months = {
-        Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5,
-        Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11
+        Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+        Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
     };
 
-    const day = parseInt(parts[0]);
+    const day = parts[0].padStart(2, '0');
     const month = months[parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase()];
     let year = parseInt(parts[2]);
 
-    if (isNaN(day) || month === undefined || isNaN(year)) return null;
+    if (isNaN(parseInt(day)) || month === undefined || isNaN(year)) return null;
 
     // Handle 2-digit years
     if (year < 100) year += 2000;
 
-    const d = new Date(year, month, day);
-    return isNaN(d.getTime()) ? null : d;
+    return `${year}-${month}-${day}`;
 };
 
 /**
@@ -61,7 +60,16 @@ const categorizeTransaction = (record) => {
  * Generates a composite key for deduplication.
  */
 export const generateCompositeKey = (l) => {
-    const dateStr = l.date instanceof Date ? l.date.toISOString().split('T')[0] : l.date;
+    const getLocalDateString = (d) => {
+        if (typeof d === 'string') return d;
+        const dt = d instanceof Date ? d : (d.toDate ? d.toDate() : new Date(d));
+        const y = dt.getFullYear();
+        const m = (dt.getMonth() + 1).toString().padStart(2, '0');
+        const day = dt.getDate().toString().padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+
+    const dateStr = getLocalDateString(l.date);
     const category = l.leaveType || l.category || 'EL';
     const type = l.transactionType || (l.type === 'Credit' ? 'credit' : 'leave_taken');
     const mag = Math.abs(l.days || l.consumedDays || l.creditDays || 0);
@@ -126,10 +134,12 @@ export const parseHRExport = async (file) => {
                         openingBalance: parseFloat(row[2]) || 0,
                         consumedDays,
                         creditDays,
+                        days: creditDays > 0 ? -creditDays : consumedDays,
                         closingBalance: parseFloat(row[5]) || 0,
                         date,
                         remarks: cleanRemarks,
-                        source: 'hr_export'
+                        source: 'hr_export',
+                        type: creditDays > 0 ? 'Credit' : (consumedDays === 0.5 ? 'Half Day' : 'Full Day')
                     };
 
                     if (record.leaveType) {
@@ -155,15 +165,24 @@ export const parseCSVTemplate = (file) => {
             header: true,
             skipEmptyLines: true,
             complete: (results) => {
-                const records = results.data.map(row => ({
-                    date: new Date(row.Date),
-                    leaveType: normalizeLeaveType(row.LeaveType),
-                    transactionType: row.TransactionType,
-                    consumedDays: row.TransactionType === 'leave_taken' ? parseFloat(row.Days) : 0,
-                    creditDays: (row.TransactionType === 'credit' || row.TransactionType === 'monthly_increment') ? parseFloat(row.Days) : 0,
-                    remarks: row.Remarks || '',
-                    source: 'csv_import'
-                })).filter(r => r.leaveType && !isNaN(r.date.getTime()));
+                const records = results.data.map(row => {
+                    const d = new Date(row.Date);
+                    const y = d.getFullYear();
+                    const m = (d.getMonth() + 1).toString().padStart(2, '0');
+                    const day = d.getDate().toString().padStart(2, '0');
+                    const dateStr = !isNaN(d.getTime()) ? `${y}-${m}-${day}` : null;
+
+                    return {
+                        date: dateStr,
+                        leaveType: normalizeLeaveType(row.LeaveType),
+                        transactionType: row.TransactionType,
+                        consumedDays: row.TransactionType === 'leave_taken' ? parseFloat(row.Days) : 0,
+                        creditDays: (row.TransactionType === 'credit' || row.TransactionType === 'monthly_increment') ? parseFloat(row.Days) : 0,
+                        remarks: row.Remarks || '',
+                        source: 'csv_import',
+                        type: row.TransactionType === 'credit' ? 'Credit' : (parseFloat(row.Days) === 0.5 ? 'Half Day' : 'Full Day')
+                    };
+                }).filter(r => r.leaveType && r.date);
                 resolve(records);
             },
             error: (err) => reject(err)
@@ -182,11 +201,8 @@ export const importToFirestore = async (userId, records, onProgress) => {
     const existingKeys = new Set(existingSnapshot.docs.map(doc => {
         const d = doc.data();
         return generateCompositeKey({
-            date: d.date.toDate(),
-            leaveType: d.leaveType,
-            transactionType: d.transactionType,
-            consumedDays: d.consumedDays,
-            creditDays: d.creditDays
+            ...d,
+            date: d.date // Pass as-is to generateCompositeKey which handles Timestamp/Date/String
         });
     }));
 
@@ -213,7 +229,7 @@ export const importToFirestore = async (userId, records, onProgress) => {
             batch.set(docRef, {
                 ...record,
                 id: docRef.id,
-                date: Timestamp.fromDate(record.date),
+                date: record.date, // Store as string YYYY-MM-DD
                 importedAt: serverTimestamp(),
                 schemaVersion: 1
             });
