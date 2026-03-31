@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calculator, AlertCircle, CheckCircle2, IndianRupee, Save, History, RotateCcw, TrendingUp, TrendingDown } from 'lucide-react';
+import { Calculator, AlertCircle, CheckCircle2, IndianRupee, Save, History, RotateCcw, TrendingUp, TrendingDown, Wallet } from 'lucide-react';
 import { calculateELEncashment } from '../utils/elCalculations';
 import { useLeaveBalance } from '../hooks/useLeaveBalance';
+import { useFinancialSettings } from '../hooks/useFinancialSettings';
 
 export function ELEncashmentCalculator() {
     const [openingBalance, setOpeningBalance] = useState('');
@@ -15,6 +16,7 @@ export function ELEncashmentCalculator() {
 
     // Use leave balance hook
     const { current, history, saveBalance, loadFromHistory, deleteHistoryEntry } = useLeaveBalance();
+    const { financialData, isPrivacyMode } = useFinancialSettings();
 
     // Load last saved balance on mount
     useEffect(() => {
@@ -308,6 +310,33 @@ export function ELEncashmentCalculator() {
                                         Max allowed: {result.maxCarryForward} days
                                     </p>
                                 </div>
+
+                                {/* Payout Estimations */}
+                                {result.encashableEL > 0 && (
+                                    <div className="md:col-span-2 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-xl p-4 border border-indigo-100 dark:border-indigo-900/30">
+                                        <div className="flex items-center gap-2 mb-3">
+                                            <Wallet className="w-4 h-4 text-indigo-500" />
+                                            <h4 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider">Estimated Payout</h4>
+                                        </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <div className="bg-white dark:bg-slate-800/50 p-3 rounded-lg border border-indigo-100 dark:border-indigo-900/20">
+                                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tighter mb-1">Based on Basic</p>
+                                                <p className={`text-xl font-black text-indigo-600 dark:text-indigo-400 ${isPrivacyMode ? 'blur-sm select-none' : ''}`}>
+                                                    ₹{((financialData.basic / 30) * result.encashableEL).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                                </p>
+                                            </div>
+                                            <div className="bg-white dark:bg-slate-800/50 p-3 rounded-lg border border-indigo-100 dark:border-indigo-900/20">
+                                                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-tighter mb-1">Based on Gross</p>
+                                                <p className={`text-xl font-black text-slate-700 dark:text-slate-300 ${isPrivacyMode ? 'blur-sm select-none' : ''}`}>
+                                                    ₹{((financialData.grossMonthly / 30) * result.encashableEL).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <p className="text-[10px] text-slate-500 dark:text-slate-500 mt-2 italic">
+                                            Calculation: (Salary / 30) × {result.encashableEL} days
+                                        </p>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Info Message */}

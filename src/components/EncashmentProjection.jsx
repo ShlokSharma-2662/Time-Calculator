@@ -26,19 +26,21 @@ export function EncashmentProjection() {
         const encashable = Math.min(afterCF, 8);
         const lapsed = Math.max(0, afterCF - encashable);
 
-        const estValue = (financialData.basic / 30) * encashable;
+        const estValueBasic = (financialData.basic / 30) * encashable;
+        const estValueGross = (financialData.grossMonthly / 30) * encashable;
 
         return {
             total: available.toFixed(1),
             cf: carryForward.toFixed(1),
             enc: encashable.toFixed(1),
             lap: lapsed.toFixed(1),
-            estValue: estValue.toLocaleString('en-IN', { maximumFractionDigits: 0 }),
+            estValueBasic: estValueBasic.toLocaleString('en-IN', { maximumFractionDigits: 0 }),
+            estValueGross: estValueGross.toLocaleString('en-IN', { maximumFractionDigits: 0 }),
             percentCF: (carryForward / (available || 1)) * 100,
             percentENC: (encashable / (available || 1)) * 100,
             percentLAP: (lapsed / (available || 1)) * 100
         };
-    }, [leaves, accruedEL, financialData.basic]);
+    }, [leaves, accruedEL, financialData.basic, financialData.grossMonthly]);
 
     const handleToggle = () => {
         if (!isPrivacyMode) {
@@ -156,21 +158,33 @@ export function EncashmentProjection() {
             {/* Estimated Valuation Card */}
             <div className="bg-indigo-500/10 rounded-2xl p-4 border border-indigo-500/20 mb-6 group/eval overflow-hidden relative">
                 <div className="absolute inset-0 bg-indigo-500/5 group-hover/eval:bg-indigo-500/10 transition-colors" />
-                <div className="relative flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-indigo-500/20 rounded-lg">
-                            <IndianRupee className="w-4 h-4 text-indigo-400" />
+                <div className="relative">
+                    <div className="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-indigo-500/20 rounded-lg">
+                                <IndianRupee className="w-3 h-3 text-indigo-400" />
+                            </div>
+                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-widest">Est. Payout</span>
                         </div>
-                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Est. Payout</span>
                     </div>
-                    <h4 className={`text-2xl font-black text-white tracking-tighter ${blurClass}`}>₹{projection.estValue}</h4>
+
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Based on Basic</span>
+                            <h4 className={`text-xl font-black text-white tracking-tighter ${blurClass}`}>₹{projection.estValueBasic}</h4>
+                        </div>
+                        <div className="flex items-center justify-between opacity-80 decoration-indigo-500/30">
+                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">Based on Gross</span>
+                            <h4 className={`text-lg font-bold text-slate-300 tracking-tighter ${blurClass}`}>₹{projection.estValueGross}</h4>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div className="mt-auto pt-4 border-t border-white/5 flex items-start gap-2">
                 <ShieldCheck className="w-3 h-3 text-slate-600 mt-0.5" />
                 <p className="text-[10px] text-slate-500 leading-tight">
-                    <strong className="text-indigo-400">Valuation:</strong> Calculated based on settings (Basic / 30 * days).
+                    <strong className="text-indigo-400">Valuation:</strong> Calculated based on settings (Salary / 30 * days).
                 </p>
             </div>
         </div>
