@@ -307,6 +307,7 @@ export function AttendanceLog() {
                                         const leaveOnThisDay = leaveHistory.find(l => l.date === shift.date);
                                         return (
                                             <motion.tr
+                                                key={shift.date}
                                                 initial={{ opacity: 0, y: 10 }}
                                                 animate={{ opacity: 1, y: 0 }}
                                                 transition={{ delay: idx * 0.02 }}

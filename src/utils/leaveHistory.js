@@ -168,7 +168,7 @@ export function getLeaveHistory() {
 export function addLeaveToHistory(leaveData) {
     const history = getLeaveHistory();
     const newLeave = {
-        id: Date.now().toString(),
+        id: crypto.randomUUID(),
         ...leaveData,
         startDate: leaveData.startDate || leaveData.date,
         endDate: leaveData.endDate || leaveData.date,
@@ -203,7 +203,7 @@ export function saveLeaveEntry(leaveData) {
         };
     } else {
         const newLeave = {
-            id: leaveData.id || Date.now().toString(),
+            id: leaveData.id || crypto.randomUUID(),
             date: dateStr,
             startDate: dateStr,
             endDate: dateStr,

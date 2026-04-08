@@ -1,11 +1,40 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Helper: check if the requesting user owns this document tree
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-      
-      match /{allPaths=**} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+      // User profile document
+      allow read, write: if isOwner(userId);
+
+      // Attendance / shift logs
+      match /logs/{logId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'date', 'startTime', 'logInput', 'totalOutTime',
+            'effectiveWorkTime', 'firstInTime', 'lastOutTime',
+            'activeLeave', 'updatedAt', 'raw'
+          ]);
+      }
+
+      // User settings / preferences
+      match /settings/{settingId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Leave records
+      match /leaves/{leaveId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'date', 'type', 'duration', 'half', 'reason',
+            'startTime', 'endTime', 'createdAt', 'updatedAt'
+          ]);
       }
     }
   }
