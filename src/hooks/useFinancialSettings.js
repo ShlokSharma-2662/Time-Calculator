@@ -1,5 +1,14 @@
 import { useState, useEffect } from 'react';
 
+// --- Passcode Hashing ---
+async function hashPasscode(passcode) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(passcode);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 const STORAGE_KEY = 'financial_settings_data';
 
 const DEFAULT_SETTINGS = {
@@ -32,7 +41,7 @@ export function useFinancialSettings() {
         localStorage.setItem('financial_privacy_mode', isPrivacyMode);
     }, [isPrivacyMode]);
 
-    const togglePrivacy = (passcodeFromUser) => {
+    const togglePrivacy = async (passcodeFromUser) => {
         if (!isPrivacyMode) {
             // Turning privacy ON doesn't need passcode
             setIsPrivacyMode(true);
@@ -40,20 +49,26 @@ export function useFinancialSettings() {
         }
 
         // Turning privacy OFF (revealing) needs passcode if set
-        const storedPasscode = localStorage.getItem('financial_passcode');
-        if (!storedPasscode || passcodeFromUser === storedPasscode) {
+        const storedHash = localStorage.getItem('financial_passcode');
+        if (!storedHash) {
+            setIsPrivacyMode(false);
+            return true;
+        }
+        const inputHash = await hashPasscode(passcodeFromUser);
+        if (inputHash === storedHash) {
             setIsPrivacyMode(false);
             return true;
         }
         return false;
     };
 
-    const setPasscode = (newPasscode) => {
+    const setPasscode = async (newPasscode) => {
         if (!newPasscode) {
             localStorage.removeItem('financial_passcode');
             setHasPasscode(false);
         } else {
-            localStorage.setItem('financial_passcode', newPasscode);
+            const hashed = await hashPasscode(newPasscode);
+            localStorage.setItem('financial_passcode', hashed);
             setHasPasscode(true);
         }
     };

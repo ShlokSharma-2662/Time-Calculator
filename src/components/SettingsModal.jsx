@@ -196,7 +196,7 @@ export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration
                 {/* Footer */}
                 <div className="p-4 px-8 bg-slate-50 dark:bg-slate-900/80 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
                     <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest italic flex items-center gap-2">
-                        <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></div>
+                        <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
                         Live System Status: Secured
                     </p>
                     <button

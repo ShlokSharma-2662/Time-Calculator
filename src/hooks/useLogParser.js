@@ -52,7 +52,7 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
             }
 
             parsedEvents.push({
-                id: Math.random().toString(36).substr(2, 9),
+                id: crypto.randomUUID(),
                 minutes: h * 60 + min,
                 displayTime: minutesToTime(h * 60 + min, use24Hour),
                 type: type
