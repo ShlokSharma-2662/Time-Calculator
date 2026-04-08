@@ -48,11 +48,12 @@ export function AttendanceLog() {
         };
         loadHistory();
         loadLeaves();
-        window.addEventListener('storage', () => {
+        const handleStorageChange = () => {
             loadHistory();
             loadLeaves();
-        });
-        return () => window.removeEventListener('storage', loadHistory);
+        };
+        window.addEventListener('storage', handleStorageChange);
+        return () => window.removeEventListener('storage', handleStorageChange);
     }, []);
 
     const shifts = useMemo(() => transformHistoryToShifts(history), [history]);
@@ -90,7 +91,7 @@ export function AttendanceLog() {
         return filteredShifts.slice(start, start + ITEMS_PER_PAGE);
     }, [filteredShifts, currentPage]);
 
-    useMemo(() => setCurrentPage(1), [searchTerm, filterStatus]);
+    useEffect(() => setCurrentPage(1), [searchTerm, filterStatus]);
 
     const handleStartEdit = (shift) => {
         setEditingDate(shift.date);

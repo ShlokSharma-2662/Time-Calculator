@@ -3,7 +3,11 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'workshift_secret_2024_premium';
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL: JWT_SECRET environment variable is not set. Server cannot start securely.');
+  process.exit(1);
+}
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // Auth middleware
 const auth = (req, res, next) => {
