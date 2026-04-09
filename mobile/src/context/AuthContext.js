@@ -4,13 +4,40 @@ import {
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithCredential,
 } from 'firebase/auth';
+import * as WebBrowser from 'expo-web-browser';
+import * as Google from 'expo-auth-session/providers/google';
+import { makeRedirectUri } from 'expo-auth-session';
+
+// Required for expo-auth-session to close the browser after login
+WebBrowser.maybeCompleteAuthSession();
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    iosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID,
+    androidClientId: process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID,
+    webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID,
+  });
+
+  // Handle Google auth response
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const { id_token } = response.params;
+      const credential = GoogleAuthProvider.credential(id_token);
+      setGoogleLoading(true);
+      signInWithCredential(auth, credential)
+        .catch((err) => console.error('Google sign-in error:', err))
+        .finally(() => setGoogleLoading(false));
+    }
+  }, [response]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
@@ -34,10 +61,12 @@ export function AuthProvider({ children }) {
     return cred.user;
   };
 
+  const loginWithGoogle = () => promptAsync();
+
   const logout = () => signOut(auth);
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, googleLoading, logout }}>
       {children}
     </AuthContext.Provider>
   );

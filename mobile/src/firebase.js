@@ -1,5 +1,5 @@
-import { initializeApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { initializeApp, getApps } from 'firebase/app';
+import { initializeAuth, getAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -12,11 +12,20 @@ const firebaseConfig = {
   appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = initializeApp(firebaseConfig);
+// Prevent duplicate app initialization on hot reload
+const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
-export const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
+// initializeAuth with AsyncStorage persistence for token caching
+let auth;
+try {
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(AsyncStorage),
+  });
+} catch {
+  // Already initialized (hot reload)
+  auth = getAuth(app);
+}
 
+export { auth };
 export const db = getFirestore(app);
 export default app;

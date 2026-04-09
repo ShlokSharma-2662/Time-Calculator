@@ -1,6 +1,6 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
@@ -73,8 +73,9 @@ export default function App() {
     <AuthProvider>
       <NavigationContainer
         theme={{
-          dark: true,
+          ...DarkTheme,
           colors: {
+            ...DarkTheme.colors,
             primary: COLORS.indigo,
             background: COLORS.background,
             card: COLORS.surface,
