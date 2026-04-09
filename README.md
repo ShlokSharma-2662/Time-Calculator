@@ -1,127 +1,183 @@
-# 🚀 WorkShift Calc (Enterprise Edition)
+# 🚀 WorkShift
 
-**WorkShift Calc** is a high-performance, real-time cloud-sync enabled React application designed to modernize your work-life tracking. Featuring a premium glassmorphic UI, it combines a precision shift calculator, a smart attendance log analyzer, virtual leave management, and advanced multi-month analytics into a single, professional dashboard.
-
----
-
-## 🎯 The Problem It Solves
-
-Corporate HR portals track your biometric punches, but they rarely tell you **when you are allowed to leave** or **how many effective hours you have actually worked** after factoring in all your micro-breaks.
-
-WorkShift Calc constantly monitors your required hours, dynamically subtracting your break times to give you your **True Effective Work Time** and an accurate, down-to-the-minute countdown to the end of your shift.
+**WorkShift** is a full-stack productivity and shift-tracking platform consisting of a **React web app** and a **React Native mobile companion app**. It combines real-time Firebase sync, smart log parsing, leave management, and analytics into a premium glassmorphic UI.
 
 ---
 
-## 📖 Comprehensive Application Walkthrough
+## 📦 Monorepo Structure
 
-### 1. 🕒 The Dashboard & Live Shift Calculator
-
-The core interface of WorkShift is the **active shift tracker**.
-
-- **Start Time Logging**: Enter your arrival time, or let the app auto-detect your first punch of the day from your portal logs.
-- **Dynamic Estimates**: Based on your configured required shift duration in Settings (e.g., 8.5 hours or 9 hours), WorkShift calculates your exact "Est. Exit" time.
-- **Micro-Break Deductions**: When you log a break, it is dynamically subtracted from your effective work time. This pushes your "Est. Exit" backward in real-time, guaranteeing you only leave when you have completed your mandatory hours.
-- **Live Progress & Alerts**: A glowing, circular progress indicator fills up in real-time. If you are falling short, it alerts you. If you cross into *Overtime*, it displays your extra earned minutes!
-
-### 2. 📝 The Log Analyzer & Quick-Paste Parser
-
-The most powerful feature of WorkShift is its ability to ingest messy, multi-line data from any corporate biometric portal and instantly extract actionable data.
-
-- **How to Use**: Copy your raw biometric log table from your company HR portal and paste it into the "Log Analyzer" text area on the dashboard.
-- **Newline-Agnostic Engine**: WorkShift uses a highly intelligent regex parsing engine `(\d{1,2}:\d{2}\s*(?:AM|PM))\s+(In|Out)` that hunts down every single "**In**" and "**Out**" punch. Even if your browser's copy-paste completely strips out all the newlines and table formatting, the parser still succeeds.
-- **Gap Aggregation**: The app automatically links each "Out" punch with the subsequent "In" punch, calculating the exact minute duration of your breaks across the entire day.
-- **Fallback Format A**: If you paste a generic single-line summary (e.g., *09:00 AM to 18:00 PM - 0.50 Break*), the engine smartly falls back to extracting the decimal values and converting them to minutes.
-
-### 3. 📅 The Attendance Log & Interactive History
-
-Your recorded shifts are permanently stored and displayed in a sleek, paginated history table.
-
-- **Pagination & Search**: Browse your history 10 rows at a time. Search by specific dates (YYYY-MM-DD) or filter your shifts by status.
-- **Status Badges**: Instantly see if a shift was "On-Time", "Late Arrival", or a "Short Shift", calculated mathematically against your custom target arrival threshold (default 09:30 AM).
-- **Hover-Swap UI**: Designed to save horizontal space, the Status Badge smoothly slides away when hovered, replaced seamlessly by action buttons ("Eye" and "Pencil") within the exact same boundaries. No squished text or messy horizontal scrollbars!
-- **Edit Shift**: Click the Pencil icon to open an overlay Modal where you can manually override your First In, Last Out, and Total Break times.
-
-### 4. 👁️ Detailed View Modal & Graphical Timeline
-
-Click the **Eye Icon** on any recorded shift to dive aggressively deep into the data of that day.
-
-- **Graphical Vertical Timeline**: Instead of just showing you the raw data dump, WorkShift takes your pasted portal log and re-parses it inside the Modal.
-- **Stepper Display**: It builds a beautiful, colorful, chronological Vertical Timeline detailing the exact time you punched In (marked with an Emerald Badge) and Out (marked with a Rose Badge) throughout that historical day.
-- **Raw Input Retention**: The exact unformatted text you originally pasted is also securely stored and available for audit purposes.
-
-### 5. 🏖️ Virtual Leave Management
-
-A dedicated module allowing you to intelligently handle time-offs without ruining your monthly adherence metrics.
-
-- **Flexible Leave Types**: Log Sick Leaves, Casual Leaves, or Custom Leaves.
-- **Fractional Adjustments**: Select **Full Day**, **1st Half**, **2nd Half**, or even down to **Short Time-Off** (e.g., explicitly subtract 120 minutes of leave).
-- **Virtual Anchoring**: If you log a "1st Half" leave, WorkShift recalculates your dashboard! It anchors your required work hours to the 2nd Half starting hour. Your analytics will correctly reflect 100% adherence, and your progress bars will accurately fill according to the abbreviated targets!
-- **Visibility**: Your leave statuses are stamped directly across your Dashboard and Attendance Log histories (with vivid red/orange Warning labels).
-
-### 6. 📊 Advanced Analytics & Global Metrics
-
-- **52-Week GitHub-Style Heatmap**: Visualize your entire year's attendance patterns at a glance. Darker nodes mean longer hours worked. Perfect for spotting burnout or absence streaks.
-- **SVG Trend Charts**: High-fidelity SVG line charts plot your daily "Effective Hours Worked" and "Minutes on Break", giving you visual insight into productivity trends.
-- **Month-to-Date (MTD) Adherence**: Your dashboard calculates exactly where you stand against the total required hours for the current month so far.
-
-### 7. ⚡ Real-Time Firebase Synchronization
-
-WorkShift perfectly syncs your data across all your devices simultaneously.
-
-- **Firestore onSnapshot Topology**: The application uses cutting-edge `onSnapshot` real-time listeners instead of slow manual API-pushes.
-- **Instant Mirroring**: If you edit a shift on your mobile phone, the UI on your laptop will instantly update in milliseconds. No refreshing required.
-- **Local Persistence Fallback**: Uses `localStorage` as an incredibly fast initial cache state so the app works immediately, syncing quietly in the background instantly when connection is confirmed.
+```
+workshift/
+├── src/                   # Web app (React + Vite)
+├── server/                # Express API server
+├── mobile/                # Mobile companion app (Expo SDK 54)
+├── firestore.rules        # Firestore security rules
+└── public/                # Static assets
+```
 
 ---
 
-## 🎨 Professional Glassmorphic Design
+## 🌐 Web App
 
-- **Next-Gen Aesthetics**: Built with deep `backdrop-blur`, sophisticated HSL gradients, complex CSS box-shadows, and modern typography (Inter/Outfit).
-- **Fluid Micro-Interactions**: Leverages `Framer Motion` extensively for zero-jank layout transitions, staggering list load animations, and perfectly timed modal pop-ups.
-- **Responsive Layout**: Designed mobile-first but fully expands to take advantage of ultrawide HD monitors without stretching awkwardly.
+### What It Does
+
+Corporate HR portals track biometric punches but rarely tell you **when you can leave** or **how many effective hours you've worked** after accounting for all breaks. WorkShift solves this by constantly monitoring your required hours, dynamically subtracting break time to give you a **True Effective Work Time** and an accurate countdown to shift end.
+
+### Features
+
+#### 🕒 Live Shift Calculator
+- Auto-detects your first punch from pasted portal logs
+- Calculates estimated exit time based on configured shift duration
+- Deducts micro-breaks from effective work time in real-time
+- Circular progress ring with overtime indicator
+
+#### 📝 Smart Log Analyzer
+- Paste raw biometric logs directly from your HR portal
+- Regex engine extracts every In/Out punch even when table formatting is stripped
+- Aggregates gap durations across the entire day
+- Supports multiple log formats including decimal summaries
+
+#### 📅 Attendance History
+- Paginated history with date search and status filters
+- Status badges: On-Time, Late Arrival, Short Shift
+- Tap-to-expand detail view with graphical vertical timeline
+- Edit mode to manually override shift data
+
+#### 🏖️ Leave Management
+- Full Day, 1st Half, 2nd Half, Short Time-Off leave types
+- Virtual anchoring — leave adjusts your target hours and progress bars accurately
+- Leave status stamped across dashboard and history
+
+#### 📊 Analytics
+- 52-week GitHub-style attendance heatmap
+- SVG trend charts for effective hours and break time
+- Month-to-Date (MTD) adherence tracking
+- Weekly trend area chart
+
+#### ☁️ Firebase Sync
+- Real-time `onSnapshot` listeners across all devices
+- Batch write sync with schema validation
+- `localStorage` as instant cache with background sync
+
+### Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | React 19, Vite |
+| Auth & DB | Firebase v11 (Auth + Firestore) |
+| Styling | Tailwind CSS, Framer Motion |
+| Icons | Lucide React |
+| Server | Express (optional REST API) |
+
+### Setup
+
+```bash
+# 1. Clone and install
+npm install
+
+# 2. Create .env
+cp .env.example .env
+# Fill in your Firebase config:
+# VITE_FIREBASE_API_KEY=...
+# VITE_FIREBASE_AUTH_DOMAIN=...
+# VITE_FIREBASE_PROJECT_ID=...
+# VITE_FIREBASE_STORAGE_BUCKET=...
+# VITE_FIREBASE_MESSAGING_SENDER_ID=...
+# VITE_FIREBASE_APP_ID=...
+
+# 3. Run dev server
+npm run dev
+
+# 4. Build for production
+npm run build
+```
 
 ---
 
-## 🛠️ Modern Tech Stack
+## 📱 Mobile App (`mobile/`)
 
-- **Framework**: React 19, Vite 7
-- **Database/Auth**: Firebase v10 (Authentication & Cloud Firestore)
-- **Styling**: Tailwind CSS 4, Framer Motion (for all physics-based animations)
-- **Icons**: Lucide React (feather-light SVG icons)
-- **PWA Ready**: Easily installable as an app-like desktop component via browser prompts.
+A **read-only companion app** that syncs from the same Firestore backend. No data entry — just a clean, at-a-glance view of your shift, history, and leave balance.
+
+### Screens
+
+| Tab | Content |
+|-----|---------|
+| **Today** | Circular progress ring, active work time, break time, first in / last out, estimated exit, live overtime indicator, leave badge |
+| **History** | Scrollable attendance list with mini bar chart (last 7 days), tap-to-expand daily detail |
+| **Leaves** | Balance cards by category (EL, CO, CF, SL, CL), leave history list |
+
+### Auth
+- Email/password login using the same Firebase credentials as the web app
+- Google Sign-In via `expo-auth-session`
+- Auth token persisted across app restarts via AsyncStorage
+
+### Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Expo SDK 54, React Native 0.77 |
+| Navigation | React Navigation v7 (bottom tabs) |
+| Auth & DB | Firebase v11 — read-only `onSnapshot` |
+| Icons | `@expo/vector-icons` (Ionicons) |
+
+### Setup
+
+```bash
+cd mobile
+
+# 1. Install dependencies
+npm install
+
+# 2. Create .env
+copy .env.example .env
+# Fill in Firebase config (EXPO_PUBLIC_ prefix) + Google OAuth client IDs
+
+# 3. Run
+npx expo start
+
+# Scan the QR code with Expo Go on your phone
+# or press 'a' for Android emulator / 'i' for iOS simulator
+```
+
+### Environment Variables
+
+```env
+EXPO_PUBLIC_FIREBASE_API_KEY=...
+EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
+EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+EXPO_PUBLIC_FIREBASE_APP_ID=...
+
+# Google Sign-In (from Google Cloud Console)
+EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=...
+EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=...
+EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=...
+```
 
 ---
 
-## 🚀 Deployment & Installation
+## 🔒 Security
 
-1. **Setup Environment**:
-   Clone the repository and create a `.env` file in the root directory. Paste in your Firebase configuration keys:
-
-   ```env
-   VITE_FIREBASE_API_KEY=YOUR_API_KEY
-   VITE_FIREBASE_PROJECT_ID=YOUR_PROJECT_ID
-   VITE_FIREBASE_AUTH_DOMAIN=YOUR_AUTH_DOMAIN
-   VITE_FIREBASE_MESSAGING_SENDER_ID=123456789
-   VITE_FIREBASE_APP_ID=YOUR_APP_ID
-   ```
-
-2. **Run Locally in Development**:
-
-   ```bash
-   npm install
-   npm run dev
-   ```
-
-3. **Deploy to Production**:
-
-   ```bash
-   npm run build
-   # Deploy the 'dist' folder to Firebase Hosting, Vercel, or Netlify
-   ```
+- Firestore rules enforce per-user read/write with field-level validation
+- Server-side log validation: size limits, prototype pollution sanitization, max 500 entries per sync
+- Financial passcodes hashed with SHA-256 (never stored in plaintext)
+- Mobile app is strictly read-only — no Firestore writes from mobile client
 
 ---
 
-## ✍️ Author & Vision
+## 🗺️ Roadmap
 
-**[Shlok Sharma](https://github.com/ShlokSharma-2662)**  
-*Re-engineering productivity tracking—because knowing exactly when you can go home shouldn't involve mental math.*
+- [ ] Push notifications (shift reminders, CO expiry alerts)
+- [ ] Biometric unlock (Face ID / Fingerprint)
+- [ ] iOS Widget / Android Glance for shift progress
+- [ ] Leave request submission from mobile
+- [ ] Monthly analytics dashboard on mobile
+- [ ] Apple Watch / Wear OS complication
+
+---
+
+## ✍️ Author
+
+**[Shlok Sharma](https://github.com/ShlokSharma-2662)**
+*Re-engineering productivity tracking — because knowing exactly when you can go home shouldn't involve mental math.*
