@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh pr create --title 'Refactor state management and harden security' --body ':*)",
+      "Bash(gh pr create --title 'feat: WorkShift Mobile companion app \\(Expo SDK 54\\)' --body ':*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(claude mcp:*)",
+      "Bash(npm run:*)",
+      "mcp__Claude_Preview__preview_start"
+    ]
+  }
+}

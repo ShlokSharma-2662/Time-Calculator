@@ -20,6 +20,7 @@ import { useLogParser } from './hooks/useLogParser';
 import { useHistory } from './hooks/useHistory';
 import { motion } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
+import { HeroSection } from './components/HeroSection';
 import { getMonthToDateAdherence } from './utils/shiftHistory';
 import { getLeaveForDate, LEAVE_TYPES } from './utils/leaveHistory';
 import { normalizeDate } from './utils/dateUtils';
@@ -32,6 +33,7 @@ function AppContent() {
   } = useUI();
 
   const [authMode, setAuthMode] = useState('login');
+  const [showHero, setShowHero] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
 
   // --- State ---
@@ -246,6 +248,9 @@ function AppContent() {
   }
 
   if (!user) {
+    if (showHero) {
+      return <HeroSection onGetStarted={() => setShowHero(false)} />;
+    }
     return authMode === 'login'
       ? <LoginPage onToggleMode={() => setAuthMode('register')} />
       : <RegisterPage onToggleMode={() => setAuthMode('login')} />;
