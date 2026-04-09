@@ -15,11 +15,11 @@ export const Dashboard = ({
     activeLeave = null,
     mtdProgress,
     history,
-    shiftDuration
+    shiftDuration,
+    use24Hour = false
 }) => {
     const isOvertime = logStats.isOvertime;
     const { minutesToTime } = useTimeHelpers();
-    const use24Hour = false; // Add this or pass from props if needed
 
     // Calculate productivity relative to goal
     const productivityPercent = useMemo(() => {
