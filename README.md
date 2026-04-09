@@ -2,6 +2,14 @@
 
 **WorkShift** is a full-stack productivity and shift-tracking platform consisting of a **React web app** and a **React Native mobile companion app**. It combines real-time Firebase sync, smart log parsing, leave management, and analytics into a premium glassmorphic UI.
 
+## Detailed Summary
+
+WorkShift is designed for employees who receive raw attendance or biometric logs from corporate HR systems but still have to manually figure out their real working time, break deductions, expected exit time, overtime, and leave impact. Instead of treating the day as a simple clock-in/clock-out pair, the app models the full workday by parsing every punch event and recalculating progress against the configured shift duration.
+
+The main web app centers on a shared shift state. After authentication, a user can paste portal logs, let the parser extract the first in-time and intermediate in/out punches, and immediately see derived values such as effective work minutes, total break time, current shortfall or surplus, projected logout time, and month-to-date adherence. The dashboard, shift calculator, history modal, and analytics views all consume that same derived state, so changes in logs or settings propagate everywhere without requiring duplicate data entry.
+
+Beyond daily tracking, the product also acts as a personal attendance and leave operations workspace. Historical entries can be reviewed, reloaded, edited, and exported. The leave area covers balance tracking, leave history, calendar views, imports, holiday support, sandwich leave checks, and earned leave encashment and projection utilities. Firebase authentication and Firestore synchronization provide cross-device persistence for the web and mobile clients, while local caching keeps the interface responsive during normal use. The mobile app focuses on read-only visibility into today's shift, attendance history, and leave balances, and the optional Express server provides a place for backend integrations or protected log-processing workflows when a standalone frontend is not sufficient.
+
 ---
 
 ## 📦 Monorepo Structure
