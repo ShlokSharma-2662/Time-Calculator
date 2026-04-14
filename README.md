@@ -1,191 +1,483 @@
-# 🚀 WorkShift
+# WorkShift Calc
 
-**WorkShift** is a full-stack productivity and shift-tracking platform consisting of a **React web app** and a **React Native mobile companion app**. It combines real-time Firebase sync, smart log parsing, leave management, and analytics into a premium glassmorphic UI.
+A multi-surface shift intelligence workspace for employees who need to turn raw attendance logs into work-time, leave, and encashment insights.
 
-## Detailed Summary
+![Build](https://img.shields.io/badge/build-no%20CI-lightgrey)
+![License](https://img.shields.io/badge/license-not%20declared-lightgrey)
+![Version](https://img.shields.io/badge/version-0.0.0-blue)
+![Stack](https://img.shields.io/badge/stack-React%2019%20%7C%20Firebase%20%7C%20Expo%2054%20%7C%20Express%205-success)
 
-WorkShift is designed for employees who receive raw attendance or biometric logs from corporate HR systems but still have to manually figure out their real working time, break deductions, expected exit time, overtime, and leave impact. Instead of treating the day as a simple clock-in/clock-out pair, the app models the full workday by parsing every punch event and recalculating progress against the configured shift duration.
+## Table of Contents
 
-The main web app centers on a shared shift state. After authentication, a user can paste portal logs, let the parser extract the first in-time and intermediate in/out punches, and immediately see derived values such as effective work minutes, total break time, current shortfall or surplus, projected logout time, and month-to-date adherence. The dashboard, shift calculator, history modal, and analytics views all consume that same derived state, so changes in logs or settings propagate everywhere without requiring duplicate data entry.
+- [Overview](#overview)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Prerequisites](#prerequisites)
+- [Getting Started](#getting-started)
+- [Installation](#installation)
+- [Environment Setup](#environment-setup)
+- [Running Locally](#running-locally)
+- [Available Scripts](#available-scripts)
+- [API Reference](#api-reference)
+- [Database Schema](#database-schema)
+- [Architecture Overview](#architecture-overview)
+- [Deployment](#deployment)
+- [Testing](#testing)
+- [Contributing](#contributing)
+- [License](#license)
+- [Acknowledgements / Credits](#acknowledgements--credits)
 
-Beyond daily tracking, the product also acts as a personal attendance and leave operations workspace. Historical entries can be reviewed, reloaded, edited, and exported. The leave area covers balance tracking, leave history, calendar views, imports, holiday support, sandwich leave checks, and earned leave encashment and projection utilities. Firebase authentication and Firestore synchronization provide cross-device persistence for the web and mobile clients, while local caching keeps the interface responsive during normal use. The mobile app focuses on read-only visibility into today's shift, attendance history, and leave balances, and the optional Express server provides a place for backend integrations or protected log-processing workflows when a standalone frontend is not sufficient.
+## Overview
 
----
+WorkShift Calc helps people who receive raw biometric or HR attendance logs but still have to manually answer practical questions such as "When can I leave?", "How much effective work time have I completed?", and "How does today's leave affect my target hours?" The repository contains:
 
-## 📦 Monorepo Structure
+- A React 19 + Vite web app for log parsing, analytics, leave tracking, holiday management, and EL encashment planning.
+- A React Native + Expo mobile companion app that reads the same Firebase data and surfaces today, history, and leave views.
+- An optional Express API that offers JWT-protected auth and log sync backed by JSON files in `data/`.
+- A browser-extension bundle under `extension/` that packages the web UI as a Manifest V3 popup.
 
+What makes the project notable is its hybrid persistence model. The main web app works from local state and `localStorage`, can batch-sync daily log data into Firestore, and ships a separate file-based API for standalone scenarios. That makes it useful for both personal tracking and incremental backend integration.
+
+## Features
+
+- Parses pasted attendance logs into first-in, last-out, total break time, effective work time, and projected exit time.
+- Auto-saves working state to `localStorage` and can push per-day logs to Firestore through batched writes.
+- Computes real-time progress, overtime, month-to-date adherence, weekly trends, and heatmap-style analytics.
+- Maintains an editable attendance history with filtering, pagination, modal drill-downs, and CSV export.
+- Tracks leave usage with balance tables, quick leave registration, holiday-aware sandwich leave evaluation, and custom holiday management.
+- Imports leave data from HR XLS/XLSX exports or CSV templates with deduplication before writing to Firestore.
+- Includes EL encashment, salary structure, and privacy-mode calculations backed by hashed local passcodes.
+- Provides a mobile read-only companion with Firebase-backed Today, History, and Leaves screens.
+- Exposes a JWT-based Express API for user registration, login, log retrieval, and batch log sync using local JSON storage.
+- Ships PWA metadata plus a ready-to-load browser extension bundle.
+
+## Tech Stack
+
+| Category | Technology | Purpose |
+| --- | --- | --- |
+| Web app | React 19, Vite 7 | Main SPA for shift tracking, analytics, and leave workflows |
+| Styling and motion | Tailwind CSS 4, Framer Motion | Layout, theming, animation, and glassmorphic UI treatments |
+| Auth and cloud data | Firebase Auth, Cloud Firestore | Email/Google sign-in and per-user cloud synchronization |
+| Mobile app | Expo SDK 54, React Native 0.77, React Navigation 7 | Cross-platform mobile companion app |
+| Data import/export | `xlsx`, `papaparse` | HR leave import from spreadsheet and CSV sources |
+| Analytics visuals | Recharts, custom charts, Lucide React, Ionicons | Dashboards, progress rings, and iconography |
+| Optional API | Express 5, `jsonwebtoken`, `bcryptjs` | JWT-protected auth and JSON-file log sync |
+| Local persistence | `localStorage`, AsyncStorage, JSON files in `data/` | Offline caching, saved settings, and server-side file storage |
+| Tooling | ESLint 9, PostCSS, `vite-plugin-pwa` | Linting, CSS processing, and PWA build output |
+
+## Project Structure
+
+```text
+.
+|-- src/
+|   |-- main.jsx                    # Web entry point
+|   |-- App.jsx                     # App shell, auth gating, view switching
+|   |-- firebase.js                 # Firebase client initialization for the web app
+|   |-- components/
+|   |   |-- auth/                   # Login and registration screens
+|   |   |-- AttendanceLog.jsx       # Editable attendance history and modal drill-downs
+|   |   |-- LeaveManagement.jsx     # Leave dashboard, import, salary, and projections
+|   |   |-- LogAnalyzer.jsx         # Raw log textarea and parsed activity timeline
+|   |   `-- SyncManager.jsx         # Render-prop wrapper for Firestore sync and restore
+|   |-- context/
+|   |   |-- AuthContext.jsx         # Firebase auth plus log sync helpers
+|   |   |-- ShiftStateContext.jsx   # Shared shift state, autosave, and derived calculations
+|   |   `-- UIContext.jsx           # Toasts and confirmation dialogs
+|   |-- hooks/                      # Shift parsing, history, local storage, and financial hooks
+|   |-- utils/                      # Leave import, holiday logic, encashment, and backup helpers
+|   `-- data/                       # Seed data used by leave workflows
+|-- server/
+|   |-- server.js                   # Express bootstrap and route mounting
+|   |-- db.js                       # File-based persistence using data/users.json and data/logs.json
+|   |-- routes/
+|   |   |-- auth.js                 # Register/login endpoints with JWT issuance
+|   |   `-- logs.js                 # Authenticated fetch and batch sync for logs
+|   `-- models/                     # Legacy Mongoose schemas retained in the repo
+|-- mobile/
+|   |-- App.js                      # Expo entry point and bottom-tab navigation
+|   |-- app.json                    # Expo app metadata and package IDs
+|   |-- .env.example                # Mobile Firebase and Google OAuth variable template
+|   `-- src/
+|       |-- context/AuthContext.js  # Mobile auth state and Google sign-in wiring
+|       |-- hooks/useFirestoreSync.js # Read-only Firestore listeners for logs, leaves, settings
+|       `-- screens/                # Today, History, Leaves, and Login screens
+|-- public/
+|   |-- manifest.json               # Manifest V3 extension manifest copied into web builds
+|   `-- pwa-*.png                   # Shared icons for PWA and extension packaging
+|-- extension/                      # Committed browser-extension build artifact
+|-- data/
+|   |-- users.json                  # File-based API users
+|   `-- logs.json                   # File-based API logs
+|-- firestore.rules                 # Firestore access rules
+|-- index.html                      # Vite HTML shell with CSP rules
+`-- package.json                    # Root web-app scripts and dependencies
 ```
-workshift/
-├── src/                   # Web app (React + Vite)
-├── server/                # Express API server
-├── mobile/                # Mobile companion app (Expo SDK 54)
-├── firestore.rules        # Firestore security rules
-└── public/                # Static assets
-```
 
----
+## Prerequisites
 
-## 🌐 Web App
+- Node.js 22.x is the safest choice. Both `.node-version` and `.nvmrc` contain `22`, while the root web app allows `>=20.19.0 <21 || >=22.12.0`.
+- npm 10+ is recommended. All three lockfiles use `lockfileVersion: 3`.
+- A Firebase project configured for Authentication and Firestore. The checked-in env files target `workshift-ws2026`.
+- Expo Go or an Android/iOS simulator if you want to run the mobile app.
+- Google OAuth client IDs if you want Google sign-in on mobile.
+- A persistent writable filesystem for `data/` if you plan to run the optional Express API in anything beyond a throwaway local session.
 
-### What It Does
+## Getting Started
 
-Corporate HR portals track biometric punches but rarely tell you **when you can leave** or **how many effective hours you've worked** after accounting for all breaks. WorkShift solves this by constantly monitoring your required hours, dynamically subtracting break time to give you a **True Effective Work Time** and an accurate countdown to shift end.
+### Installation
 
-### Features
-
-#### 🕒 Live Shift Calculator
-- Auto-detects your first punch from pasted portal logs
-- Calculates estimated exit time based on configured shift duration
-- Deducts micro-breaks from effective work time in real-time
-- Circular progress ring with overtime indicator
-
-#### 📝 Smart Log Analyzer
-- Paste raw biometric logs directly from your HR portal
-- Regex engine extracts every In/Out punch even when table formatting is stripped
-- Aggregates gap durations across the entire day
-- Supports multiple log formats including decimal summaries
-
-#### 📅 Attendance History
-- Paginated history with date search and status filters
-- Status badges: On-Time, Late Arrival, Short Shift
-- Tap-to-expand detail view with graphical vertical timeline
-- Edit mode to manually override shift data
-
-#### 🏖️ Leave Management
-- Full Day, 1st Half, 2nd Half, Short Time-Off leave types
-- Virtual anchoring — leave adjusts your target hours and progress bars accurately
-- Leave status stamped across dashboard and history
-
-#### 📊 Analytics
-- 52-week GitHub-style attendance heatmap
-- SVG trend charts for effective hours and break time
-- Month-to-Date (MTD) adherence tracking
-- Weekly trend area chart
-
-#### ☁️ Firebase Sync
-- Real-time `onSnapshot` listeners across all devices
-- Batch write sync with schema validation
-- `localStorage` as instant cache with background sync
-
-### Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Framework | React 19, Vite |
-| Auth & DB | Firebase v11 (Auth + Firestore) |
-| Styling | Tailwind CSS, Framer Motion |
-| Icons | Lucide React |
-| Server | Express (optional REST API) |
-
-### Setup
+⚠️ **Assumption:** The repository's Git remote URL is not stored in the scanned files, so replace `<repository-url>` with your actual remote.
 
 ```bash
-# 1. Clone and install
+git clone <repository-url>
+cd Time-Calculator
+
 npm install
 
-# 2. Create .env
-cp .env.example .env
-# Fill in your Firebase config:
-# VITE_FIREBASE_API_KEY=...
-# VITE_FIREBASE_AUTH_DOMAIN=...
-# VITE_FIREBASE_PROJECT_ID=...
-# VITE_FIREBASE_STORAGE_BUCKET=...
-# VITE_FIREBASE_MESSAGING_SENDER_ID=...
-# VITE_FIREBASE_APP_ID=...
+cd mobile
+npm install
 
-# 3. Run dev server
-npm run dev
-
-# 4. Build for production
-npm run build
+cd ../server
+npm install
 ```
 
----
+### Environment Setup
 
-## 📱 Mobile App (`mobile/`)
+#### Web app (`./.env`)
 
-A **read-only companion app** that syncs from the same Firestore backend. No data entry — just a clean, at-a-glance view of your shift, history, and leave balance.
+The root project does not include a checked-in `.env.example`, so create `.env` manually in the repository root.
 
-### Screens
+| Name | Description | Example value | Required |
+| --- | --- | --- | --- |
+| `VITE_FIREBASE_API_KEY` | Firebase Web API key used by `src/firebase.js` | `AIzaSyCHVAT1hH4VnjrNgXH_HN_4A37ZDBno2w4` | Yes |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase Auth domain for the web app | `workshift-ws2026.firebaseapp.com` | Yes |
+| `VITE_FIREBASE_PROJECT_ID` | Firestore project ID | `workshift-ws2026` | Yes |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Firebase Storage bucket | `workshift-ws2026.firebasestorage.app` | Yes |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Firebase sender ID | `178374041836` | Yes |
+| `VITE_FIREBASE_APP_ID` | Firebase web app ID | `1:178374041836:web:074f66fe1a6f1e948e05c9` | Yes |
+| `VITE_FIREBASE_MEASUREMENT_ID` | Firebase Analytics measurement ID | `G-6HZ91VHMNB` | No |
 
-| Tab | Content |
-|-----|---------|
-| **Today** | Circular progress ring, active work time, break time, first in / last out, estimated exit, live overtime indicator, leave badge |
-| **History** | Scrollable attendance list with mini bar chart (last 7 days), tap-to-expand daily detail |
-| **Leaves** | Balance cards by category (EL, CO, CF, SL, CL), leave history list |
+#### Mobile app (`mobile/.env`)
 
-### Auth
-- Email/password login using the same Firebase credentials as the web app
-- Google Sign-In via `expo-auth-session`
-- Auth token persisted across app restarts via AsyncStorage
+Copy `mobile/.env.example` to `mobile/.env`.
 
-### Tech Stack
+| Name | Description | Example value | Required |
+| --- | --- | --- | --- |
+| `EXPO_PUBLIC_FIREBASE_API_KEY` | Firebase API key for Expo | `AIzaSyCHVAT1hH4VnjrNgXH_HN_4A37ZDBno2w4` | Yes |
+| `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN` | Firebase Auth domain for mobile sign-in | `workshift-ws2026.firebaseapp.com` | Yes |
+| `EXPO_PUBLIC_FIREBASE_PROJECT_ID` | Firestore project ID | `workshift-ws2026` | Yes |
+| `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET` | Firebase Storage bucket | `workshift-ws2026.firebasestorage.app` | Yes |
+| `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | Firebase sender ID | `178374041836` | Yes |
+| `EXPO_PUBLIC_FIREBASE_APP_ID` | Firebase mobile app ID | `1:178374041836:web:074f66fe1a6f1e948e05c9` | Yes |
+| `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` | Google OAuth client ID for web auth-session flow | `your_web_client_id.apps.googleusercontent.com` | Optional unless using Google sign-in |
+| `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` | Google OAuth client ID for iOS | `your_ios_client_id.apps.googleusercontent.com` | Optional unless using Google sign-in |
+| `EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID` | Google OAuth client ID for Android | `your_android_client_id.apps.googleusercontent.com` | Optional unless using Google sign-in |
 
-| Layer | Technology |
-|-------|-----------|
-| Framework | Expo SDK 54, React Native 0.77 |
-| Navigation | React Navigation v7 (bottom tabs) |
-| Auth & DB | Firebase v11 — read-only `onSnapshot` |
-| Icons | `@expo/vector-icons` (Ionicons) |
+⚠️ **Assumption:** The Google OAuth client IDs are genuinely unknown from the repository because `mobile/.env.example` contains placeholders and no checked-in `mobile/.env` values for them.
 
-### Setup
+⚠️ **Assumption:** `mobile/src/context/AuthContext.js` imports `expo-auth-session` and `expo-web-browser`, but those packages are not declared in `mobile/package.json`. Add them before relying on Google sign-in in a fresh install.
+
+#### Optional Express API (`server/.env` or shell environment)
+
+There is no checked-in `server/.env.example`, but the server expects the following:
+
+| Name | Description | Example value | Required |
+| --- | --- | --- | --- |
+| `JWT_SECRET` | Secret used to sign and verify JWTs in `server/routes/auth.js` and `server/routes/logs.js` | `b1e6b18b4b6149499d0d2a3b6af5a8de01e8d7fcb0b8e16d2c15f6c8a4c9b51e` | Yes |
+| `PORT` | Express listen port | `5000` | No |
+
+### Running Locally
+
+#### 1. Web app
+
+```bash
+npm run dev
+```
+
+The Vite dev server runs on `http://localhost:5173` by default.
+
+#### 2. Optional Express API
+
+```bash
+cd server
+export JWT_SECRET="b1e6b18b4b6149499d0d2a3b6af5a8de01e8d7fcb0b8e16d2c15f6c8a4c9b51e"
+node server.js
+```
+
+The API listens on `http://localhost:5000` unless `PORT` is overridden.
+
+#### 3. Mobile app
 
 ```bash
 cd mobile
+cp .env.example .env
+npm start
+```
 
-# 1. Install dependencies
+Expo launches the Metro bundler and device dashboard. In a default Expo setup this is typically available on `http://localhost:8081`.
+
+⚠️ **Assumption:** No custom Expo port is configured in `mobile/app.json`, so the README assumes Expo's default Metro behavior.
+
+## Available Scripts
+
+| Script | Command | Description |
+| --- | --- | --- |
+| `web:dev` | `npm run dev` | Start the Vite web app in development mode |
+| `web:build` | `npm run build` | Create a production web build in `dist/` |
+| `web:lint` | `npm run lint` | Run ESLint across the web source |
+| `web:preview` | `npm run preview` | Serve the production web build locally |
+| `mobile:start` | `cd mobile && npm start` | Start Expo Metro and the mobile dev dashboard |
+| `mobile:android` | `cd mobile && npm run android` | Open the Expo app in an Android target |
+| `mobile:ios` | `cd mobile && npm run ios` | Open the Expo app in an iOS target |
+| `mobile:web` | `cd mobile && npm run web` | Run the Expo app in a browser |
+| `server:test` | `cd server && npm test` | Placeholder script that currently exits with an error |
+| `server:start` | `cd server && node server.js` | Manual server start command because no npm start script is defined |
+
+## API Reference
+
+The only explicit API surface in the repository is the optional Express app under `server/`.
+
+| Method | Route | Description | Auth required? |
+| --- | --- | --- | --- |
+| `GET` | `/` | Health/info endpoint returning the API version string | No |
+| `POST` | `/api/auth/register` | Create a user and return a 7-day JWT | No |
+| `POST` | `/api/auth/login` | Authenticate a user and return a 7-day JWT | No |
+| `GET` | `/api/logs` | Fetch all logs for the authenticated user, sorted descending by date | Yes (`x-auth-token`) |
+| `POST` | `/api/logs/sync` | Upsert up to 500 log entries for the authenticated user | Yes (`x-auth-token`) |
+
+### Register
+
+```http
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "name": "Asha Shah",
+  "email": "asha@example.com",
+  "password": "correct-horse-battery-staple"
+}
+```
+
+```json
+{
+  "token": "<jwt>",
+  "user": {
+    "id": "1774502639727",
+    "name": "Asha Shah",
+    "email": "asha@example.com"
+  }
+}
+```
+
+### Login
+
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "asha@example.com",
+  "password": "correct-horse-battery-staple"
+}
+```
+
+```json
+{
+  "token": "<jwt>",
+  "user": {
+    "id": "1774502639727",
+    "name": "Asha Shah",
+    "email": "asha@example.com"
+  }
+}
+```
+
+### Batch log sync
+
+```http
+POST /api/logs/sync
+x-auth-token: <jwt>
+Content-Type: application/json
+
+{
+  "logs": [
+    [
+      "2026-02-04",
+      {
+        "startTime": "07:55",
+        "logInput": "04-Feb-26\t07:55 AM\tIn\t...",
+        "totalOutTime": 2,
+        "effectiveWorkTime": 151,
+        "firstInTime": "07:55",
+        "lastOutTime": "10:28"
+      }
+    ]
+  ]
+}
+```
+
+```json
+{
+  "msg": "Sync successful"
+}
+```
+
+## Database Schema
+
+### Firestore collections used by the web and mobile apps
+
+| Path | Key fields | Notes |
+| --- | --- | --- |
+| `users/{uid}` | `name: string`, `email: string`, `photoURL?: string`, `createdAt: string` | Created on web registration and first Google login |
+| `users/{uid}/logs/{date}` | `date: string`, `startTime: string`, `logInput: string`, `totalOutTime: number`, `effectiveWorkTime: number`, `firstInTime: string`, `lastOutTime: string`, `activeLeave?: object`, `updatedAt: string`, `raw?: any` | Main per-day cloud sync target for the web app and read target for mobile Today/History |
+| `users/{uid}/settings/preferences` | `shiftDuration: number`, `use24Hour: boolean` | Read by the mobile app; web settings are also cached locally |
+| `users/{uid}/leaves/{leaveId}` | `date: string`, `type: string`, `duration: number`, `half?: string`, `reason?: string`, `startTime?: string`, `endTime?: string`, `createdAt`, `updatedAt` | Allowed by `firestore.rules` and read by the mobile Leaves tab |
+| `users/{uid}/leaveHistory/{id}` | `leaveType`, `transactionType`, `consumedDays`, `creditDays`, `days`, `date`, `remarks`, `source`, `type`, `importedAt`, `schemaVersion` | Written by the web leave-import utilities |
+| `users/{uid}/importMeta/leaveImport` | `lastImportedAt`, `totalRecords` | Leave import metadata document |
+
+### File-based API storage used by the optional Express server
+
+| File | Shape | Notes |
+| --- | --- | --- |
+| `data/users.json` | Array of `{ id, name, email, password, createdAt }` | Passwords are bcrypt-hashed during register |
+| `data/logs.json` | Array of `{ userId, date, updatedAt, ...logFields }` | Upserted by `server/routes/logs.js` on `userId + date` |
+
+### Relationships
+
+- One authenticated user owns many daily log documents.
+- One authenticated user is expected to own one settings document at `settings/preferences`.
+- One authenticated user may own many leave documents and many imported leave-history records.
+- The file-based API mirrors a simpler one-to-many relationship between users and logs using JSON arrays.
+
+⚠️ **Assumption:** The leave subsystem appears to be mid-migration. `firestore.rules` explicitly permit `users/{uid}/leaves`, but the web leave-import path writes to `users/{uid}/leaveHistory` and `users/{uid}/importMeta`, which are not covered by the current rules file.
+
+⚠️ **Assumption:** The mobile app reads `users/{uid}/leaves`, while most of the web leave analytics work from `localStorage` and the imported `leaveHistory` collection. Expect schema alignment work before treating the leave model as stable across all clients.
+
+## Architecture Overview
+
+The project is organized as a client-first system with optional backend augmentation:
+
+1. `src/main.jsx` bootstraps the web app and wraps it with Firebase auth, UI, and shift-state providers.
+2. `ShiftStateContext` combines the raw log parser, time calculations, local persistence, and autosave behavior into one shared state graph.
+3. Every meaningful change to the active day is saved into `localStorage`; if a Firebase user is logged in, the current day can also be written to Firestore via `AuthContext` and `SyncManager`.
+4. Leave features split across local storage, Firestore imports, and holiday utilities. The import path normalizes spreadsheet data and batches writes through Firestore.
+5. The mobile app does not calculate or mutate shift data locally. It subscribes read-only to Firestore logs, leaves, and settings through `useFirestoreSync`.
+6. The Express API is a separate service surface with its own auth model and persistence layer. No current web or mobile source files call `/api/*`, so it should be treated as optional or legacy integration infrastructure.
+
+Notable patterns used in the codebase:
+
+- React Context providers for auth, UI, and shift state
+- Hook-based derivation for parsing, analytics, history, and financial calculations
+- Render-prop composition in `SyncManager`
+- Client-side optimistic persistence through `localStorage` backed by background sync
+- Batch writes and real-time subscriptions in Firestore
+
+## Deployment
+
+No Dockerfiles, CI workflows, host-specific config files, or release pipelines are checked into this repository. The sections below reflect the deployment paths implied by the current code.
+
+### Web app / PWA
+
+```bash
 npm install
+npm run build
+```
 
-# 2. Create .env
-copy .env.example .env
-# Fill in Firebase config (EXPO_PUBLIC_ prefix) + Google OAuth client IDs
+Deploy the generated `dist/` folder to any static host that can serve a single-page application. The repository does not include Firebase Hosting, Netlify, Vercel, or nginx config, so routing and caching rules must be supplied by the deployment platform.
 
-# 3. Run
+### Browser extension
+
+The repository already contains a committed build artifact in `extension/`.
+
+1. Open Chrome or Edge extensions.
+2. Enable Developer Mode.
+3. Choose **Load unpacked**.
+4. Select the `extension/` directory.
+
+⚠️ **Assumption:** `extension/` is a packaged output rather than a separately maintained source package. The web build also ships `public/manifest.json`, so you can likely regenerate an unpacked extension from a fresh Vite build, but there is no checked-in automation for that step.
+
+### Optional Express API
+
+```bash
+cd server
+npm install
+export JWT_SECRET="b1e6b18b4b6149499d0d2a3b6af5a8de01e8d7fcb0b8e16d2c15f6c8a4c9b51e"
+node server.js
+```
+
+Deployment notes:
+
+- Persist the top-level `data/` directory, or user and log data will be lost on restart.
+- Review CORS policy before exposing the API publicly; the current code enables unrestricted `cors()`.
+- `server/package.json` still declares `main: "index.js"` even though the actual entry point is `server.js`.
+
+### Mobile app
+
+Only development-time Expo configuration is present in the repository.
+
+```bash
+cd mobile
+npm install
 npx expo start
-
-# Scan the QR code with Expo Go on your phone
-# or press 'a' for Android emulator / 'i' for iOS simulator
 ```
 
-### Environment Variables
+⚠️ **Assumption:** Production mobile distribution is not fully wired up. There is no `eas.json`, store metadata, or build automation, so App Store / Play Store releases will require extra Expo/EAS setup outside this repository.
 
-```env
-EXPO_PUBLIC_FIREBASE_API_KEY=...
-EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-EXPO_PUBLIC_FIREBASE_PROJECT_ID=...
-EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-EXPO_PUBLIC_FIREBASE_APP_ID=...
+## Testing
 
-# Google Sign-In (from Google Cloud Console)
-EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID=...
-EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID=...
-EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID=...
+Current testing coverage is manual only.
+
+- No root-level test runner, test files, or coverage configuration were found for the web app.
+- The mobile app also has no automated tests checked in.
+- `cd server && npm test` currently runs the placeholder script from `server/package.json` and exits with `Error: no test specified`.
+- Manual verification should cover web auth, log parsing, Firestore sync, leave imports, mobile read-only sync, and API smoke tests.
+
+Coverage expectations are therefore undefined today.
+
+## Contributing
+
+1. Fork the repository and create a focused branch such as `feature/leave-import-fixes` or `fix/mobile-auth`.
+2. Install dependencies for the surface you plan to modify:
+
+```bash
+npm install
+cd mobile && npm install
+cd ../server && npm install
 ```
 
----
+3. Run the relevant development target and validate the affected workflows manually.
+4. Run linting before opening a PR:
 
-## 🔒 Security
+```bash
+npm run lint
+```
 
-- Firestore rules enforce per-user read/write with field-level validation
-- Server-side log validation: size limits, prototype pollution sanitization, max 500 entries per sync
-- Financial passcodes hashed with SHA-256 (never stored in plaintext)
-- Mobile app is strictly read-only — no Firestore writes from mobile client
+5. Keep changes scoped to the appropriate area:
 
----
+- `src/` for the web app
+- `mobile/src/` for the Expo app
+- `server/` for the optional API
+- `firestore.rules` when cloud schema or access changes
 
-## 🗺️ Roadmap
+Code style guidance from the repository:
 
-- [ ] Push notifications (shift reminders, CO expiry alerts)
-- [ ] Biometric unlock (Face ID / Fingerprint)
-- [ ] iOS Widget / Android Glance for shift progress
-- [ ] Leave request submission from mobile
-- [ ] Monthly analytics dashboard on mobile
-- [ ] Apple Watch / Wear OS complication
+- Follow the ESLint configuration in `eslint.config.js`.
+- Use modern React function components and hooks.
+- Preserve existing storage keys and Firestore field names unless your change intentionally migrates them.
+- Update this README when you add new environment variables, collections, or deployment steps.
 
----
+⚠️ **Assumption:** No commit message convention is documented in the repository. Use concise, imperative commit titles such as `Add mobile leave sync fallback` or `Fix log batch validation`.
 
-## ✍️ Author
+## License
 
-**[Shlok Sharma](https://github.com/ShlokSharma-2662)**
-*Re-engineering productivity tracking — because knowing exactly when you can go home shouldn't involve mental math.*
+⚠️ **Assumption:** No project-wide `LICENSE` file is present in the repository as of 2026.
+
+The only explicit license metadata found during the scan is `ISC` inside `server/package.json`, but that should not be treated as a repository-wide license declaration or a complete year/copyright notice. Add a top-level `LICENSE` file before distributing the project externally.
+
+## Acknowledgements / Credits
+
+- Firebase for authentication and real-time Firestore synchronization
+- Expo and React Native for the mobile companion shell
+- Vite and React for the web application runtime
+- Recharts, Framer Motion, Lucide React, and Ionicons for analytics visuals and UI presentation
