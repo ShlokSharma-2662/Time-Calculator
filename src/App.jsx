@@ -57,6 +57,12 @@ function AppContent() {
     localStorage.setItem('activeView', activeView);
   }, [activeView]);
 
+  useEffect(() => {
+    if (user && user.email !== 'suttamshlok@gmail.com' && activeView === 'leave') {
+      setActiveView('shift');
+    }
+  }, [user, activeView]);
+
   const handleLoadEntryAttempt = (entry) => {
     confirm({
       title: "Load Entry?",

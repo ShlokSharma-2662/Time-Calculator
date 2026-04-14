@@ -22,7 +22,7 @@ export const Header = ({ onOpenSettings, onOpenHistory, activeView = 'shift', se
                         </div>
                     </div>
                 </div>
-                
+
                 <div className="flex items-center gap-1 p-1.5 glass rounded-2xl border-white/20">
                     <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
                         onClick={onSync} disabled={isSyncing}
@@ -80,16 +80,18 @@ export const Header = ({ onOpenSettings, onOpenHistory, activeView = 'shift', se
                     <Briefcase className="w-4 h-4" />
                     Dashboard
                 </button>
-                <button
-                    onClick={() => setActiveView('leave')}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${activeView === 'leave'
-                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xl'
-                        : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                        }`}
-                >
-                    <Palmtree className="w-4 h-4" />
-                    Archive
-                </button>
+                {user?.email === 'suttamshlok@gmail.com' && (
+                    <button
+                        onClick={() => setActiveView('leave')}
+                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all ${activeView === 'leave'
+                            ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xl'
+                            : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                            }`}
+                    >
+                        <Palmtree className="w-4 h-4" />
+                        Archive
+                    </button>
+                )}
             </nav>
         </div>
     );
