@@ -1,7 +1,18 @@
 export const useTimeHelpers = () => {
     const timeToMinutes = (timeStr) => {
-        if (!timeStr) return 0;
-        const [hours, minutes] = timeStr.split(':').map(Number);
+        if (!timeStr || typeof timeStr !== 'string') return 0;
+
+        const isPM = timeStr.toUpperCase().includes('PM');
+        const isAM = timeStr.toUpperCase().includes('AM');
+        const cleanTime = timeStr.replace(/[^\d:]/g, '');
+
+        const [hoursStr, minutesStr] = cleanTime.split(':');
+        let hours = parseInt(hoursStr, 10) || 0;
+        const minutes = parseInt(minutesStr, 10) || 0;
+
+        if (isPM && hours !== 12) hours += 12;
+        if (isAM && hours === 12) hours = 0;
+
         return hours * 60 + minutes;
     };
 
