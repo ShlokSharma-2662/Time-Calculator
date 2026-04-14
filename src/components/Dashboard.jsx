@@ -50,6 +50,11 @@ export const Dashboard = ({
                             color={isOvertime ? "#f43f5e" : "#6366f1"}
                         />
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full">
+                            <div className="text-[12px] font-bold text-indigo-400 tracking-widest mb-1.5 uppercase">
+                                {new Intl.DateTimeFormat('en-US', {
+                                    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+                                }).format(new Date(logStats.detectedDate || new Date()))}
+                            </div>
                             <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">Overall Progress</div>
                             <div className="text-7xl font-black text-slate-800 dark:text-white tracking-tighter flex items-center justify-center">
                                 {Math.floor(workProgress)}<span className="text-3xl text-indigo-500/50 ml-1">%</span>
