@@ -3,7 +3,7 @@
 A multi-surface shift intelligence workspace for employees who need to turn raw attendance logs into work-time, leave, and encashment insights.
 
 ![Build](https://img.shields.io/badge/build-no%20CI-lightgrey)
-![License](https://img.shields.io/badge/license-not%20declared-lightgrey)
+![License](https://img.shields.io/badge/license-MIT-green)
 ![Version](https://img.shields.io/badge/version-0.0.0-blue)
 ![Stack](https://img.shields.io/badge/stack-React%2019%20%7C%20Firebase%20%7C%20Expo%2054%20%7C%20Express%205-success)
 
@@ -471,9 +471,11 @@ Code style guidance from the repository:
 
 ## License
 
-⚠️ **Assumption:** No project-wide `LICENSE` file is present in the repository as of 2026.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
-The only explicit license metadata found during the scan is `ISC` inside `server/package.json`, but that should not be treated as a repository-wide license declaration or a complete year/copyright notice. Add a top-level `LICENSE` file before distributing the project externally.
+Copyright (c) 2026 ShlokSharma-2662.
+
+Note: `server/package.json` still declares `ISC` in its local metadata. Update it to `MIT` if you want the server package to match the repository-wide license.
 
 ## Acknowledgements / Credits
 
