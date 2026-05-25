@@ -11,6 +11,7 @@ import { parseHRExport, parseCSVTemplate, importToFirestore, generateCompositeKe
 import { downloadCSVTemplate } from '../utils/csvTemplate';
 import { syncLeavesFromFirestore, pushLeavesToFirestore, getLeaveHistory } from '../utils/leaveHistory';
 import { useUI } from '../context/UIContext';
+import { formatFinancialYearLabel, getFinancialYearStartYear } from '../utils/financialYear';
 
 export function LeaveImport({ isOpen, onClose }) {
     const { user } = useAuth();
@@ -24,6 +25,8 @@ export function LeaveImport({ isOpen, onClose }) {
     const [results, setResults] = useState(null);
     const [errorMessage, setErrorMessage] = useState(null);
     const [existingKeys, setExistingKeys] = useState(new Set());
+    const [importMeta, setImportMeta] = useState({ employeeName: '', leaveBalances: [] });
+    const [selectedFYStartYear, setSelectedFYStartYear] = useState(null);
     const fileInputRef = useRef(null);
 
     // Fetch existing keys for deduplication preview
@@ -40,9 +43,10 @@ export function LeaveImport({ isOpen, onClose }) {
                     const keys = new Set(snapshot.docs.map(doc => {
                         const d = doc.data();
                         return generateCompositeKey({
-                            date: d.date.toDate(),
+                            transactionDate: d.transactionDate || d.date,
                             leaveType: d.leaveType,
                             transactionType: d.transactionType,
+                            days: d.days,
                             consumedDays: d.consumedDays,
                             creditDays: d.creditDays
                         });
@@ -56,12 +60,102 @@ export function LeaveImport({ isOpen, onClose }) {
         }
     }, [isOpen, user?.uid]);
 
+    const financialYearOptions = useMemo(() => {
+        const years = new Set();
+        records.forEach((record) => {
+            const fy = getFinancialYearStartYear(record.transactionDate || record.date);
+            if (Number.isFinite(fy)) years.add(fy);
+        });
+        return Array.from(years).sort((a, b) => b - a);
+    }, [records]);
+
+    React.useEffect(() => {
+        if (financialYearOptions.length === 0) {
+            setSelectedFYStartYear(null);
+            return;
+        }
+        if (!financialYearOptions.includes(selectedFYStartYear)) {
+            setSelectedFYStartYear(financialYearOptions[0]);
+        }
+    }, [financialYearOptions, selectedFYStartYear]);
+
+    const scopedRecords = useMemo(() => {
+        if (!Number.isFinite(selectedFYStartYear)) return records;
+        return records.filter((record) =>
+            getFinancialYearStartYear(record.transactionDate || record.date) === selectedFYStartYear
+        );
+    }, [records, selectedFYStartYear]);
+
     const previewRecords = useMemo(() => {
-        return records.slice(0, 15).map(r => ({
-            ...r,
-            isDuplicate: existingKeys.has(generateCompositeKey(r))
+        return scopedRecords.slice(0, 15).map((record) => ({
+            ...record,
+            isDuplicate: existingKeys.has(generateCompositeKey(record))
         }));
-    }, [records, existingKeys]);
+    }, [scopedRecords, existingKeys]);
+
+    const scopedLeaveBalances = useMemo(() => {
+        const grouped = new Map();
+
+        scopedRecords.forEach((record) => {
+            const leaveType = record.leaveType;
+            const transactionDate = record.transactionDate || record.date;
+            if (!leaveType || !transactionDate) return;
+
+            const days = Math.abs(Number(record.days || record.consumedDays || record.creditDays || 0));
+            const transactionType = record.transactionType || (record.creditDays > 0 ? 'credit' : 'debit');
+            const openingBalance = Number(record.openingBalance || 0);
+            const closingBalance = Number(record.closingBalance || 0);
+
+            if (!grouped.has(leaveType)) {
+                grouped.set(leaveType, {
+                    leaveType,
+                    openingBalance,
+                    totalConsumed: 0,
+                    totalCredited: 0,
+                    availableBalance: Number.isFinite(closingBalance) ? closingBalance : openingBalance,
+                    firstDate: transactionDate,
+                    lastDate: transactionDate,
+                });
+            }
+
+            const bucket = grouped.get(leaveType);
+
+            if (transactionDate < bucket.firstDate) {
+                bucket.firstDate = transactionDate;
+                bucket.openingBalance = openingBalance;
+            }
+            if (transactionDate >= bucket.lastDate) {
+                bucket.lastDate = transactionDate;
+                if (Number.isFinite(closingBalance)) {
+                    bucket.availableBalance = closingBalance;
+                }
+            }
+
+            if (transactionType === 'credit') {
+                bucket.totalCredited += days;
+            } else {
+                bucket.totalConsumed += days;
+            }
+        });
+
+        return Array.from(grouped.values()).map((bucket) => ({
+            leaveType: bucket.leaveType,
+            openingBalance: bucket.openingBalance,
+            totalConsumed: Number(bucket.totalConsumed.toFixed(2)),
+            totalCredited: Number(bucket.totalCredited.toFixed(2)),
+            availableBalance: Number.isFinite(bucket.availableBalance)
+                ? Number(bucket.availableBalance.toFixed(2))
+                : Number((bucket.openingBalance + bucket.totalCredited - bucket.totalConsumed).toFixed(2)),
+        }));
+    }, [scopedRecords]);
+
+    const scopedImportCounts = useMemo(() => {
+        const newCount = scopedRecords.filter((record) => !existingKeys.has(generateCompositeKey(record))).length;
+        return {
+            newCount,
+            duplicateCount: scopedRecords.length - newCount,
+        };
+    }, [scopedRecords, existingKeys]);
 
     if (!isOpen) return null;
 
@@ -74,6 +168,8 @@ export function LeaveImport({ isOpen, onClose }) {
             setStatus('idle');
             setRecords([]);
             setResults(null);
+            setImportMeta({ employeeName: '', leaveBalances: [] });
+            setSelectedFYStartYear(null);
         }
     };
 
@@ -83,9 +179,15 @@ export function LeaveImport({ isOpen, onClose }) {
             setStatus('parsing');
             let parsedRecords = [];
             if (importMode === 'hr_export') {
-                parsedRecords = await parseHRExport(file);
+                const parsed = await parseHRExport(file);
+                parsedRecords = parsed.records || [];
+                setImportMeta({
+                    employeeName: parsed.employeeName || '',
+                    leaveBalances: parsed.leaveBalances || []
+                });
             } else {
                 parsedRecords = await parseCSVTemplate(file);
+                setImportMeta({ employeeName: '', leaveBalances: [] });
             }
 
             if (parsedRecords.length === 0) {
@@ -104,22 +206,33 @@ export function LeaveImport({ isOpen, onClose }) {
 
     const handleCommit = async () => {
         try {
+            if (!Number.isFinite(selectedFYStartYear) || scopedRecords.length === 0) {
+                showError("Select a financial year with records before migration.");
+                return;
+            }
+
             setStatus('uploading');
             // 1. Initial Import of the specific file records
             const { importedCount, skippedCount } = await importToFirestore(
                 user.uid,
-                records,
-                (p) => setProgress(p)
+                scopedRecords,
+                (p) => setProgress(p),
+                {
+                    employeeName: importMeta.employeeName,
+                    leaveBalances: scopedLeaveBalances,
+                    source: importMode === 'hr_export' ? 'legacy_hrms_import' : 'csv_import',
+                    replaceFinancialYears: importMode === 'hr_export'
+                }
             );
 
-            // 2. Full Bidirectional Handshake (Push All + Pull All)
+            // 2. Refresh local cache from cloud (authoritative source after migration)
             setResults({ importedCount, skippedCount });
-            setErrorMessage("Finalizing Handshake...");
-            await pushLeavesToFirestore(user.uid);
+            setErrorMessage("Refreshing Local Cache...");
+            localStorage.removeItem('leave_history_data');
             await syncLeavesFromFirestore(user.uid);
 
             setStatus('success');
-            showSuccess(`Successfully migrated ${importedCount} records and synchronized Cloud!`);
+            showSuccess(`Successfully migrated FY ${formatFinancialYearLabel(selectedFYStartYear)} with ${importedCount} records.`);
             setTimeout(() => window.location.reload(), 2000);
         } catch (err) {
             console.error("Commit Error:", err);
@@ -180,6 +293,8 @@ export function LeaveImport({ isOpen, onClose }) {
         setProgress(0);
         setResults(null);
         setErrorMessage(null);
+        setImportMeta({ employeeName: '', leaveBalances: [] });
+        setSelectedFYStartYear(null);
     };
 
     return (
@@ -364,7 +479,7 @@ export function LeaveImport({ isOpen, onClose }) {
                                                 <div className="space-y-2">
                                                     <h4 className="text-xl font-black text-slate-300 tracking-tight group-hover:text-white transition-colors">Transfer Local Dataset</h4>
                                                     <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-                                                        Drop your {importMode === 'hr_export' ? '.XLSX' : '.CSV'} here or click to browse
+                                                        Drop your {importMode === 'hr_export' ? '.XLS/.XLSX' : '.CSV'} here or click to browse
                                                     </p>
                                                 </div>
                                             )}
@@ -399,11 +514,29 @@ export function LeaveImport({ isOpen, onClose }) {
                                             <div>
                                                 <h4 className="text-sm font-black text-white uppercase tracking-widest">Dataset Analysis</h4>
                                                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                                    {records.filter(r => !existingKeys.has(generateCompositeKey(r))).length} New Nodes • {records.filter(r => existingKeys.has(generateCompositeKey(r))).length} Already Synchronized
+                                                    {scopedImportCounts.newCount} New Nodes • {scopedImportCounts.duplicateCount} Already Synchronized
                                                 </p>
                                             </div>
                                         </div>
                                         <button onClick={reset} className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">Flush Buffer</button>
+                                    </div>
+
+                                    <div className="mb-6 p-4 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div>
+                                            <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Migration Scope</p>
+                                            <p className="text-xs font-bold text-slate-300 mt-1">Select which Financial Year to migrate</p>
+                                        </div>
+                                        <select
+                                            value={selectedFYStartYear ?? ''}
+                                            onChange={(e) => setSelectedFYStartYear(Number(e.target.value))}
+                                            className="px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-black uppercase tracking-wider"
+                                        >
+                                            {financialYearOptions.map((fy) => (
+                                                <option key={fy} value={fy} className="bg-slate-900">
+                                                    FY {formatFinancialYearLabel(fy)}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
 
                                     <div className="flex-1 max-h-[340px] overflow-hidden rounded-[2.5rem] border border-white/5 bg-white/[0.02] backdrop-blur-md relative">
@@ -443,7 +576,8 @@ export function LeaveImport({ isOpen, onClose }) {
 
                                     <button
                                         onClick={handleCommit}
-                                        className="mt-10 w-full py-6 bg-emerald-600 hover:bg-emerald-500 rounded-3xl text-white font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-emerald-500/30 transition-all flex items-center justify-center gap-4 group"
+                                        disabled={!Number.isFinite(selectedFYStartYear) || scopedRecords.length === 0}
+                                        className="mt-10 w-full py-6 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-3xl text-white font-black uppercase tracking-[0.2em] text-xs shadow-2xl shadow-emerald-500/30 transition-all flex items-center justify-center gap-4 group"
                                     >
                                         Execute Cloud Synchronization
                                         <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />

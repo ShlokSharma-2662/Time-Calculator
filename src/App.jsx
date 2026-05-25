@@ -37,6 +37,7 @@ function AppContent() {
     currentMinutes,
     history, getAllEntries, exportToCSV,
     activeLeave, logStats, shiftDetails, mtdProgress, currentDayProgress,
+    hrmsSync, clearHrmsSync,
   } = useShiftState();
 
   const [authMode, setAuthMode] = useState('login');
@@ -145,6 +146,8 @@ function AppContent() {
                         setLogInput={setLogInput}
                         stats={logStats}
                         currentTimeMinutes={currentMinutes}
+                        hrmsSync={hrmsSync}
+                        clearHrmsSync={clearHrmsSync}
                       />
                     </ErrorBoundary>
                     <ErrorBoundary label="Shift Analytics">

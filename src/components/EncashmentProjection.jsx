@@ -6,19 +6,50 @@ import { getLeaveHistory } from '../utils/leaveHistory';
 import { INITIAL_BALANCES } from '../data/seedHistory';
 import { useFinancialSettings } from '../hooks/useFinancialSettings';
 import { PasscodeModal } from './PasscodeModal';
+import {
+    formatFinancialYearLabel,
+    getCurrentFinancialYearStartYear,
+    getFinancialYearRange,
+    isDateInFinancialYear,
+} from '../utils/financialYear';
 
-export function EncashmentProjection() {
-    const { leaves } = getLeaveHistory();
+export function EncashmentProjection({ leaves: leavesProp, fyStartYear }) {
+    const { leaves: storedLeaves } = getLeaveHistory();
+    const allLeaves = leavesProp || storedLeaves;
+    const selectedFYStartYear = Number.isFinite(fyStartYear)
+        ? fyStartYear
+        : getCurrentFinancialYearStartYear();
+    const fyLabel = formatFinancialYearLabel(selectedFYStartYear);
+    const fyRange = getFinancialYearRange(selectedFYStartYear);
+    const fyScopedLeaves = useMemo(
+        () => allLeaves.filter((leave) => isDateInFinancialYear(leave.date || leave.startDate, selectedFYStartYear)),
+        [allLeaves, selectedFYStartYear]
+    );
     const { financialData, isPrivacyMode, togglePrivacy, hasPasscode, setPasscode } = useFinancialSettings();
     const [isPasscodeModalOpen, setIsPasscodeModalOpen] = useState(false);
     const [isSettingMode, setIsSettingMode] = useState(false);
 
     const today = new Date().toISOString().split('T')[0];
-    const accruedEL = calculateMonthlyAccrual('2025-04-01', today);
+    const accrualEndDate = fyRange.endDate && fyRange.endDate < today ? fyRange.endDate : today;
+    const accruedEL = calculateMonthlyAccrual(fyRange.startDate, accrualEndDate);
 
     const projection = useMemo(() => {
-        const elTaken = leaves.filter(l => l.category === 'EL' && l.days > 0).reduce((s, l) => s + l.days, 0);
-        const available = INITIAL_BALANCES.EL.opening + accruedEL - elTaken;
+        const elLeaves = fyScopedLeaves.filter((leave) => (leave.category || leave.leaveType || 'EL') === 'EL');
+        const elTaken = elLeaves
+            .filter((leave) => leave.days > 0)
+            .reduce((sum, leave) => sum + leave.days, 0);
+        const elCreditFromTransactions = elLeaves
+            .filter((leave) => leave.days < 0)
+            .reduce((sum, leave) => sum + Math.abs(leave.days), 0);
+        const openingCandidates = elLeaves
+            .filter((leave) => Number.isFinite(Number(leave.openingBalance)))
+            .sort((a, b) => new Date(a.date || a.transactionDate || a.startDate) - new Date(b.date || b.transactionDate || b.startDate));
+        const elOpening = openingCandidates.length > 0
+            ? Number(openingCandidates[0].openingBalance)
+            : INITIAL_BALANCES.EL.opening;
+
+        const effectiveELCredit = elCreditFromTransactions > 0 ? elCreditFromTransactions : accruedEL;
+        const available = elOpening + effectiveELCredit - elTaken;
 
         const carryForward = Math.min(available, 6);
         const afterCF = Math.max(0, available - carryForward);
@@ -40,7 +71,7 @@ export function EncashmentProjection() {
             percentENC: (encashable / (available || 1)) * 100,
             percentLAP: (lapsed / (available || 1)) * 100
         };
-    }, [leaves, accruedEL, financialData.basic, financialData.grossMonthly]);
+    }, [fyScopedLeaves, accruedEL, financialData.basic, financialData.grossMonthly]);
 
     const handleToggle = () => {
         if (!isPrivacyMode) {
@@ -81,7 +112,7 @@ export function EncashmentProjection() {
                     </div>
                     <div>
                         <h3 className="text-sm font-black text-white tracking-widest uppercase">Encashment Projection</h3>
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Tentative Analysis (Mar 31)</p>
+                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Tentative Analysis (FY {fyLabel})</p>
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
