@@ -7,12 +7,13 @@ import {
 } from 'lucide-react';
 import { transformHistoryToShifts, getGoals } from '../utils/shiftHistory';
 import { useAuth } from '../context/AuthContext';
+import { useShiftState } from '../context/ShiftStateContext';
 
 const ITEMS_PER_PAGE = 10;
 
 export function AttendanceLog() {
     const { syncLogsToCloud, user } = useAuth();
-    const [history, setHistory] = useState({});
+    const { history, saveEntry } = useShiftState();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('All');
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -29,12 +30,6 @@ export function AttendanceLog() {
     const goals = useMemo(() => getGoals(), []);
 
     useEffect(() => {
-        const loadHistory = () => {
-            const stored = localStorage.getItem('workShift_history');
-            if (stored) {
-                setHistory(JSON.parse(stored));
-            }
-        };
         const loadLeaves = () => {
             const stored = localStorage.getItem('leave_history_data');
             if (stored) {
@@ -46,10 +41,8 @@ export function AttendanceLog() {
                 }
             }
         };
-        loadHistory();
         loadLeaves();
         const handleStorageChange = () => {
-            loadHistory();
             loadLeaves();
         };
         window.addEventListener('storage', handleStorageChange);
@@ -211,8 +204,7 @@ export function AttendanceLog() {
             effectiveWorkTime: effectiveWorkTime
         };
 
-        localStorage.setItem('workShift_history', JSON.stringify(updatedHistory));
-        setHistory(updatedHistory);
+        saveEntry(editingDate, updatedHistory[editingDate]);
 
         if (user) {
             syncLogsToCloud([[editingDate, updatedHistory[editingDate]]]);
