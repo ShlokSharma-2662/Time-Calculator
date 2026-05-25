@@ -433,23 +433,26 @@ export function AttendanceLog() {
 
                                     <div className="flex items-center gap-1.5">
                                         {[...Array(totalPages)].map((_, i) => {
+                                            const pageNumber = i + 1;
                                             // Only show 5 pages around current page
                                             if (totalPages > 7) {
-                                                if (i + 1 !== 1 && i + 1 !== totalPages && Math.abs(i + 1 - currentPage) > 1) {
-                                                    if (Math.abs(i + 1 - currentPage) === 2) return <span key={i} className="text-slate-700">.</span>;
+                                                if (pageNumber !== 1 && pageNumber !== totalPages && Math.abs(pageNumber - currentPage) > 1) {
+                                                    if (Math.abs(pageNumber - currentPage) === 2) {
+                                                        return <span key={`ellipsis-${pageNumber}`} className="text-slate-700">.</span>;
+                                                    }
                                                     return null;
                                                 }
                                             }
                                             return (
                                                 <button
-                                                    key={i + 1}
-                                                    onClick={() => setCurrentPage(i + 1)}
-                                                    className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${currentPage === i + 1
+                                                    key={`page-${pageNumber}`}
+                                                    onClick={() => setCurrentPage(pageNumber)}
+                                                    className={`w-8 h-8 rounded-xl text-[10px] font-black transition-all ${currentPage === pageNumber
                                                         ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-500/40 translate-y-[-2px]'
                                                         : 'bg-white/5 text-slate-500 hover:bg-white/10'
                                                         }`}
                                                 >
-                                                    {i + 1}
+                                                    {pageNumber}
                                                 </button>
                                             );
                                         })}

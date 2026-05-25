@@ -8,6 +8,62 @@ import { normalizeDate } from '../utils/dateUtils';
 import { useAuth } from './AuthContext';
 
 const ShiftStateContext = createContext(null);
+const HRMS_SYNC_KEYS = [
+    'hrmsSelectedDate',
+    'hrmsSyncAt',
+    'hrmsIsToday',
+    'hrmsFirstIn',
+    'hrmsLastOut',
+    'hrmsBreakMin',
+    'hrmsPunchCount',
+    'hrmsStatus',
+    'hrmsSource',
+];
+
+function readHrmsSyncSnapshot() {
+    try {
+        const selectedDate = localStorage.getItem('hrmsSelectedDate') || '';
+        const syncAtRaw = localStorage.getItem('hrmsSyncAt');
+        const syncAt = Number(syncAtRaw);
+        const breakMinutesRaw = Number(localStorage.getItem('hrmsBreakMin'));
+        const punchCountRaw = Number(localStorage.getItem('hrmsPunchCount'));
+        const syncedLogInput = localStorage.getItem('logInput') || '';
+        const syncedStartTime = localStorage.getItem('startTime') || '';
+        const status = localStorage.getItem('hrmsStatus')
+            || (localStorage.getItem('hrmsIsToday') === 'true' ? 'today' : 'past');
+
+        return {
+            selectedDate,
+            syncedAt: Number.isFinite(syncAt) ? syncAt : null,
+            isToday: localStorage.getItem('hrmsIsToday') === 'true',
+            firstIn: localStorage.getItem('hrmsFirstIn') || '',
+            lastOut: localStorage.getItem('hrmsLastOut') || '',
+            breakMinutes: Number.isFinite(breakMinutesRaw) ? breakMinutesRaw : 0,
+            punchCount: Number.isFinite(punchCountRaw) ? punchCountRaw : 0,
+            status,
+            source: localStorage.getItem('hrmsSource') || 'spine-hrms',
+            syncedLogInput,
+            syncedStartTime,
+            hasData: Boolean(selectedDate && syncedLogInput.trim()),
+        };
+    } catch (e) {
+        console.warn('[ShiftState] Failed to read HRMS sync data:', e);
+        return {
+            selectedDate: '',
+            syncedAt: null,
+            isToday: false,
+            firstIn: '',
+            lastOut: '',
+            breakMinutes: 0,
+            punchCount: 0,
+            status: 'past',
+            source: 'spine-hrms',
+            syncedLogInput: '',
+            syncedStartTime: '',
+            hasData: false,
+        };
+    }
+}
 
 export function useShiftState() {
     const ctx = useContext(ShiftStateContext);
@@ -47,6 +103,7 @@ export function ShiftStateProvider({ children }) {
         try { return localStorage.getItem('use24Hour') === 'true'; }
         catch (e) { return false; }
     });
+    const [hrmsSync, setHrmsSync] = useState(() => readHrmsSyncSnapshot());
 
     // --- Live Clock ---
     const [currentMinutes, setCurrentMinutes] = useState(() => {
@@ -69,6 +126,69 @@ export function ShiftStateProvider({ children }) {
         localStorage.setItem('shiftDuration', shiftDuration);
         localStorage.setItem('use24Hour', use24Hour);
     }, [startTime, logInput, shiftDuration, use24Hour]);
+
+    useEffect(() => {
+        const refreshHrmsSync = () => {
+            const next = readHrmsSyncSnapshot();
+            setHrmsSync((prev) => {
+                if (
+                    prev.selectedDate === next.selectedDate
+                    && prev.syncedAt === next.syncedAt
+                    && prev.isToday === next.isToday
+                    && prev.firstIn === next.firstIn
+                    && prev.lastOut === next.lastOut
+                    && prev.breakMinutes === next.breakMinutes
+                    && prev.punchCount === next.punchCount
+                    && prev.status === next.status
+                    && prev.source === next.source
+                    && prev.syncedLogInput === next.syncedLogInput
+                    && prev.syncedStartTime === next.syncedStartTime
+                    && prev.hasData === next.hasData
+                ) {
+                    return prev;
+                }
+                return next;
+            });
+        };
+
+        refreshHrmsSync();
+        const interval = setInterval(refreshHrmsSync, 1500);
+        const onStorage = (event) => {
+            if (!event.key || event.key === 'logInput' || HRMS_SYNC_KEYS.includes(event.key)) {
+                refreshHrmsSync();
+            }
+        };
+
+        window.addEventListener('storage', onStorage);
+        return () => {
+            clearInterval(interval);
+            window.removeEventListener('storage', onStorage);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!hrmsSync.hasData) return;
+
+        try {
+            if (hrmsSync.syncedLogInput && hrmsSync.syncedLogInput !== logInput) {
+                setLogInput(hrmsSync.syncedLogInput);
+            }
+            if (hrmsSync.syncedStartTime && hrmsSync.syncedStartTime !== startTime) {
+                setStartTime(hrmsSync.syncedStartTime);
+            }
+        } catch (e) {
+            console.warn('[ShiftState] Failed to hydrate HRMS synced values:', e);
+        }
+    }, [hrmsSync.hasData, hrmsSync.syncedLogInput, hrmsSync.syncedStartTime, logInput, startTime]);
+
+    const clearHrmsSync = () => {
+        try {
+            HRMS_SYNC_KEYS.forEach((key) => localStorage.removeItem(key));
+            setHrmsSync(readHrmsSyncSnapshot());
+        } catch (e) {
+            console.warn('[ShiftState] Failed to clear HRMS sync data:', e);
+        }
+    };
 
     // --- Derived Calculations ---
     const startTimeMinutes = useMemo(() => {
@@ -142,6 +262,8 @@ export function ShiftStateProvider({ children }) {
         history, saveEntry, getAllEntries, exportToCSV, setFullHistory,
         // Derived
         activeLeave, logStats, shiftDetails, mtdProgress, currentDayProgress,
+        // HRMS integration
+        hrmsSync, clearHrmsSync,
     };
 
     return (
