@@ -1,25 +1,27 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
 import { GlassCard } from './GlassCard';
 import { CircularProgress } from './CircularProgress';
 import { WeeklyTrend } from './WeeklyTrend';
-import { ArrowUpRight, Sun, Zap, Clock, Timer, LogIn, LogOut } from 'lucide-react';
+import { ArrowUpRight, Sun, Zap, Clock, Timer, LogIn, LogOut, Activity, Sparkles } from 'lucide-react';
 import { useTimeHelpers } from '../hooks/useTimeHelpers';
 import { getHolidayName } from '../utils/sandwichLeaveLogic';
-import { getLeaveForDate, LEAVE_TYPES } from '../utils/leaveHistory';
 
 export const Dashboard = ({
     shiftDetails,
     logStats,
     workProgress,
     activeLeave = null,
-    mtdProgress,
+    mtdProgress = 0,
     history,
     shiftDuration,
     use24Hour = false
 }) => {
     const isOvertime = logStats.isOvertime;
     const { minutesToTime } = useTimeHelpers();
+    const currentDate = new Date(logStats.detectedDate || new Date());
+    const holidayName = getHolidayName(currentDate.toISOString().slice(0, 10));
+    const normalizedProgress = Number.isFinite(workProgress) ? Math.max(0, workProgress) : 0;
+    const progressLabel = Math.min(Math.round(normalizedProgress), 100);
 
     // Calculate productivity relative to goal
     const productivityPercent = useMemo(() => {
@@ -37,110 +39,125 @@ export const Dashboard = ({
         return Math.round(totalPercent / recentDays.length - 100);
     }, [history, shiftDuration]);
 
+    const dateLabel = new Intl.DateTimeFormat('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    }).format(currentDate);
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pb-4">
-            {/* Hero Section - Work Progress Ring */}
-            <div className="md:col-span-12 lg:col-span-12 xl:col-span-5">
-                <GlassCard className="h-full flex flex-col items-center justify-center py-10" hover={false}>
-                    <div className="relative">
-                        <CircularProgress
-                            progress={workProgress}
-                            size={280}
-                            strokeWidth={16}
-                            color={isOvertime ? "#f43f5e" : "#6366f1"}
-                        />
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full">
-                            <div className="text-[12px] font-bold text-indigo-400 tracking-widest mb-1.5 uppercase">
-                                {new Intl.DateTimeFormat('en-US', {
-                                    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
-                                }).format(new Date(logStats.detectedDate || new Date()))}
-                            </div>
-                            <div className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-1">Overall Progress</div>
-                            <div className="text-7xl font-black text-slate-800 dark:text-white tracking-tighter flex items-center justify-center">
-                                {Math.floor(workProgress)}<span className="text-3xl text-indigo-500/50 ml-1">%</span>
-                            </div>
+        <section className="space-y-6 pb-4" aria-label="Dashboard overview">
+            <GlassCard className="dashboard-section p-6 sm:p-7" hover={false} animationDelayMs={40}>
+                <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                    <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-300/90">Today</p>
+                        <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">{dateLabel}</h2>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-400/30 bg-slate-500/10 text-xs font-bold uppercase tracking-wider text-slate-200">
+                            MTD {Math.round(mtdProgress)}%
+                        </span>
+                        <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider ${isOvertime
+                            ? 'border-rose-400/40 bg-rose-500/10 text-rose-200'
+                            : 'border-indigo-400/40 bg-indigo-500/10 text-indigo-200'
+                            }`}>
+                            <Timer className={`w-3.5 h-3.5 ${isOvertime ? 'text-rose-300 animate-pulse-soft' : 'text-indigo-300 animate-pulse-soft'}`} />
+                            {isOvertime ? 'Overtime active' : 'Shift in progress'}
+                        </span>
+                        {activeLeave && (
+                            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-violet-400/40 bg-violet-500/10 text-xs font-bold uppercase tracking-wider text-violet-200 animate-pop-soft">
+                                <Sparkles className="w-3.5 h-3.5 text-violet-300" />
+                                {activeLeave.type.toUpperCase()} leave
+                            </span>
+                        )}
+                        {holidayName && (
+                            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-amber-300/35 bg-amber-500/10 text-xs font-bold uppercase tracking-wider text-amber-200">
+                                <Sun className="w-3.5 h-3.5 text-amber-300" />
+                                {holidayName}
+                            </span>
+                        )}
+                    </div>
+                </div>
+                </GlassCard>
 
-                            {/* Leave Indicator Badge */}
-                            {activeLeave && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    className="mt-4 inline-flex items-center gap-1.5 px-3 py-1 bg-indigo-500/10 dark:bg-indigo-500/20 border border-indigo-500/20 dark:border-indigo-500/30 rounded-full"
-                                >
-                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                                    <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">
-                                        {activeLeave.type.toUpperCase()} APPLIED
-                                    </span>
-                                </motion.div>
-                            )}
-
-                            <div className="mt-6 flex flex-col items-center gap-3">
-                                {getHolidayName(new Date().toISOString().slice(0, 10)) && (
-                                    <motion.div
-                                        initial={{ scale: 0.9, opacity: 0 }}
-                                        animate={{ scale: 1, opacity: 1 }}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 shadow-lg shadow-indigo-500/5 mb-1"
-                                    >
-                                        <Sun className="w-4 h-4 text-indigo-400" />
-                                        <span className="text-[10px] font-black text-indigo-400 uppercase tracking-widest leading-none">
-                                            Public Holiday: {getHolidayName(new Date().toISOString().slice(0, 10))}
-                                        </span>
-                                    </motion.div>
-                                )}
-                                <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 shadow-sm">
-                                    <Timer className={`w-3.5 h-3.5 ${isOvertime ? 'text-rose-500 animate-pulse' : 'text-indigo-500'}`} />
-                                    <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">
-                                        {isOvertime ? 'OVERTIME ACTIVE' : 'SHIFT IN PROGRESS'}
-                                    </span>
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                <div className="xl:col-span-5">
+                    <GlassCard className="dashboard-section h-full flex flex-col items-center justify-center py-10 sm:py-12" hover={false} animationDelayMs={100}>
+                        <div className="relative">
+                            <CircularProgress
+                                progress={normalizedProgress}
+                                size={280}
+                                strokeWidth={16}
+                                color={isOvertime ? "#f43f5e" : "#6366f1"}
+                            />
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full">
+                                <div className="text-xs font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">Overall progress</div>
+                                <div className="text-6xl sm:text-7xl font-black text-white tracking-tighter tabular-nums">
+                                    {progressLabel}
+                                    <span className="text-2xl sm:text-3xl text-indigo-300/70 ml-1">%</span>
                                 </div>
+                                {normalizedProgress > 100 && (
+                                    <p className="text-xs text-rose-300 font-semibold mt-2">You are over target by {Math.round(normalizedProgress - 100)}%</p>
+                                )}
                             </div>
                         </div>
-                    </div>
-                </GlassCard>
+                    </GlassCard>
+                </div>
+
+                <div className="xl:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-6">
+                    <GlassCard className="dashboard-section" title="Active Work" icon={Zap} subtitle="Real-time productive time" animationDelayMs={140}>
+                        <div className="text-4xl font-black text-indigo-300 mt-2 tabular-nums">
+                            {Math.floor(logStats.realTimeEffectiveWork / 60)}
+                            <span className="text-xl opacity-40 ml-1">h</span> {logStats.realTimeEffectiveWork % 60}
+                            <span className="text-xl opacity-40 ml-1">m</span>
+                        </div>
+                    </GlassCard>
+
+                    <GlassCard className="dashboard-section" title="Est. Exit" icon={LogOut} subtitle={shiftDetails.activeTargetLabel} animationDelayMs={180}>
+                        <div className="text-4xl font-black text-white mt-2 tabular-nums">
+                            {shiftDetails.isFullLeave ? '--:--' : shiftDetails.activeTargetAdjusted}
+                        </div>
+                    </GlassCard>
+
+                    <GlassCard className="dashboard-section" title="Shift Start" icon={LogIn} subtitle={activeLeave ? activeLeave.type : "Automatically detected"} animationDelayMs={220}>
+                        <div className="text-4xl font-black text-white mt-2 tabular-nums">
+                            {minutesToTime(shiftDetails.startMinutes, use24Hour)}
+                        </div>
+                    </GlassCard>
+
+                    <GlassCard className="dashboard-section" title="Break Time" icon={Clock} subtitle="Total out time recorded" animationDelayMs={260}>
+                        <div className="text-4xl font-black text-amber-300 mt-2 tabular-nums">
+                            {logStats.totalOutTime}
+                            <span className="text-xl opacity-40 ml-1">m</span>
+                        </div>
+                    </GlassCard>
+                </div>
             </div>
 
-            {/* Quick Stats Grid */}
-            <div className="md:col-span-12 lg:col-span-12 xl:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                <GlassCard title="Active Work" icon={Zap} subtitle="Real-time productivity">
-                    <div className="text-4xl font-black text-indigo-400 mt-2 tabular-nums">
-                        {Math.floor(logStats.realTimeEffectiveWork / 60)}<span className="text-xl opacity-40 ml-1">h</span> {logStats.realTimeEffectiveWork % 60}<span className="text-xl opacity-40 ml-1">m</span>
-                    </div>
-                </GlassCard>
-
-                <GlassCard title="Est. Exit" icon={LogOut} subtitle={shiftDetails.activeTargetLabel}>
-                    <div className="text-4xl font-black text-white mt-2 tabular-nums">
-                        {shiftDetails.isFullLeave ? '--:--' : shiftDetails.activeTargetAdjusted}
-                    </div>
-                </GlassCard>
-
-                <GlassCard title="Shift Start" icon={LogIn} subtitle={activeLeave ? activeLeave.type : "Automatically detected"}>
-                    <div className="text-4xl font-black text-white mt-2 tabular-nums">
-                        {minutesToTime(shiftDetails.startMinutes, use24Hour)}
-                    </div>
-                </GlassCard>
-
-                <GlassCard title="Break Time" icon={Clock} subtitle="Total out time recorded">
-                    <div className="text-4xl font-black text-amber-500 mt-2 tabular-nums text-glow-orange">
-                        {logStats.totalOutTime}<span className="text-xl opacity-40 ml-1">m</span>
-                    </div>
-                </GlassCard>
-            </div>
-
-            {/* Secondary Row: Real Chart & Productivity */}
-            <div className="md:col-span-12 grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <WeeklyTrend history={history} />
 
-                <GlassCard title="Productivity" icon={ArrowUpRight} subtitle="Relative to goal">
-                    <div className="flex flex-col justify-center h-full">
-                        <div className={`text-5xl font-black tabular-nums ${productivityPercent >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {productivityPercent >= 0 ? '+' : ''}{productivityPercent}<span className="text-2xl opacity-40 ml-1">%</span>
+                <GlassCard className="dashboard-section" title="Productivity" icon={ArrowUpRight} subtitle="Relative to 7-day goal" animationDelayMs={320}>
+                    <div className="flex items-center justify-between gap-4">
+                        <div>
+                            <div className={`text-5xl font-black tabular-nums ${productivityPercent >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                                {productivityPercent >= 0 ? '+' : ''}{productivityPercent}
+                                <span className="text-2xl opacity-40 ml-1">%</span>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-2 uppercase font-semibold tracking-wide">
+                                {productivityPercent >= 0 ? 'Above target this week' : 'Below target this week'}
+                            </p>
                         </div>
-                        <p className="text-[10px] text-slate-400 mt-2 uppercase font-black tracking-tight leading-tight">
-                            {productivityPercent >= 0 ? 'Above target' : 'Below target'} <br /> this week
-                        </p>
+                        <div className={`p-3 rounded-2xl border ${productivityPercent >= 0
+                            ? 'bg-emerald-500/10 border-emerald-400/30 text-emerald-300'
+                            : 'bg-rose-500/10 border-rose-400/30 text-rose-300'
+                            }`}>
+                            <Activity className="w-6 h-6" />
+                        </div>
                     </div>
                 </GlassCard>
             </div>
-        </div>
+        </section>
     );
 };
