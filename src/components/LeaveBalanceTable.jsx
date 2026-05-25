@@ -2,28 +2,74 @@ import React, { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Info, TrendingUp, Calendar, RefreshCcw, AlertTriangle, Shield, CheckCircle2 } from 'lucide-react';
 import { calculateMonthlyAccrual } from '../utils/elCalculations';
-import { useLeaveBalance } from '../hooks/useLeaveBalance';
 import { getLeaveHistory, clearHistory, calculateCOStatus } from '../utils/leaveHistory';
 import { INITIAL_BALANCES } from '../data/seedHistory';
+import {
+    formatFinancialYearLabel,
+    getCurrentFinancialYearStartYear,
+    getFinancialYearRange,
+    isDateInFinancialYear,
+} from '../utils/financialYear';
 
-export function LeaveBalanceTable() {
-    const { leaves } = getLeaveHistory();
+export function LeaveBalanceTable({ leaves: leavesProp, fyStartYear }) {
+    const { leaves: storedLeaves } = getLeaveHistory();
+    const allLeaves = leavesProp || storedLeaves;
+    const selectedFYStartYear = Number.isFinite(fyStartYear)
+        ? fyStartYear
+        : getCurrentFinancialYearStartYear();
+    const fyLabel = formatFinancialYearLabel(selectedFYStartYear);
+    const fyRange = getFinancialYearRange(selectedFYStartYear);
+
+    const leaves = useMemo(
+        () => allLeaves.filter((leave) => isDateInFinancialYear(leave.date || leave.startDate, selectedFYStartYear)),
+        [allLeaves, selectedFYStartYear]
+    );
     const today = new Date().toISOString().split('T')[0];
-    const accruedEL = useMemo(() => leaves.length > 0 ? calculateMonthlyAccrual('2025-04-01', today) : 0, [leaves.length, today]);
+    const accrualEndDate = fyRange.endDate && fyRange.endDate < today ? fyRange.endDate : today;
+    const accruedEL = useMemo(
+        () => calculateMonthlyAccrual(fyRange.startDate, accrualEndDate),
+        [fyRange.startDate, accrualEndDate]
+    );
 
     const balances = useMemo(() => {
         const coStatus = calculateCOStatus(leaves, today);
+        const openingByCategory = {};
+
+        leaves.forEach((leave) => {
+            const category = leave.category || leave.leaveType || 'EL';
+            const opening = Number(leave.openingBalance);
+            if (!Number.isFinite(opening)) return;
+
+            const dateValue = new Date(leave.date || leave.transactionDate || leave.startDate || leave.endDate);
+            if (Number.isNaN(dateValue.getTime())) return;
+
+            const previous = openingByCategory[category];
+            if (!previous || dateValue < previous.date) {
+                openingByCategory[category] = { value: opening, date: dateValue };
+            }
+        });
+
+        const getOpening = (category, fallback) => {
+            return openingByCategory[category]?.value ?? fallback;
+        };
+
         const result = {
-            EL: { opening: INITIAL_BALANCES.EL.opening, consumed: 0, credited: 0, expired: 0 },
-            CO: { opening: INITIAL_BALANCES.CO.opening, consumed: coStatus.totalConsumed, credited: coStatus.totalCredited, expired: coStatus.expired, expiringSoon: coStatus.expiringSoon },
-            CF: { opening: INITIAL_BALANCES.CF.opening, consumed: 0, credited: 0, expired: 0 },
-            MR: { opening: 0, consumed: 0, credited: 0, expired: 0 },
-            PFH: { opening: 0, consumed: 0, credited: 0, expired: 0 },
-            WFH: { opening: 0, consumed: 0, credited: 0, expired: 0 },
+            EL: { opening: getOpening('EL', INITIAL_BALANCES.EL.opening), consumed: 0, credited: 0, expired: 0 },
+            CO: {
+                opening: getOpening('CO', INITIAL_BALANCES.CO.opening),
+                consumed: coStatus.totalConsumed,
+                credited: coStatus.totalCredited,
+                expired: coStatus.expired,
+                expiringSoon: coStatus.expiringSoon
+            },
+            CF: { opening: getOpening('CF', INITIAL_BALANCES.CF.opening), consumed: 0, credited: 0, expired: 0 },
+            MR: { opening: getOpening('MR', 0), consumed: 0, credited: 0, expired: 0 },
+            PFH: { opening: getOpening('PFH', 0), consumed: 0, credited: 0, expired: 0 },
+            WFH: { opening: getOpening('WFH', 0), consumed: 0, credited: 0, expired: 0 },
         };
 
         leaves.forEach(leave => {
-            const cat = leave.category || 'EL';
+            const cat = leave.category || leave.leaveType || 'EL';
             if (cat === 'CO' || !result[cat]) return;
             if (leave.days < 0) {
                 result[cat].credited += Math.abs(leave.days);
@@ -32,8 +78,13 @@ export function LeaveBalanceTable() {
             }
         });
 
+        // EL fallback: if no imported credit rows exist, project accrual for the FY.
+        if (result.EL.credited === 0) {
+            result.EL.credited = accruedEL;
+        }
+
         return result;
-    }, [leaves, today]);
+    }, [accruedEL, leaves, today]);
 
     const handleReset = () => {
         if (window.confirm('Reset leave history to original register report?')) {
@@ -60,7 +111,7 @@ export function LeaveBalanceTable() {
                     </div>
                     <div>
                         <h3 className="text-lg font-black text-white tracking-tight">Leave Analytics</h3>
-                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">FY 2025-26 Overview</p>
+                        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">FY {fyLabel} Overview</p>
                     </div>
                 </div>
                 <button onClick={handleReset} className="p-2 hover:bg-white/5 rounded-xl text-slate-500 transition-all hover:text-white group">

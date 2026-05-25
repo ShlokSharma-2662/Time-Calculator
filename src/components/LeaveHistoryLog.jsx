@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     Search, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
@@ -10,8 +10,9 @@ const CATEGORIES = ['All', 'EL', 'CO', 'CF', 'MR', 'PFH', 'WFH'];
 const TYPES = ['All', 'Taken', 'Credit'];
 const ITEMS_PER_PAGE = 10;
 
-export function LeaveHistoryLog() {
-    const { leaves } = getLeaveHistory();
+export function LeaveHistoryLog({ leaves: leavesProp, fyLabel }) {
+    const { leaves: storedLeaves } = getLeaveHistory();
+    const leaves = leavesProp || storedLeaves;
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('All');
     const [filterType, setFilterType] = useState('All');
@@ -41,8 +42,10 @@ export function LeaveHistoryLog() {
         return filteredLeaves.slice(start, start + ITEMS_PER_PAGE);
     }, [filteredLeaves, currentPage]);
 
-    // Reset to page 1 when filters change
-    useMemo(() => setCurrentPage(1), [searchTerm, filterCategory, filterType]);
+    // Reset to first page when filters or source data change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterCategory, filterType, leaves.length]);
 
     return (
         <div className="glass-card mt-8 overflow-hidden">
@@ -58,6 +61,7 @@ export function LeaveHistoryLog() {
                         <h3 className="text-lg font-black text-white tracking-tight">Transaction History</h3>
                         <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                             {filteredLeaves.length} Records Found • Page {currentPage} of {totalPages}
+                            {fyLabel ? ` • FY ${fyLabel}` : ''}
                         </p>
                     </div>
                 </div>

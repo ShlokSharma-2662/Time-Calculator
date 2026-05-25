@@ -406,64 +406,112 @@ export function getInsights() {
  * CO credits are valid for 30 days.
  */
 export function calculateCOStatus(leaves, todayStr) {
-    const today = new Date(todayStr);
-    const coLeaves = leaves.filter(l => l.category === 'CO');
+    const toDayStart = (value) => {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return null;
+        date.setHours(0, 0, 0, 0);
+        return date;
+    };
+
+    const toDays = (value) => {
+        const n = Number(value);
+        return Number.isFinite(n) ? n : 0;
+    };
+
+    const today = toDayStart(todayStr || new Date());
+    const coLeaves = leaves.filter((leave) => (leave.category || leave.leaveType) === 'CO');
 
     // Sort credits by date ascending (oldest first)
-    const credits = coLeaves.filter(l => l.days < 0).map(l => ({
-        id: l.id,
-        date: new Date(l.date),
-        amount: Math.abs(l.days),
-        remaining: Math.abs(l.days),
-        remarks: l.remarks
-    })).sort((a, b) => a.date - b.date);
+    const credits = coLeaves
+        .map((leave) => {
+            const date = toDayStart(leave.transactionDate || leave.date);
+            if (!date) return null;
+
+            const creditDays = toDays(leave.creditDays);
+            const isCreditTxn = (leave.transactionType || '').toLowerCase() === 'credit'
+                || (leave.transactionType || '').toLowerCase() === 'monthly_increment';
+            const amount = creditDays > 0
+                ? creditDays
+                : (isCreditTxn || toDays(leave.days) < 0 ? Math.abs(toDays(leave.days)) : 0);
+            if (amount <= 0) return null;
+
+            const expiryDate = new Date(date);
+            expiryDate.setDate(expiryDate.getDate() + 30);
+
+            return {
+                id: leave.id,
+                date,
+                expiryDate,
+                amount,
+                remaining: amount,
+                remarks: leave.remarks
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.date - b.date);
 
     // Sort debits by date ascending
-    const debits = coLeaves.filter(l => l.days > 0).map(l => ({
-        id: l.id,
-        date: new Date(l.date),
-        amount: l.days
-    })).sort((a, b) => a.date - b.date);
+    const debits = coLeaves
+        .map((leave) => {
+            const date = toDayStart(leave.transactionDate || leave.date);
+            if (!date) return null;
 
-    // FIFO Allocation: Deduct consumptions from oldest credits first
-    debits.forEach(debit => {
+            const consumedDays = toDays(leave.consumedDays);
+            const isDebitTxn = (leave.transactionType || '').toLowerCase() === 'debit'
+                || (leave.transactionType || '').toLowerCase() === 'leave_taken';
+            const amount = consumedDays > 0
+                ? consumedDays
+                : (isDebitTxn || (toDays(leave.days) > 0 && toDays(leave.creditDays) <= 0) ? Math.abs(toDays(leave.days)) : 0);
+            if (amount <= 0) return null;
+
+            return {
+                id: leave.id,
+                date,
+                amount
+            };
+        })
+        .filter(Boolean)
+        .sort((a, b) => a.date - b.date);
+
+    // FIFO Allocation with 30-day validity window:
+    // debit can consume only credits where credit.date <= debit.date <= credit.expiryDate.
+    let allocatedConsumed = 0;
+    debits.forEach((debit) => {
         let toAllocate = debit.amount;
-        for (let credit of credits) {
+        for (const credit of credits) {
             if (toAllocate <= 0) break;
             if (credit.remaining <= 0) continue;
+            if (debit.date < credit.date) continue;
+            if (debit.date > credit.expiryDate) continue;
 
-            // Note: We allow consuming even if credit is technically expired at time of debit?
-            // Usually, you use the credit before it expires. 
-            // If the debit date > credit date + 30, it might be an invalid log, but we'll prioritize consumption.
             const take = Math.min(toAllocate, credit.remaining);
             credit.remaining -= take;
             toAllocate -= take;
+            allocatedConsumed += take;
         }
     });
 
-    // Expiration Logic for remaining credits
+    // Expiration logic for remaining credits as of today
     const result = {
         totalCredited: credits.reduce((s, c) => s + c.amount, 0),
-        totalConsumed: debits.reduce((s, d) => s + d.amount, 0),
+        totalConsumed: allocatedConsumed,
         active: 0,
         expired: 0,
         expiringSoon: [] // within 5 days
     };
 
-    credits.forEach(credit => {
+    credits.forEach((credit) => {
         if (credit.remaining <= 0) return;
-
-        const expiryDate = new Date(credit.date);
-        expiryDate.setDate(expiryDate.getDate() + 30);
-
-        if (today > expiryDate) {
+        if (today && today > credit.expiryDate) {
             result.expired += credit.remaining;
         } else {
             result.active += credit.remaining;
             // Check if expiring within 5 days
-            const diffDays = Math.ceil((expiryDate - today) / (1000 * 60 * 60 * 24));
-            if (diffDays >= 0 && diffDays <= 5) {
-                result.expiringSoon.push({ ...credit, daysLeft: diffDays });
+            if (today) {
+                const diffDays = Math.ceil((credit.expiryDate - today) / (1000 * 60 * 60 * 24));
+                if (diffDays >= 0 && diffDays <= 5) {
+                    result.expiringSoon.push({ ...credit, daysLeft: diffDays });
+                }
             }
         }
     });

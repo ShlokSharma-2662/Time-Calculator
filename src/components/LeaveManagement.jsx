@@ -11,8 +11,15 @@ import { SalaryStructure } from './SalaryStructure';
 import { LeaveImport } from './LeaveImport';
 import { LeaveHistoryLog } from './LeaveHistoryLog';
 import { calculateMonthlyAccrual } from '../utils/elCalculations';
-import { getLeaveHistory } from '../utils/leaveHistory';
+import { calculateCOStatus, getLeaveHistory } from '../utils/leaveHistory';
 import { INITIAL_BALANCES } from '../data/seedHistory';
+import {
+    formatFinancialYearLabel,
+    getAvailableFinancialYears,
+    getCurrentFinancialYearStartYear,
+    getFinancialYearRange,
+    isDateInFinancialYear,
+} from '../utils/financialYear';
 
 const CountUp = ({ value }) => {
     const count = useMotionValue(0);
@@ -32,38 +39,97 @@ const CountUp = ({ value }) => {
 export function LeaveManagement() {
     const { leaves } = getLeaveHistory();
     const [isImportOpen, setIsImportOpen] = useState(false);
+    const [selectedFYStartYear, setSelectedFYStartYear] = useState(getCurrentFinancialYearStartYear());
+
+    const financialYearOptions = useMemo(
+        () => getAvailableFinancialYears(leaves, { includeCurrent: true }),
+        [leaves]
+    );
+
+    useEffect(() => {
+        if (!financialYearOptions.includes(selectedFYStartYear) && financialYearOptions.length > 0) {
+            setSelectedFYStartYear(financialYearOptions[0]);
+        }
+    }, [financialYearOptions, selectedFYStartYear]);
 
     const today = new Date().toISOString().split('T')[0];
-    const accruedEL = leaves.length > 0 ? calculateMonthlyAccrual('2025-04-01', today) : 0;
+    const fyLabel = formatFinancialYearLabel(selectedFYStartYear);
+    const fyRange = useMemo(
+        () => getFinancialYearRange(selectedFYStartYear),
+        [selectedFYStartYear]
+    );
+    const scopedLeaves = useMemo(
+        () => leaves.filter((leave) => isDateInFinancialYear(leave.date || leave.startDate, selectedFYStartYear)),
+        [leaves, selectedFYStartYear]
+    );
+    const accrualEndDate = fyRange.endDate && fyRange.endDate < today ? fyRange.endDate : today;
+    const accruedEL = calculateMonthlyAccrual(fyRange.startDate, accrualEndDate);
 
     // Calculate Top Stats
     const stats = useMemo(() => {
         let totalTaken = 0;
-        let elConsumed = 0;
-        let elCredited = 0;
+        const categoryBuckets = {};
+        const excludedFromAvailable = new Set(['LWP']);
+        const coStatus = calculateCOStatus(scopedLeaves, today);
 
-        leaves.forEach(l => {
+        scopedLeaves.forEach(l => {
             // Global Taken Tally (all categories)
             if (l.days > 0) totalTaken += l.days;
 
-            // EL Specific Tally (for top card)
-            const cat = l.category || 'EL';
-            if (cat === 'EL') {
-                if (l.days < 0) {
-                    elCredited += Math.abs(l.days);
-                } else {
-                    elConsumed += l.days;
+            const category = l.category || l.leaveType || 'EL';
+            if (excludedFromAvailable.has(category)) return;
+
+            if (!categoryBuckets[category]) {
+                categoryBuckets[category] = {
+                    opening: null,
+                    openingDate: null,
+                    credited: 0,
+                    consumed: 0,
+                };
+            }
+
+            const bucket = categoryBuckets[category];
+            const opening = Number(l.openingBalance);
+            const dateCandidate = new Date(l.date || l.transactionDate || l.startDate || l.endDate || today);
+            if (Number.isFinite(opening) && !Number.isNaN(dateCandidate.getTime())) {
+                if (!bucket.openingDate || dateCandidate < bucket.openingDate) {
+                    bucket.opening = opening;
+                    bucket.openingDate = dateCandidate;
                 }
+            }
+
+            const transactionType = (l.transactionType || '').toLowerCase();
+            const magnitude = Math.abs(Number(l.days || l.consumedDays || l.creditDays || 0));
+            if (magnitude <= 0) return;
+
+            const isCredit = transactionType === 'credit'
+                || transactionType === 'monthly_increment'
+                || Number(l.creditDays) > 0
+                || (transactionType === '' && Number(l.days) < 0);
+
+            if (isCredit) {
+                bucket.credited += magnitude;
+            } else {
+                bucket.consumed += magnitude;
             }
         });
 
-        const elAvailable = INITIAL_BALANCES.EL.opening + elCredited - elConsumed;
+        const totalAvailable = Object.entries(categoryBuckets).reduce((sum, [category, bucket]) => {
+            const opening = bucket.opening ?? (INITIAL_BALANCES[category]?.opening || 0);
+            const effectiveCredited = category === 'EL' && bucket.credited === 0
+                ? accruedEL
+                : bucket.credited;
+            const available = category === 'CO'
+                ? opening + coStatus.totalCredited - coStatus.totalConsumed - coStatus.expired
+                : opening + effectiveCredited - bucket.consumed;
+            return sum + available;
+        }, 0);
 
         return {
             totalTaken: totalTaken.toFixed(1),
-            elAvailable: elAvailable.toFixed(1),
+            totalAvailable: totalAvailable.toFixed(1),
         };
-    }, [leaves]);
+    }, [accruedEL, scopedLeaves, today]);
 
     const containerVariants = {
         hidden: { opacity: 0 },
@@ -117,9 +183,23 @@ export function LeaveManagement() {
                         <h2 className="text-sm font-black text-indigo-400 uppercase tracking-[0.3em]">Leave Management</h2>
                     </div>
                     <h1 className="text-3xl font-black text-white tracking-tighter">Your Financial & Leave Dashboard</h1>
+                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2">
+                        Active Financial Year: FY {fyLabel}
+                    </p>
                 </div>
 
                 <div className="flex items-center gap-3">
+                    <select
+                        value={selectedFYStartYear}
+                        onChange={(event) => setSelectedFYStartYear(Number(event.target.value))}
+                        className="px-4 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/10 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
+                    >
+                        {financialYearOptions.map((fyStart) => (
+                            <option key={fyStart} value={fyStart} className="bg-slate-900">
+                                FY {formatFinancialYearLabel(fyStart)}
+                            </option>
+                        ))}
+                    </select>
                     <button
                         onClick={() => setIsImportOpen(true)}
                         className="flex items-center gap-2.5 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/10 transition-all group"
@@ -158,9 +238,9 @@ export function LeaveManagement() {
                             <ShieldCheck className="w-6 h-6 text-indigo-500" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-0.5">EL Available</p>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-0.5">Total Leave Available</p>
                             <h4 className="text-3xl font-black neon-text-indigo">
-                                <CountUp value={stats.elAvailable} />
+                                <CountUp value={stats.totalAvailable} />
                             </h4>
                         </div>
                     </div>
@@ -201,7 +281,9 @@ export function LeaveManagement() {
                         </div>
                         <div>
                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-0.5">Monthly Accrual</p>
-                            <h4 className="text-3xl font-black text-rose-500" style={{ textShadow: '0 0 10px rgba(244, 63, 94, 0.3)' }}>1.75</h4>
+                            <h4 className="text-3xl font-black text-rose-500" style={{ textShadow: '0 0 10px rgba(244, 63, 94, 0.3)' }}>
+                                <CountUp value={accruedEL.toFixed(1)} />
+                            </h4>
                         </div>
                     </div>
                 </motion.div>
@@ -212,7 +294,7 @@ export function LeaveManagement() {
                 {/* Left Side: Balance and Salary */}
                 <div className="lg:col-span-8 space-y-8">
                     <motion.div variants={itemVariants}>
-                        <LeaveBalanceTable />
+                        <LeaveBalanceTable leaves={leaves} fyStartYear={selectedFYStartYear} />
                     </motion.div>
 
                     <motion.div variants={itemVariants}>
@@ -223,7 +305,7 @@ export function LeaveManagement() {
                 {/* Right Side: Projections and Tracker */}
                 <div className="lg:col-span-4 space-y-6">
                     <motion.div variants={itemVariants}>
-                        <EncashmentProjection />
+                        <EncashmentProjection leaves={leaves} fyStartYear={selectedFYStartYear} />
                     </motion.div>
 
                     <motion.div variants={itemVariants} className="glass-card bg-indigo-600/5 border-indigo-500/20">
@@ -241,7 +323,7 @@ export function LeaveManagement() {
             {/* Transaction History Log (Archive) */}
             <div className="mt-12 relative z-10">
                 <motion.div variants={itemVariants}>
-                    <LeaveHistoryLog />
+                    <LeaveHistoryLog leaves={scopedLeaves} fyLabel={fyLabel} />
                 </motion.div>
             </div>
         </motion.div>
