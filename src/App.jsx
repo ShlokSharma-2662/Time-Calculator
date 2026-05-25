@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { LoginPage } from './components/auth/LoginPage';
 import { RegisterPage } from './components/auth/RegisterPage';
 import { useAuth } from './context/AuthContext';
@@ -6,10 +6,6 @@ import { Dashboard } from './components/Dashboard';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { ShiftCalculator } from './components/ShiftCalculator';
-import { LogAnalyzer } from './components/LogAnalyzer';
-import { ShiftAnalytics } from './components/ShiftAnalytics';
-import { LeaveManagement } from './components/LeaveManagement';
-import { AttendanceLog } from './components/AttendanceLog';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SyncManager } from './components/SyncManager';
 import { SettingsModal } from './components/SettingsModal';
@@ -20,9 +16,11 @@ import { UIProvider, useUI } from './context/UIContext';
 import { ShiftStateProvider, useShiftState } from './context/ShiftStateContext';
 import { RefreshCw } from 'lucide-react';
 import { HeroSection } from './components/HeroSection';
-import { getMonthToDateAdherence } from './utils/shiftHistory';
-import { getLeaveForDate, LEAVE_TYPES } from './utils/leaveHistory';
-import { normalizeDate } from './utils/dateUtils';
+
+const LogAnalyzer = lazy(() => import('./components/LogAnalyzer').then((module) => ({ default: module.LogAnalyzer })));
+const ShiftAnalytics = lazy(() => import('./components/ShiftAnalytics').then((module) => ({ default: module.ShiftAnalytics })));
+const LeaveManagement = lazy(() => import('./components/LeaveManagement').then((module) => ({ default: module.LeaveManagement })));
+const AttendanceLog = lazy(() => import('./components/AttendanceLog').then((module) => ({ default: module.AttendanceLog })));
 
 function AppContent() {
   const { user, loading, logout } = useAuth();
@@ -47,6 +45,8 @@ function AppContent() {
   const [activeView, setActiveView] = useState(() => {
     return localStorage.getItem('activeView') || 'shift';
   });
+  const canAccessLeaveView = user?.email === 'suttamshlok@gmail.com';
+  const effectiveActiveView = canAccessLeaveView ? activeView : 'shift';
 
   // --- Effects ---
   useEffect(() => {
@@ -55,14 +55,17 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('activeView', activeView);
-  }, [activeView]);
+    localStorage.setItem('activeView', effectiveActiveView);
+  }, [effectiveActiveView]);
 
-  useEffect(() => {
-    if (user && user.email !== 'suttamshlok@gmail.com' && activeView === 'leave') {
-      setActiveView('shift');
-    }
-  }, [user, activeView]);
+  const SectionFallback = ({ label }) => (
+    <div className="glass-card">
+      <div className="flex items-center gap-3">
+        <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin" />
+        <p className="text-sm text-slate-300 font-semibold">Loading {label}...</p>
+      </div>
+    </div>
+  );
 
   const handleLoadEntryAttempt = (entry) => {
     confirm({
@@ -82,7 +85,7 @@ function AppContent() {
     if (autoStartTime && autoStartTime !== startTime) {
       setStartTime(autoStartTime);
     }
-  }, [autoStartTime]);
+  }, [autoStartTime, startTime, setStartTime]);
 
   if (loading) {
     return (
@@ -119,12 +122,17 @@ function AppContent() {
               onSync={syncLogs}
               onRestore={restoreFromCloud}
               user={user}
-              activeView={activeView}
-              setActiveView={setActiveView}
+              activeView={effectiveActiveView}
+              setActiveView={(nextView) => {
+                if (nextView === 'leave' && !canAccessLeaveView) {
+                  return;
+                }
+                setActiveView(nextView);
+              }}
             />
 
             <main className="mt-8">
-              {activeView === 'shift' ? (
+              {effectiveActiveView === 'shift' ? (
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
                   <div className="xl:col-span-8 space-y-8">
                     <ErrorBoundary label="Dashboard">
@@ -141,26 +149,32 @@ function AppContent() {
                       />
                     </ErrorBoundary>
                     <ErrorBoundary label="Log Analyzer">
-                      <LogAnalyzer
-                        logInput={logInput}
-                        setLogInput={setLogInput}
-                        stats={logStats}
-                        currentTimeMinutes={currentMinutes}
-                        hrmsSync={hrmsSync}
-                        clearHrmsSync={clearHrmsSync}
-                      />
+                      <Suspense fallback={<SectionFallback label="log analyzer" />}>
+                        <LogAnalyzer
+                          logInput={logInput}
+                          setLogInput={setLogInput}
+                          stats={logStats}
+                          currentTimeMinutes={currentMinutes}
+                          hrmsSync={hrmsSync}
+                          clearHrmsSync={clearHrmsSync}
+                        />
+                      </Suspense>
                     </ErrorBoundary>
                     <ErrorBoundary label="Shift Analytics">
-                      <ShiftAnalytics
-                        currentShift={{ ...logStats, startTime }}
-                        history={history}
-                      />
+                      <Suspense fallback={<SectionFallback label="shift analytics" />}>
+                        <ShiftAnalytics
+                          currentShift={{ ...logStats, startTime }}
+                          history={history}
+                        />
+                      </Suspense>
                     </ErrorBoundary>
 
                     {/* Universal Logs (Attendance) */}
                     <div className="space-y-8">
                       <ErrorBoundary label="Attendance Log">
-                        <AttendanceLog />
+                        <Suspense fallback={<SectionFallback label="attendance log" />}>
+                          <AttendanceLog />
+                        </Suspense>
                       </ErrorBoundary>
                     </div>
                   </div>
@@ -178,7 +192,9 @@ function AppContent() {
                 </div>
               ) : (
                 <ErrorBoundary label="Leave Management">
-                  <LeaveManagement />
+                  <Suspense fallback={<SectionFallback label="leave management" />}>
+                    <LeaveManagement />
+                  </Suspense>
                 </ErrorBoundary>
               )}
             </main>

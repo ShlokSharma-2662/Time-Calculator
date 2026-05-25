@@ -1,11 +1,16 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { useReducedMotion } from 'framer-motion';
 
-export const GlassCard = ({ children, className = "", title, icon: Icon, subtitle, hover = true }) => {
+export const GlassCard = ({ children, className = "", title, icon: Icon, subtitle, hover = true, animate = true, animationDelayMs = 0 }) => {
+    const prefersReducedMotion = useReducedMotion();
+    const hoverClass = hover && !prefersReducedMotion ? 'glass-card-hover' : '';
+    const enterClass = animate && !prefersReducedMotion ? 'animate-enter-up' : '';
+    const animationStyle = animate && !prefersReducedMotion ? { animationDelay: `${animationDelayMs}ms` } : undefined;
+
     return (
-        <motion.div
-            whileHover={hover ? { y: -5, scale: 1.01 } : {}}
-            className={`glass-card glass-card-hover group relative overflow-hidden ${className}`}
+        <div
+            className={`glass-card ${hoverClass} ${enterClass} group relative overflow-hidden focus-within:ring-2 focus-within:ring-indigo-400/70 ${className}`}
+            style={animationStyle}
         >
             {/* Subtle Gradient Glow */}
             <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 blur-3xl rounded-full group-hover:bg-indigo-500/20 transition-colors duration-700"></div>
@@ -19,14 +24,14 @@ export const GlassCard = ({ children, className = "", title, icon: Icon, subtitl
                                 <Icon className="w-5 h-5" />
                             </div>}
                             <div>
-                                <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 tracking-tight uppercase">{title}</h3>
-                                {subtitle && <p className="text-[10px] text-slate-600 dark:text-slate-400 font-bold tracking-wide uppercase opacity-80">{subtitle}</p>}
+                                <h3 className="text-sm font-bold text-slate-100 tracking-tight">{title}</h3>
+                                {subtitle && <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase opacity-90">{subtitle}</p>}
                             </div>
                         </div>
                     </div>
                 )}
                 {children}
             </div>
-        </motion.div>
+        </div>
     );
 };
