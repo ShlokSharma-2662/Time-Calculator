@@ -1,6 +1,9 @@
 import { Settings, Calendar, Briefcase, Palmtree, RefreshCw, LogOut, Download } from 'lucide-react';
+import { motion, useReducedMotion } from 'framer-motion';
 
 export const Header = ({ onOpenSettings, onOpenHistory, activeView = 'shift', setActiveView, onLogout, isSyncing, onSync, onRestore, user }) => {
+    const prefersReducedMotion = useReducedMotion();
+    const MotionSpan = motion.span;
     return (
         <div className="space-y-6 mb-10">
             <header className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 animate-enter-up">
@@ -76,11 +79,18 @@ export const Header = ({ onOpenSettings, onOpenHistory, activeView = 'shift', se
                     type="button"
                     onClick={() => setActiveView('shift')}
                     aria-current={activeView === 'shift' ? 'page' : undefined}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 ${activeView === 'shift'
-                        ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xl'
+                    className={`relative isolate flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 ${activeView === 'shift'
+                        ? 'bg-slate-900/0 dark:bg-slate-100/0 text-white dark:text-slate-900 shadow-xl'
                         : 'text-slate-400 hover:text-slate-100'
                         }`}
                 >
+                    {!prefersReducedMotion && activeView === 'shift' && (
+                        <MotionSpan
+                            layoutId="active-view-pill"
+                            className="absolute inset-1 rounded-xl bg-slate-900 dark:bg-slate-100 -z-10"
+                            transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+                        />
+                    )}
                     <Briefcase className="w-4 h-4" />
                     Dashboard
                 </button>
@@ -89,11 +99,18 @@ export const Header = ({ onOpenSettings, onOpenHistory, activeView = 'shift', se
                         type="button"
                         onClick={() => setActiveView('leave')}
                         aria-current={activeView === 'leave' ? 'page' : undefined}
-                        className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 ${activeView === 'leave'
-                            ? 'bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 shadow-xl'
+                        className={`relative isolate flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 ${activeView === 'leave'
+                            ? 'bg-slate-900/0 dark:bg-slate-100/0 text-white dark:text-slate-900 shadow-xl'
                             : 'text-slate-400 hover:text-slate-100'
                             }`}
                     >
+                        {!prefersReducedMotion && activeView === 'leave' && (
+                            <MotionSpan
+                                layoutId="active-view-pill"
+                                className="absolute inset-1 rounded-xl bg-slate-900 dark:bg-slate-100 -z-10"
+                                transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+                            />
+                        )}
                         <Palmtree className="w-4 h-4" />
                         Archive
                     </button>

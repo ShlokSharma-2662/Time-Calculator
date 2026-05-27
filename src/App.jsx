@@ -1,4 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { LoginPage } from './components/auth/LoginPage';
 import { RegisterPage } from './components/auth/RegisterPage';
 import { useAuth } from './context/AuthContext';
@@ -45,8 +46,24 @@ function AppContent() {
   const [activeView, setActiveView] = useState(() => {
     return localStorage.getItem('activeView') || 'shift';
   });
+  const prefersReducedMotion = useReducedMotion();
   const canAccessLeaveView = user?.email === 'suttamshlok@gmail.com';
   const effectiveActiveView = canAccessLeaveView ? activeView : 'shift';
+  const MotionDiv = motion.div;
+  const sectionEnter = prefersReducedMotion
+    ? {}
+    : { opacity: 0, y: 18, scale: 0.995 };
+  const sectionShow = prefersReducedMotion
+    ? {}
+    : {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] }
+    };
+  const sectionExit = prefersReducedMotion
+    ? {}
+    : { opacity: 0, y: 10, transition: { duration: 0.2 } };
 
   // --- Effects ---
   useEffect(() => {
@@ -132,71 +149,96 @@ function AppContent() {
             />
 
             <main className="mt-8">
-              {effectiveActiveView === 'shift' ? (
-                <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start">
-                  <div className="xl:col-span-8 space-y-8">
-                    <ErrorBoundary label="Dashboard">
-                      <Dashboard
-                        workProgress={currentDayProgress}
-                        shiftDetails={shiftDetails}
-                        logStats={logStats}
-                        isOvertime={logStats.isOvertime}
-                        activeLeave={activeLeave}
-                        mtdProgress={mtdProgress}
-                        history={history}
-                        shiftDuration={shiftDuration}
-                        use24Hour={use24Hour}
-                      />
-                    </ErrorBoundary>
-                    <ErrorBoundary label="Log Analyzer">
-                      <Suspense fallback={<SectionFallback label="log analyzer" />}>
-                        <LogAnalyzer
-                          logInput={logInput}
-                          setLogInput={setLogInput}
-                          stats={logStats}
-                          currentTimeMinutes={currentMinutes}
-                          hrmsSync={hrmsSync}
-                          clearHrmsSync={clearHrmsSync}
+              <AnimatePresence mode="wait" initial={!prefersReducedMotion}>
+                {effectiveActiveView === 'shift' ? (
+                  <MotionDiv
+                    key="view-shift"
+                    initial={sectionEnter}
+                    animate={sectionShow}
+                    exit={sectionExit}
+                    className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start"
+                  >
+                    <div className="xl:col-span-8 space-y-8">
+                      <MotionDiv initial={sectionEnter} animate={sectionShow}>
+                        <ErrorBoundary label="Dashboard">
+                          <Dashboard
+                            workProgress={currentDayProgress}
+                            shiftDetails={shiftDetails}
+                            logStats={logStats}
+                            isOvertime={logStats.isOvertime}
+                            activeLeave={activeLeave}
+                            mtdProgress={mtdProgress}
+                            history={history}
+                            shiftDuration={shiftDuration}
+                            use24Hour={use24Hour}
+                          />
+                        </ErrorBoundary>
+                      </MotionDiv>
+                      <MotionDiv initial={sectionEnter} animate={sectionShow}>
+                        <ErrorBoundary label="Log Analyzer">
+                          <Suspense fallback={<SectionFallback label="log analyzer" />}>
+                            <LogAnalyzer
+                              logInput={logInput}
+                              setLogInput={setLogInput}
+                              stats={logStats}
+                              currentTimeMinutes={currentMinutes}
+                              hrmsSync={hrmsSync}
+                              clearHrmsSync={clearHrmsSync}
+                            />
+                          </Suspense>
+                        </ErrorBoundary>
+                      </MotionDiv>
+                      <MotionDiv initial={sectionEnter} animate={sectionShow}>
+                        <ErrorBoundary label="Shift Analytics">
+                          <Suspense fallback={<SectionFallback label="shift analytics" />}>
+                            <ShiftAnalytics
+                              currentShift={{ ...logStats, startTime }}
+                              history={history}
+                            />
+                          </Suspense>
+                        </ErrorBoundary>
+                      </MotionDiv>
+
+                      {/* Universal Logs (Attendance) */}
+                      <MotionDiv className="space-y-8" initial={sectionEnter} animate={sectionShow}>
+                        <ErrorBoundary label="Attendance Log">
+                          <Suspense fallback={<SectionFallback label="attendance log" />}>
+                            <AttendanceLog />
+                          </Suspense>
+                        </ErrorBoundary>
+                      </MotionDiv>
+                    </div>
+
+                    <MotionDiv
+                      className="xl:col-span-4 sticky top-8"
+                      initial={sectionEnter}
+                      animate={sectionShow}
+                    >
+                      <div className="space-y-8">
+                        <ShiftCalculator
+                          startTime={startTime}
+                          setStartTime={setStartTime}
+                          synced={synced}
+                          shiftDetails={shiftDetails}
                         />
+                      </div>
+                    </MotionDiv>
+                  </MotionDiv>
+                ) : (
+                  <MotionDiv
+                    key="view-leave"
+                    initial={sectionEnter}
+                    animate={sectionShow}
+                    exit={sectionExit}
+                  >
+                    <ErrorBoundary label="Leave Management">
+                      <Suspense fallback={<SectionFallback label="leave management" />}>
+                        <LeaveManagement />
                       </Suspense>
                     </ErrorBoundary>
-                    <ErrorBoundary label="Shift Analytics">
-                      <Suspense fallback={<SectionFallback label="shift analytics" />}>
-                        <ShiftAnalytics
-                          currentShift={{ ...logStats, startTime }}
-                          history={history}
-                        />
-                      </Suspense>
-                    </ErrorBoundary>
-
-                    {/* Universal Logs (Attendance) */}
-                    <div className="space-y-8">
-                      <ErrorBoundary label="Attendance Log">
-                        <Suspense fallback={<SectionFallback label="attendance log" />}>
-                          <AttendanceLog />
-                        </Suspense>
-                      </ErrorBoundary>
-                    </div>
-                  </div>
-
-                  <div className="xl:col-span-4 sticky top-8">
-                    <div className="space-y-8">
-                      <ShiftCalculator
-                        startTime={startTime}
-                        setStartTime={setStartTime}
-                        synced={synced}
-                        shiftDetails={shiftDetails}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <ErrorBoundary label="Leave Management">
-                  <Suspense fallback={<SectionFallback label="leave management" />}>
-                    <LeaveManagement />
-                  </Suspense>
-                </ErrorBoundary>
-              )}
+                  </MotionDiv>
+                )}
+              </AnimatePresence>
             </main>
 
             <Footer />
