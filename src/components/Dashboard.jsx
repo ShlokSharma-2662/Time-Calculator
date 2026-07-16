@@ -39,6 +39,11 @@ export const Dashboard = ({
         return Math.round(totalPercent / recentDays.length - 100);
     }, [history, shiftDuration]);
 
+    const remainingMinutes = useMemo(() => {
+        if (isOvertime) return 0;
+        return Math.max(0, (shiftDuration || 9) * 60 - (logStats.realTimeEffectiveWork || 0));
+    }, [isOvertime, shiftDuration, logStats.realTimeEffectiveWork]);
+
     const dateLabel = new Intl.DateTimeFormat('en-US', {
         weekday: 'long',
         month: 'short',
@@ -91,42 +96,46 @@ export const Dashboard = ({
                                 strokeWidth={16}
                                 color={isOvertime ? "#f43f5e" : "#6366f1"}
                             />
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full">
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center w-full">
                                 <div className="text-xs font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">Overall progress</div>
                                 <div className="text-6xl sm:text-7xl font-black text-white tracking-tighter tabular-nums">
                                     {progressLabel}
                                     <span className="text-2xl sm:text-3xl text-indigo-300/70 ml-1">%</span>
                                 </div>
-                                {normalizedProgress > 100 && (
-                                    <p className="text-xs text-rose-300 font-semibold mt-2">You are over target by {Math.round(normalizedProgress - 100)}%</p>
-                                )}
+                                {normalizedProgress > 100 ? (
+                                    <p className="text-xs text-rose-300 font-semibold mt-2">+{Math.round(normalizedProgress - 100)}% over target</p>
+                                ) : remainingMinutes > 0 ? (
+                                    <p className="text-xs text-slate-400 font-semibold mt-2">
+                                        {remainingMinutes >= 60 ? `${Math.floor(remainingMinutes / 60)}h ` : ''}{remainingMinutes % 60}m left
+                                    </p>
+                                ) : null}
                             </div>
                         </div>
                     </GlassCard>
                 </div>
 
                 <div className="xl:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                    <GlassCard className="dashboard-section" title="Active Work" icon={Zap} subtitle="Real-time productive time" animationDelayMs={140}>
+                    <GlassCard className="dashboard-section" title="Active Work" icon={Zap} subtitle="Real-time productive time" accentColor="indigo" animationDelayMs={140}>
                         <div className="text-4xl font-black text-indigo-300 mt-2 tabular-nums">
                             {Math.floor(logStats.realTimeEffectiveWork / 60)}
-                            <span className="text-xl opacity-40 ml-1">h</span> {logStats.realTimeEffectiveWork % 60}
+                            <span className="text-xl opacity-40 ml-1">h</span>{' '}{logStats.realTimeEffectiveWork % 60}
                             <span className="text-xl opacity-40 ml-1">m</span>
                         </div>
                     </GlassCard>
 
-                    <GlassCard className="dashboard-section" title="Est. Exit" icon={LogOut} subtitle={shiftDetails.activeTargetLabel} animationDelayMs={180}>
-                        <div className="text-4xl font-black text-white mt-2 tabular-nums">
+                    <GlassCard className="dashboard-section" title="Est. Exit" icon={LogOut} subtitle={shiftDetails.activeTargetLabel} accentColor="emerald" animationDelayMs={180}>
+                        <div className="text-4xl font-black text-emerald-300 mt-2 tabular-nums">
                             {shiftDetails.isFullLeave ? '--:--' : shiftDetails.activeTargetAdjusted}
                         </div>
                     </GlassCard>
 
-                    <GlassCard className="dashboard-section" title="Shift Start" icon={LogIn} subtitle={activeLeave ? activeLeave.type : "Automatically detected"} animationDelayMs={220}>
-                        <div className="text-4xl font-black text-white mt-2 tabular-nums">
+                    <GlassCard className="dashboard-section" title="Shift Start" icon={LogIn} subtitle={activeLeave ? activeLeave.type : "Automatically detected"} accentColor="sky" animationDelayMs={220}>
+                        <div className="text-4xl font-black text-sky-300 mt-2 tabular-nums">
                             {minutesToTime(shiftDetails.startMinutes, use24Hour)}
                         </div>
                     </GlassCard>
 
-                    <GlassCard className="dashboard-section" title="Break Time" icon={Clock} subtitle="Total out time recorded" animationDelayMs={260}>
+                    <GlassCard className="dashboard-section" title="Break Time" icon={Clock} subtitle="Total out time recorded" accentColor="amber" animationDelayMs={260}>
                         <div className="text-4xl font-black text-amber-300 mt-2 tabular-nums">
                             {logStats.totalOutTime}
                             <span className="text-xl opacity-40 ml-1">m</span>
