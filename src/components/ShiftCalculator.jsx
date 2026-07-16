@@ -15,6 +15,20 @@ export const ShiftCalculator = ({
 }) => {
     const { formatDuration } = useTimeHelpers();
     const [activeTarget, setActiveTarget] = useState('fullDay');
+    const [nowTime, setNowTime] = useState(() => {
+        const now = new Date();
+        return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    });
+
+    useEffect(() => {
+        const tick = setInterval(() => {
+            const now = new Date();
+            setNowTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+        }, 60000);
+        return () => clearInterval(tick);
+    }, []);
+
+    const isActivePreset = (p) => p === 'now' ? startTime === nowTime : startTime === p;
 
     const handlePreset = (type) => {
         if (type === 'now') {
@@ -87,16 +101,23 @@ export const ShiftCalculator = ({
                 </p>
 
                 <div className="flex flex-wrap justify-center gap-2">
-                    {['now', '09:00', '09:30', '10:00'].map(p => (
-                        <button
-                            key={p}
-                            onClick={() => handlePreset(p)}
-                            className="px-4 py-2.5 rounded-xl bg-slate-900/5 dark:bg-white/5 hover:bg-slate-900/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 text-[10px] font-black uppercase tracking-wider transition-all border border-slate-200 dark:border-white/10 flex items-center gap-2"
-                        >
-                            {p === 'now' ? <History className="w-3 h-3" /> : <Clock3 className="w-3 h-3" />}
-                            {p === 'now' ? 'Now' : p}
-                        </button>
-                    ))}
+                    {['now', '09:00', '09:30', '10:00'].map(p => {
+                        const active = isActivePreset(p);
+                        return (
+                            <button
+                                key={p}
+                                onClick={() => handlePreset(p)}
+                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all border flex items-center gap-2 ${
+                                    active
+                                        ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-400'
+                                        : 'bg-slate-900/5 dark:bg-white/5 hover:bg-slate-900/10 dark:hover:bg-white/10 text-slate-700 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-indigo-400 border-slate-200 dark:border-white/10'
+                                }`}
+                            >
+                                {p === 'now' ? <History className="w-3 h-3" /> : <Clock3 className="w-3 h-3" />}
+                                {p === 'now' ? 'Now' : p}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 <div className="mt-6 flex items-center justify-center gap-2 text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-tight">

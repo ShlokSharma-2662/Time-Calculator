@@ -75,7 +75,7 @@ export const WeeklyTrend = ({ history }) => {
                                 axisLine={false}
                                 tickLine={false}
                                 tick={{ fill: '#64748b', fontSize: 10, fontWeight: 800 }}
-                                domain={[0, 10]}
+                                domain={[0, (dataMax) => Math.max(10, Math.ceil(dataMax) + 1)]}
                             />
                             <Tooltip content={<CustomTooltip />} />
                             <Area

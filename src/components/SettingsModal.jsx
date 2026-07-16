@@ -97,6 +97,19 @@ export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration
                                         <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${isPrivacyMode ? 'translate-x-7' : 'translate-x-0'}`} />
                                     </button>
                                 </div>
+
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700/50 shadow-sm">
+                                    <div className="flex items-center gap-3">
+                                        <Calendar className="w-4 h-4 text-indigo-500" />
+                                        <span className="text-sm font-bold text-slate-700 dark:text-slate-300">24-Hour Clock</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setUse24Hour(!use24Hour)}
+                                        className={`w-14 h-7 rounded-full p-1 transition-all duration-300 ${use24Hour ? 'bg-indigo-500 shadow-lg shadow-indigo-500/30' : 'bg-slate-200 dark:bg-slate-700'}`}
+                                    >
+                                        <div className={`w-5 h-5 rounded-full bg-white shadow-md transform transition-transform duration-300 ${use24Hour ? 'translate-x-7' : 'translate-x-0'}`} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -173,6 +186,17 @@ export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration
                                     <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
                                 </button>
                                 <input type="file" ref={fileInputRef} onChange={handleRestore} className="hidden" accept=".json" />
+
+                                <button
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="flex items-center justify-between px-4 py-3 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 transition-all font-bold text-xs group"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        <Upload className="w-4 h-4 text-indigo-500" />
+                                        <span>Import Backup</span>
+                                    </div>
+                                    <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
+                                </button>
 
                                 <button
                                     onClick={handleClear}

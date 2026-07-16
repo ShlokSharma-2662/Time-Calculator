@@ -9,7 +9,7 @@ export const Footer = () => {
                     Built with <Heart className="w-3 h-3 text-rose-500 fill-rose-500" /> for Productivity
                 </div>
                 <p className="text-slate-400 dark:text-slate-600 text-[10px] font-bold uppercase tracking-tighter">
-                    WorkShift v2.0 • Produced by <span className="text-indigo-600 dark:text-indigo-400">Shlok Sharma</span>
+                    WorkShift v2.0 • © {new Date().getFullYear()} <span className="text-indigo-600 dark:text-indigo-400">Shlok Sharma</span>
                 </p>
             </div>
         </footer>

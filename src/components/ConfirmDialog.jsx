@@ -1,8 +1,17 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertCircle, X } from 'lucide-react';
+import { AlertCircle, Trash2, Info, X } from 'lucide-react';
+
+const TYPE_CONFIG = {
+    warning: { icon: AlertCircle, iconBg: 'bg-amber-500 shadow-amber-500/20', btnBg: 'bg-amber-500 hover:bg-amber-600 shadow-amber-500/20' },
+    danger:  { icon: Trash2,       iconBg: 'bg-rose-500 shadow-rose-500/20',   btnBg: 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20'   },
+    info:    { icon: Info,          iconBg: 'bg-sky-500 shadow-sky-500/20',     btnBg: 'bg-indigo-500 hover:bg-indigo-600 shadow-indigo-500/20' },
+};
 
 export const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, type = 'warning' }) => {
+    const cfg = TYPE_CONFIG[type] ?? TYPE_CONFIG.warning;
+    const IconComp = cfg.icon;
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -26,10 +35,8 @@ export const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, type
                         
                         <div className="p-8">
                             <div className="flex flex-col items-center text-center">
-                                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mb-6 shadow-xl ${
-                                    type === 'warning' ? 'bg-amber-500 shadow-amber-500/20' : 'bg-indigo-500 shadow-indigo-500/20'
-                                }`}>
-                                    <AlertCircle className="w-8 h-8 text-white" />
+                                <div className={`w-16 h-16 rounded-3xl flex items-center justify-center mb-6 shadow-xl ${cfg.iconBg}`}>
+                                    <IconComp className="w-8 h-8 text-white" />
                                 </div>
                                 
                                 <h3 className="text-xl font-black text-slate-900 dark:text-white mb-2 uppercase tracking-tight">
@@ -46,11 +53,7 @@ export const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, type
                                         onConfirm();
                                         onClose();
                                     }}
-                                    className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 ${
-                                        type === 'warning' 
-                                            ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20' 
-                                            : 'bg-indigo-500 hover:bg-indigo-600 text-white shadow-indigo-500/20'
-                                    }`}
+                                    className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 text-white ${cfg.btnBg}`}
                                 >
                                     Yes, Proceed
                                 </button>
