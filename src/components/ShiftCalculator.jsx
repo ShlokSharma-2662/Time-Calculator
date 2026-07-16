@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, CheckCircle2, Briefcase, Clock3, ShieldCheck, Coffee, Timer, History, Goal, Calendar, Clock, Lock, Unlock, Zap, Settings, Info, Moon } from 'lucide-react';
+import { Sun, CheckCircle2, Briefcase, Clock3, ShieldCheck, Coffee, Timer, History, Clock, Lock, Unlock, Zap, Settings, Info, Moon } from 'lucide-react';
 import { LEAVE_TYPES } from '../utils/leaveHistory';
 import { useUI } from '../context/UIContext';
 import { motion } from 'framer-motion';
@@ -107,18 +107,21 @@ export const ShiftCalculator = ({
 
             <div className="mt-10 space-y-6">
                 <div className="flex p-1.5 bg-slate-900/5 dark:bg-white/5 rounded-2xl gap-1 border border-slate-200 dark:border-white/5 shadow-inner">
-                    {['fullDay', 'halfDay', 'shortLeave'].map(target => (
-                        <button
-                            key={target}
-                            onClick={() => setActiveTarget(target)}
-                            className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex flex-col items-center gap-1 ${activeTarget === target
-                                ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xl border border-slate-100 dark:border-white/5'
-                                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
-                        >
-                            <Goal className={`w-4 h-4 ${activeTarget === target ? 'text-indigo-500' : 'opacity-20'}`} />
-                            {target === 'fullDay' ? 'Full' : target === 'halfDay' ? 'Half' : 'Short'}
-                        </button>
-                    ))}
+                    {['fullDay', 'halfDay', 'shortLeave'].map(target => {
+                        const TabIcon = target === 'fullDay' ? Briefcase : target === 'halfDay' ? Clock : Coffee;
+                        return (
+                            <button
+                                key={target}
+                                onClick={() => setActiveTarget(target)}
+                                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] transition-all flex flex-col items-center gap-1 ${activeTarget === target
+                                    ? 'bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 shadow-xl border border-slate-100 dark:border-white/5'
+                                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'}`}
+                            >
+                                <TabIcon className={`w-4 h-4 ${activeTarget === target ? 'text-indigo-500' : 'opacity-20'}`} />
+                                {target === 'fullDay' ? 'Full' : target === 'halfDay' ? 'Half' : 'Short'}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 <div className={`p-8 rounded-[2rem] border transition-all shadow-lg ${isOvertime
