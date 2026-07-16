@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const STORAGE_KEY = 'workShift_history';
 
@@ -18,22 +18,22 @@ export const useHistory = () => {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
     }, [history]);
 
-    const saveEntry = (date, data) => {
+    const saveEntry = useCallback((date, data) => {
         setHistory(prev => ({
             ...prev,
             [date]: data
         }));
-    };
+    }, []);
 
-    const getEntry = (date) => {
+    const getEntry = useCallback((date) => {
         return history[date] || null;
-    };
+    }, [history]);
 
-    const getAllEntries = () => {
+    const getAllEntries = useCallback(() => {
         return Object.entries(history).sort((a, b) => new Date(b[0]) - new Date(a[0]));
-    };
+    }, [history]);
 
-    const exportToCSV = () => {
+    const exportToCSV = useCallback(() => {
         const headers = ['Date', 'Start Time', 'First In', 'Last Out', 'Breaks (min)', 'Effective Work (h:m)', 'Leave Type'];
         const rows = getAllEntries().map(([date, data]) => {
             // Basic validation
@@ -63,11 +63,11 @@ export const useHistory = () => {
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    };
+    }, [getAllEntries]);
 
-    const setFullHistory = (newHistoryObj) => {
+    const setFullHistory = useCallback((newHistoryObj) => {
         setHistory(newHistoryObj);
-    };
+    }, []);
 
     return { history, saveEntry, getEntry, getAllEntries, exportToCSV, setFullHistory };
 };

@@ -15,13 +15,13 @@ export const UIProvider = ({ children }) => {
         }, 3000);
     }, []);
 
-    const showSuccess = (msg) => showToast(msg, 'success');
-    const showError = (msg) => showToast(msg, 'error');
-    const showInfo = (msg) => showToast(msg, 'info');
+    const showSuccess = useCallback((msg) => showToast(msg, 'success'), [showToast]);
+    const showError = useCallback((msg) => showToast(msg, 'error'), [showToast]);
+    const showInfo = useCallback((msg) => showToast(msg, 'info'), [showToast]);
 
-    const dismissToast = (id) => {
+    const dismissToast = useCallback((id) => {
         setToasts(prev => prev.filter(t => t.id !== id));
-    };
+    }, []);
 
     // Confirmation Methods
     const confirm = useCallback(({ title, message, onConfirm, type = 'warning' }) => {
@@ -37,7 +37,7 @@ export const UIProvider = ({ children }) => {
         });
     }, []);
 
-    const closeConfirm = () => setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+    const closeConfirm = useCallback(() => setConfirmDialog(prev => ({ ...prev, isOpen: false })), []);
 
     return (
         <UIContext.Provider value={{ 

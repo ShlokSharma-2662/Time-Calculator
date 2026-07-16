@@ -39,6 +39,8 @@ function AppContent() {
     hrmsSync, clearHrmsSync,
   } = useShiftState();
 
+  const allHistoryEntries = useMemo(() => getAllEntries(), [getAllEntries]);
+
   const [authMode, setAuthMode] = useState('login');
   const [showHero, setShowHero] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -255,7 +257,7 @@ function AppContent() {
             <HistoryModal
               isOpen={isHistoryOpen}
               onClose={() => setIsHistoryOpen(false)}
-              historyEntries={getAllEntries()}
+              historyEntries={allHistoryEntries}
               history={history}
               onLoadEntry={handleLoadEntryAttempt}
               onExport={exportToCSV}

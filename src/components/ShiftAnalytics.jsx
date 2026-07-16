@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     TrendingUp, Clock, Coffee, Calendar, Target,
@@ -28,28 +28,21 @@ export function ShiftAnalytics({ currentShift, history }) {
     const { showSuccess, showInfo } = useUI();
     const [expanded, setExpanded] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
-    const [stats, setStats] = useState(null);
-    const [weeklySummary, setWeeklySummary] = useState(null);
-    const [monthlySummary, setMonthlySummary] = useState(null);
-    const [trendData, setTrendData] = useState([]);
-    const [breakPatterns, setBreakPatterns] = useState(null);
-    const [punctualityScore, setPunctualityScore] = useState(100);
-    const [monthlyComp, setMonthlyComp] = useState(null);
-    const [consistencyRating, setConsistencyRating] = useState(100);
-    const [recommendations, setRecommendations] = useState([]);
-    const [goalProgress, setGoalProgress] = useState(null);
+    const [analyticsData, setAnalyticsData] = useState(null);
 
     const refreshStats = useCallback(() => {
-        setStats(getQuickStats(history));
-        setWeeklySummary(getWeeklySummary(history));
-        setMonthlySummary(getMonthlySummary(history));
-        setTrendData(getHoursTrend(history, 14));
-        setBreakPatterns(analyzeBreakPatterns(history));
-        setPunctualityScore(getPunctualityScore(history));
-        setMonthlyComp(getMonthlyComparison(history));
-        setConsistencyRating(calculateConsistencyRating(history));
-        setRecommendations(getRecommendations(history));
-        setGoalProgress(checkGoalProgress(history));
+        setAnalyticsData({
+            stats: getQuickStats(history),
+            weeklySummary: getWeeklySummary(history),
+            monthlySummary: getMonthlySummary(history),
+            trendData: getHoursTrend(history, 14),
+            breakPatterns: analyzeBreakPatterns(history),
+            punctualityScore: getPunctualityScore(history),
+            monthlyComp: getMonthlyComparison(history),
+            consistencyRating: calculateConsistencyRating(history),
+            recommendations: getRecommendations(history),
+            goalProgress: checkGoalProgress(history),
+        });
     }, [history]);
 
     // Load stats
@@ -66,7 +59,10 @@ export function ShiftAnalytics({ currentShift, history }) {
         }
     };
 
-    if (!stats) return null;
+    if (!analyticsData) return null;
+
+    const { stats, weeklySummary, monthlySummary, trendData, breakPatterns,
+        punctualityScore, monthlyComp, consistencyRating, recommendations, goalProgress } = analyticsData;
 
     const weeklyGoal = 45;
     const weeklyProgress = weeklySummary ? (weeklySummary.totalHours / weeklyGoal) * 100 : 0;
