@@ -31,4 +31,18 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Firebase SDK is large (~300 KB) — isolate for long-term caching
+          'vendor-firebase': ['firebase/app', 'firebase/auth', 'firebase/firestore'],
+          // Recharts pulls in d3 — keep separate from app code
+          'vendor-recharts': ['recharts'],
+          // framer-motion is runtime-heavy; separate chunk avoids re-download on app changes
+          'vendor-motion': ['framer-motion'],
+        }
+      }
+    }
+  }
 })

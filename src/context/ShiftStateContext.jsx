@@ -119,13 +119,11 @@ export function ShiftStateProvider({ children }) {
         return () => clearInterval(timer);
     }, []);
 
-    // --- Persist to localStorage ---
-    useEffect(() => {
-        localStorage.setItem('startTime', startTime);
-        localStorage.setItem('logInput', logInput);
-        localStorage.setItem('shiftDuration', shiftDuration);
-        localStorage.setItem('use24Hour', use24Hour);
-    }, [startTime, logInput, shiftDuration, use24Hour]);
+    // --- Persist to localStorage (split so each key only writes on its own change) ---
+    useEffect(() => { localStorage.setItem('startTime', startTime); }, [startTime]);
+    useEffect(() => { localStorage.setItem('logInput', logInput); }, [logInput]);
+    useEffect(() => { localStorage.setItem('shiftDuration', shiftDuration); }, [shiftDuration]);
+    useEffect(() => { localStorage.setItem('use24Hour', use24Hour); }, [use24Hour]);
 
     useEffect(() => {
         const refreshHrmsSync = () => {
@@ -152,7 +150,7 @@ export function ShiftStateProvider({ children }) {
         };
 
         refreshHrmsSync();
-        const interval = setInterval(refreshHrmsSync, 1500);
+        const interval = setInterval(refreshHrmsSync, 5000);
         const onStorage = (event) => {
             if (!event.key || event.key === 'logInput' || HRMS_SYNC_KEYS.includes(event.key)) {
                 refreshHrmsSync();
