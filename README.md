@@ -186,6 +186,7 @@ There is no checked-in `server/.env.example`, but the server expects the followi
 | --- | --- | --- | --- |
 | `JWT_SECRET` | Secret used to sign and verify JWTs in `server/routes/auth.js` and `server/routes/logs.js` | `b1e6b18b4b6149499d0d2a3b6af5a8de01e8d7fcb0b8e16d2c15f6c8a4c9b51e` | Yes |
 | `EXTENSION_ID` | Optional allowlist check for `x-extension-id` header on `/api/extension/sync-logs` | `abcdefghijklmnopabcdefghijklmnop` | No |
+| `EXTENSION_TOKEN_TTL` | Expiry for minted extension sync tokens | `30d` | No |
 | `PORT` | Express listen port | `5000` | No |
 
 ### Running Locally
@@ -246,6 +247,7 @@ The only explicit API surface in the repository is the optional Express app unde
 | `POST` | `/api/auth/login` | Authenticate a user and return a 7-day JWT | No |
 | `GET` | `/api/logs` | Fetch all logs for the authenticated user, sorted descending by date | Yes (`x-auth-token`) |
 | `POST` | `/api/logs/sync` | Upsert up to 500 log entries for the authenticated user | Yes (`x-auth-token`) |
+| `POST` | `/api/extension/token` | Mint a scoped extension token from a primary user JWT | Yes (`x-auth-token`) |
 | `POST` | `/api/extension/sync-logs` | Idempotent background sync endpoint for Chrome extension attendance logs | Yes (`x-auth-token`) |
 
 ### Register
@@ -327,9 +329,26 @@ Content-Type: application/json
 
 ### Extension background sync
 
+Mint an extension-scoped token once (using a normal `/api/auth/login` token):
+
+```http
+POST /api/extension/token
+x-auth-token: <primary-user-jwt>
+Content-Type: application/json
+```
+
+```json
+{
+  "token": "<extension-jwt>",
+  "tokenType": "extension",
+  "scope": "logs:sync",
+  "expiresIn": "30d"
+}
+```
+
 ```http
 POST /api/extension/sync-logs
-x-auth-token: <jwt>
+x-auth-token: <extension-jwt>
 x-extension-id: <chrome-extension-id>   # required only when EXTENSION_ID is configured
 Content-Type: application/json
 
@@ -457,16 +476,16 @@ chrome.runtime.onInstalled.addListener(async () => {
 
 chrome.alarms.onAlarm.addListener(async (alarm) => {
   if (alarm.name !== SYNC_ALARM) return;
-  const { token, deviceId, extensionId, pendingLogs = [] } = await chrome.storage.local.get([
-    'token', 'deviceId', 'extensionId', 'pendingLogs'
+  const { extensionToken, deviceId, extensionId, pendingLogs = [] } = await chrome.storage.local.get([
+    'extensionToken', 'deviceId', 'extensionId', 'pendingLogs'
   ]);
-  if (!token || !deviceId || pendingLogs.length === 0) return;
+  if (!extensionToken || !deviceId || pendingLogs.length === 0) return;
 
   const response = await fetch(`${API_BASE}/api/extension/sync-logs`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
-      'x-auth-token': token,
+      'x-auth-token': extensionToken,
       'x-extension-id': extensionId || chrome.runtime.id
     },
     body: JSON.stringify({

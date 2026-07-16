@@ -10,6 +10,7 @@ if (!process.env.JWT_SECRET) {
 }
 const JWT_SECRET = process.env.JWT_SECRET;
 const MAX_LOGS_PER_SYNC = 500;
+const EXTENSION_TOKEN_TTL = process.env.EXTENSION_TOKEN_TTL || '30d';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^([01]\d|2[0-3]):([0-5]\d)$/;
@@ -19,7 +20,12 @@ const auth = (req, res, next) => {
   if (!token) return res.status(401).json({ msg: 'No token, authorization denied' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded.id;
+    const userId = decoded.id || decoded.uid;
+    if (!userId) {
+      return res.status(401).json({ msg: 'Token is not valid' });
+    }
+    req.user = userId;
+    req.tokenPayload = decoded;
     next();
   } catch (err) {
     return res.status(401).json({ msg: 'Token is not valid' });
@@ -58,8 +64,37 @@ function validateSyncLog(log, index) {
   return null;
 }
 
+router.post('/token', auth, (req, res) => {
+  try {
+    // Only mint extension tokens from a primary user session token.
+    if (!req.tokenPayload || !req.tokenPayload.id) {
+      return res.status(403).json({ msg: 'A primary auth token is required to mint an extension token' });
+    }
+
+    const extensionToken = jwt.sign(
+      { uid: req.user, typ: 'extension', scope: 'logs:sync' },
+      JWT_SECRET,
+      { expiresIn: EXTENSION_TOKEN_TTL }
+    );
+
+    return res.json({
+      token: extensionToken,
+      tokenType: 'extension',
+      scope: 'logs:sync',
+      expiresIn: EXTENSION_TOKEN_TTL
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ msg: 'Server Error' });
+  }
+});
+
 router.post('/sync-logs', auth, (req, res) => {
   try {
+    if (req.tokenPayload?.typ === 'extension' && req.tokenPayload.scope !== 'logs:sync') {
+      return res.status(403).json({ msg: 'Extension token does not include logs:sync scope' });
+    }
+
     const extensionIdHeader = req.header('x-extension-id');
     if (process.env.EXTENSION_ID && extensionIdHeader !== process.env.EXTENSION_ID) {
       return res.status(403).json({ msg: 'Extension is not allowed' });
