@@ -185,6 +185,7 @@ There is no checked-in `server/.env.example`, but the server expects the followi
 | Name | Description | Example value | Required |
 | --- | --- | --- | --- |
 | `JWT_SECRET` | Secret used to sign and verify JWTs in `server/routes/auth.js` and `server/routes/logs.js` | `b1e6b18b4b6149499d0d2a3b6af5a8de01e8d7fcb0b8e16d2c15f6c8a4c9b51e` | Yes |
+| `EXTENSION_ID` | Optional allowlist check for `x-extension-id` header on `/api/extension/sync-logs` | `abcdefghijklmnopabcdefghijklmnop` | No |
 | `PORT` | Express listen port | `5000` | No |
 
 ### Running Locally
@@ -245,6 +246,7 @@ The only explicit API surface in the repository is the optional Express app unde
 | `POST` | `/api/auth/login` | Authenticate a user and return a 7-day JWT | No |
 | `GET` | `/api/logs` | Fetch all logs for the authenticated user, sorted descending by date | Yes (`x-auth-token`) |
 | `POST` | `/api/logs/sync` | Upsert up to 500 log entries for the authenticated user | Yes (`x-auth-token`) |
+| `POST` | `/api/extension/sync-logs` | Idempotent background sync endpoint for Chrome extension attendance logs | Yes (`x-auth-token`) |
 
 ### Register
 
@@ -323,6 +325,39 @@ Content-Type: application/json
 }
 ```
 
+### Extension background sync
+
+```http
+POST /api/extension/sync-logs
+x-auth-token: <jwt>
+x-extension-id: <chrome-extension-id>   # required only when EXTENSION_ID is configured
+Content-Type: application/json
+
+{
+  "source": "chrome-extension",
+  "deviceId": "ext-laptop-work",
+  "logs": [
+    {
+      "date": "2026-07-16",
+      "in": "09:03",
+      "out": "18:11",
+      "breakMinutes": 42,
+      "idempotencyKey": "2026-07-16|09:03|18:11|42"
+    }
+  ]
+}
+```
+
+```json
+{
+  "msg": "Extension sync successful",
+  "inserted": 1,
+  "updated": 0,
+  "skipped": 0,
+  "serverTime": "2026-07-16T11:10:05.217Z"
+}
+```
+
 ## Database Schema
 
 ### Firestore collections used by the web and mobile apps
@@ -342,6 +377,7 @@ Content-Type: application/json
 | --- | --- | --- |
 | `data/users.json` | Array of `{ id, name, email, password, createdAt }` | Passwords are bcrypt-hashed during register |
 | `data/logs.json` | Array of `{ userId, date, updatedAt, ...logFields }` | Upserted by `server/routes/logs.js` on `userId + date` |
+| `data/ext-sync-keys.json` | Array of `{ userId, key, createdAt }` | Idempotency ledger used by `/api/extension/sync-logs` |
 
 ### Relationships
 
@@ -396,6 +432,55 @@ The repository already contains a committed build artifact in `extension/`.
 4. Select the `extension/` directory.
 
 ⚠️ **Assumption:** `extension/` is a packaged output rather than a separately maintained source package. The web build also ships `public/manifest.json`, so you can likely regenerate an unpacked extension from a fresh Vite build, but there is no checked-in automation for that step.
+
+Example MV3 background-sync wiring:
+
+```json
+{
+  "manifest_version": 3,
+  "name": "WorkShift Sync",
+  "version": "1.0.0",
+  "permissions": ["alarms", "storage"],
+  "host_permissions": ["https://your-api-host.example.com/*"],
+  "background": { "service_worker": "service_worker.js" }
+}
+```
+
+```js
+// service_worker.js
+const API_BASE = 'https://your-api-host.example.com';
+const SYNC_ALARM = 'workshift-sync';
+
+chrome.runtime.onInstalled.addListener(async () => {
+  await chrome.alarms.create(SYNC_ALARM, { periodInMinutes: 5 });
+});
+
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name !== SYNC_ALARM) return;
+  const { token, deviceId, extensionId, pendingLogs = [] } = await chrome.storage.local.get([
+    'token', 'deviceId', 'extensionId', 'pendingLogs'
+  ]);
+  if (!token || !deviceId || pendingLogs.length === 0) return;
+
+  const response = await fetch(`${API_BASE}/api/extension/sync-logs`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'x-auth-token': token,
+      'x-extension-id': extensionId || chrome.runtime.id
+    },
+    body: JSON.stringify({
+      source: 'chrome-extension',
+      deviceId,
+      logs: pendingLogs
+    })
+  });
+
+  if (response.ok) {
+    await chrome.storage.local.set({ pendingLogs: [] });
+  }
+});
+```
 
 ### Optional Express API
 

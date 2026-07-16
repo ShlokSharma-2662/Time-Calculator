@@ -12,6 +12,7 @@ app.use(express.json());
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/logs', require('./routes/logs'));
+app.use('/api/extension', require('./routes/extension'));
 
 app.get('/', (req, res) => {
   res.json({ msg: 'WorkShift API v3.0 — File-Based Storage' });
