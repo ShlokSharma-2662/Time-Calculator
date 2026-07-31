@@ -60,10 +60,24 @@ export function getShiftHistory(history) {
  * Save a new shift (for backward compatibility or explicit save)
  */
 export function saveShift(shiftData) {
-    // We mainly rely on the App's auto-save to workShift_history now.
-    // This function can remain for explicit analytics-only data if needed,
-    // but we'll prioritize the unified history.
-    console.log("Analytics saveShift called with:", shiftData);
+    if (!shiftData || typeof shiftData !== 'object') return false;
+    const targetDate = shiftData.detectedDate || shiftData.date || new Date().toISOString().slice(0, 10);
+
+    const existingRaw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    const existing = existingRaw ? JSON.parse(existingRaw) : {};
+    existing[targetDate] = {
+        startTime: shiftData.startTime || '00:00',
+        totalOutTime: shiftData.totalOutTime || 0,
+        effectiveWorkTime: shiftData.effectiveWorkTime || 0,
+        firstInTime: shiftData.firstInTime || shiftData.autoStartTime || null,
+        lastOutTime: shiftData.lastOutTime || null,
+        activeLeave: shiftData.activeLeave || null,
+        shortTimeOffMinutes: shiftData.shortTimeOffMinutes || 0,
+        shortTimeOffEntries: shiftData.shortTimeOffEntries || [],
+    };
+
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(existing));
+    return true;
 }
 
 /**

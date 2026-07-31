@@ -120,7 +120,7 @@ function parsePunchLine(line, index) {
     const date = normalizeDateValue(dateRaw);
     const minutes = toMinutes(timeRaw);
 
-    if (!date || !minutes || isNaN(minutes) || !DATE_CELL_RE.test(swipeDateRaw)) return null;
+        if (!date || minutes === null || Number.isNaN(minutes) || !DATE_CELL_RE.test(swipeDateRaw)) return null;
 
     return {
         date,

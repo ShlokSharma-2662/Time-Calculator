@@ -27,16 +27,19 @@ export const Dashboard = ({
     const productivityPercent = useMemo(() => {
         if (!history || Object.keys(history).length === 0) return 0;
         const targetMinutes = (shiftDuration || 9) * 60;
-        const recentDays = Object.entries(history).slice(0, 7);
+        const recentDays = Object.entries(history)
+            .map(([date, data]) => ({ date, data }))
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+            .slice(0, 7);
         if (recentDays.length === 0) return 0;
 
-        const totalPercent = recentDays.reduce((acc, [, data]) => {
+        const totalPercent = recentDays.reduce((acc, { data }) => {
             const effective = data?.effectiveWorkTime || 0;
             // Note: effectiveWorkTime already includes virtual leave minutes from the parser
             return acc + (effective / targetMinutes) * 100;
         }, 0);
 
-        return Math.round(totalPercent / recentDays.length - 100);
+        return Math.round((totalPercent / recentDays.length) - 100);
     }, [history, shiftDuration]);
 
     const remainingMinutes = useMemo(() => {

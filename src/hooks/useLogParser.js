@@ -23,12 +23,33 @@ const getLeaveMinutes = (leave) => {
 
 const buildFallbackPairs = (parsedEvents) => {
     const computedBreaks = [];
+    const sessions = [];
     const openIn = [];
     let sessionCount = 0;
     let totalSessionMinutes = 0;
+    let dayOffset = 0;
+    let previousRawMinutes = null;
 
-    for (let i = 0; i < parsedEvents.length - 1; i++) {
-        const current = parsedEvents[i];
+    const absoluteEvents = parsedEvents.map((event, index) => {
+        const rawMinutes = event.minutes;
+        if (previousRawMinutes !== null && rawMinutes < previousRawMinutes - 180) {
+            dayOffset += 24 * 60;
+        }
+
+        const absoluteMinutes = rawMinutes + dayOffset;
+        previousRawMinutes = rawMinutes;
+
+        return {
+            ...event,
+            absoluteMinutes,
+            sortIndex: index,
+        };
+    });
+
+    for (let i = 0; i < absoluteEvents.length - 1; i++) {
+        const current = absoluteEvents[i];
+        const next = absoluteEvents[i + 1];
+
         if (current.type === 'IN') {
             openIn.push(current);
             continue;
@@ -37,26 +58,80 @@ const buildFallbackPairs = (parsedEvents) => {
         if (current.type === 'OUT') {
             const pairIn = openIn.shift();
             if (!pairIn) continue;
-            const diff = current.minutes - pairIn.minutes;
+            const diff = current.absoluteMinutes - pairIn.absoluteMinutes;
             if (diff > 0) {
+                sessions.push({
+                    start: pairIn.displayTime,
+                    end: current.displayTime,
+                    startMinutes: pairIn.minutes,
+                    endMinutes: current.minutes,
+                    durationMinutes: diff,
+                    startMachine: pairIn.machine || 'Unknown',
+                    endMachine: current.machine || pairIn.machine || 'Unknown',
+                });
                 sessionCount += 1;
                 totalSessionMinutes += diff;
             }
         }
 
-        if (current.type === 'OUT' && parsedEvents[i + 1].type === 'IN') {
-            const diff = parsedEvents[i + 1].minutes - current.minutes;
+        if (current.type === 'OUT' && next.type === 'IN') {
+            const diff = next.absoluteMinutes - current.absoluteMinutes;
             if (diff > 0) {
                 computedBreaks.push({
-                    start: parsedEvents[i].displayTime,
-                    end: parsedEvents[i + 1].displayTime,
-                    duration: diff
+                    start: absoluteEvents[i].displayTime,
+                    end: next.displayTime,
+                    duration: diff,
                 });
             }
         }
     }
 
-    return { computedBreaks, sessionCount, totalSessionMinutes };
+    const lastEvent = absoluteEvents[absoluteEvents.length - 1];
+    return {
+        computedBreaks,
+        sessions,
+        sessionCount,
+        totalSessionMinutes,
+        absoluteEvents,
+        lastEvent,
+    };
+};
+
+const getBreakMinutesToTime = (events, cutoffMinutes) => {
+    if (!Array.isArray(events) || events.length === 0) return 0;
+
+    let breakMinutes = 0;
+    for (let i = 0; i < events.length - 1; i++) {
+        const current = events[i];
+        const next = events[i + 1];
+        if (current.type !== 'OUT' || next.type !== 'IN') continue;
+
+        if (current.absoluteMinutes >= cutoffMinutes) break;
+        breakMinutes += Math.max(0, Math.min(next.absoluteMinutes, cutoffMinutes) - current.absoluteMinutes);
+    }
+
+    const lastEvent = events[events.length - 1];
+    if (lastEvent.type === 'OUT' && lastEvent.absoluteMinutes < cutoffMinutes) {
+        breakMinutes += cutoffMinutes - lastEvent.absoluteMinutes;
+    }
+
+    return breakMinutes;
+};
+
+const getCurrentAbsoluteMinutes = (events, currentTimeMinutes, detectedDate, today) => {
+    if (!Array.isArray(events) || events.length === 0) return currentTimeMinutes;
+    if (detectedDate !== today) return currentTimeMinutes;
+
+    const spansMidnight = events.some((event) => (event.absoluteMinutes || 0) >= 1440);
+    if (!spansMidnight) return currentTimeMinutes;
+
+    const first = events[0];
+    const firstRaw = first?.minutes || 0;
+    if (currentTimeMinutes < firstRaw) {
+        return currentTimeMinutes + 24 * 60;
+    }
+
+    return currentTimeMinutes;
 };
 
 export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0, startTimeMinutes = null, today = null, leave = null) => {
@@ -78,18 +153,24 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
                 absoluteMinutes: event.absoluteMinutes,
             }));
 
-            const firstIn = parsedReport.events.find((event) => event.type === 'IN');
-            const lastEvent = parsedEvents[parsedEvents.length - 1];
-            const lastOut = [...parsedEvents].reverse().find((event) => event.type === 'OUT');
+            const absoluteEvents = parsedEvents
+                .slice()
+                .sort((a, b) => (a.absoluteMinutes || 0) - (b.absoluteMinutes || 0));
+            const firstIn = absoluteEvents.find((event) => event.type === 'IN');
+            const firstInAbsoluteMinutes = firstIn ? firstIn.absoluteMinutes : null;
+            const currentAbsoluteTime = getCurrentAbsoluteMinutes(absoluteEvents, currentTimeMinutes, detectedDate, today);
+
+            const lastEvent = absoluteEvents[absoluteEvents.length - 1];
+            const lastOut = [...absoluteEvents].reverse().find((event) => event.type === 'OUT');
+            const totalOutToCurrent = isHistorical
+                ? parsedReport.totalOutMinutes
+                : getBreakMinutesToTime(absoluteEvents, currentAbsoluteTime);
 
             let realTimeWork = 0;
             if (!isHistorical) {
-                if (firstIn && currentTimeMinutes > firstIn.minutes) {
-                    let activeBreakMinutes = 0;
-                    if (lastEvent && lastEvent.type === 'OUT' && currentTimeMinutes > lastEvent.minutes) {
-                        activeBreakMinutes = currentTimeMinutes - lastEvent.minutes;
-                    }
-                    realTimeWork = (currentTimeMinutes - firstIn.minutes) - parsedReport.totalOutMinutes - activeBreakMinutes;
+                if (firstIn && currentAbsoluteTime > firstInAbsoluteMinutes) {
+                    const totalOutToNow = getBreakMinutesToTime(absoluteEvents, currentAbsoluteTime);
+                    realTimeWork = currentAbsoluteTime - firstInAbsoluteMinutes - totalOutToNow;
                 } else if (!firstIn && startTimeMinutes !== null && currentTimeMinutes > startTimeMinutes) {
                     realTimeWork = currentTimeMinutes - startTimeMinutes;
                 }
@@ -117,9 +198,9 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
             }
 
             return {
-                events: parsedEvents,
+                events: absoluteEvents,
                 breaks: parsedReport.breaks,
-                totalOutTime: parsedReport.totalOutMinutes,
+                totalOutTime: totalOutToCurrent,
                 sessions: parsedReport.sessions,
                 sessionCount: parsedReport.sessionCount,
                 totalSessionMinutes: parsedReport.totalWorkMinutes,
@@ -162,30 +243,38 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
                 type: type
             });
         }
-        parsedEvents.sort((a, b) => a.minutes - b.minutes);
 
-        const { computedBreaks, sessionCount, totalSessionMinutes } = buildFallbackPairs(parsedEvents);
+        const {
+            computedBreaks,
+            sessions,
+            sessionCount,
+            totalSessionMinutes,
+            absoluteEvents,
+            lastEvent,
+        } = buildFallbackPairs(parsedEvents);
+
         const totalOut = computedBreaks.reduce((total, current) => total + current.duration, 0);
 
-        const firstIn = parsedEvents.find(e => e.type === 'IN');
-        const lastEvent = parsedEvents[parsedEvents.length - 1];
-        const lastOut = [...parsedEvents].reverse().find(e => e.type === 'OUT');
+        const firstIn = absoluteEvents.find((e) => e.type === 'IN');
+        const firstInAbsoluteMinutes = firstIn ? firstIn.absoluteMinutes : null;
+        const lastOut = [...absoluteEvents].reverse().find(e => e.type === 'OUT');
+        const currentAbsoluteTime = getCurrentAbsoluteMinutes(absoluteEvents, currentTimeMinutes, detectedDate, today);
+        const totalOutToCurrent = isHistorical
+            ? totalOut
+            : getBreakMinutesToTime(absoluteEvents, currentAbsoluteTime);
 
         let netWork = 0;
         if (firstIn && lastOut) {
-            const totalDuration = lastOut.minutes - firstIn.minutes;
-            netWork = totalDuration - totalOut;
+            const totalDuration = lastOut.absoluteMinutes - firstInAbsoluteMinutes;
+            netWork = totalDuration - getBreakMinutesToTime(absoluteEvents, lastOut.absoluteMinutes);
         }
 
         // Calculate real-time effective work up to 'now'
         let realTimeWork = 0;
         if (!isHistorical) {
-            if (firstIn && currentTimeMinutes > firstIn.minutes) {
-                let activeBreakMinutes = 0;
-                if (lastEvent && lastEvent.type === 'OUT' && currentTimeMinutes > lastEvent.minutes) {
-                    activeBreakMinutes = currentTimeMinutes - lastEvent.minutes;
-                }
-                realTimeWork = (currentTimeMinutes - firstIn.minutes) - totalOut - activeBreakMinutes;
+            if (firstIn && currentAbsoluteTime > firstInAbsoluteMinutes) {
+                const totalOutToNow = getBreakMinutesToTime(absoluteEvents, currentAbsoluteTime);
+                realTimeWork = currentAbsoluteTime - firstInAbsoluteMinutes - totalOutToNow;
             } else if (!firstIn && startTimeMinutes !== null && currentTimeMinutes > startTimeMinutes) {
                 realTimeWork = currentTimeMinutes - startTimeMinutes;
             }
@@ -211,12 +300,12 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
         }
 
         return {
-            events: parsedEvents,
+            events: absoluteEvents,
             breaks: computedBreaks,
-            sessions: [],
+            sessions,
             sessionCount,
             totalSessionMinutes,
-            totalOutTime: totalOut,
+            totalOutTime: totalOutToCurrent,
             autoStartTime: firstIn ? minutesToTime(firstIn.minutes, true) : null,
             effectiveWorkTime: effectiveWorkWithLeave,
             realTimeEffectiveWork: realTimeWithLeave,
@@ -234,4 +323,3 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
         };
     }, [logInput, use24Hour, minutesToTime, currentTimeMinutes, startTimeMinutes, today, leave]);
 };
-

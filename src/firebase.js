@@ -2,14 +2,16 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
+const trim = (value) => (typeof value === 'string' ? value.trim() : '');
+
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
+  apiKey: trim(import.meta.env.VITE_FIREBASE_API_KEY),
+  authDomain: trim(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
+  projectId: trim(import.meta.env.VITE_FIREBASE_PROJECT_ID),
+  storageBucket: trim(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET),
+  messagingSenderId: trim(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID),
+  appId: trim(import.meta.env.VITE_FIREBASE_APP_ID),
+  measurementId: trim(import.meta.env.VITE_FIREBASE_MEASUREMENT_ID)
 };
 
 const requiredKeys = [
@@ -26,15 +28,19 @@ const missingKeys = requiredKeys.filter((key) => {
   return !value || String(value).trim().length === 0;
 });
 
+const invalidApiKey = firebaseConfig.apiKey && !/^AIza[0-9A-Za-z_-]{35,}$/.test(firebaseConfig.apiKey);
+const invalidEnvKeys = [...missingKeys];
+if (invalidApiKey) invalidEnvKeys.push("VITE_FIREBASE_API_KEY (invalid format)");
+
 export let app = null;
 export let auth = null;
 export let db = null;
 export let firebaseError = null;
-export const isFirebaseEnabled = missingKeys.length === 0;
+export const isFirebaseEnabled = invalidEnvKeys.length === 0;
 
 if (!isFirebaseEnabled) {
   firebaseError = new Error(
-    `Firebase is disabled. Missing or empty env vars: ${missingKeys.join(", ")}`
+    `Firebase is disabled. Missing or invalid env vars: ${invalidEnvKeys.join(", ")}`
   );
   console.warn("[firebase] Missing Firebase config:", firebaseError.message);
 } else {
