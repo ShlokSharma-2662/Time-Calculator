@@ -57,9 +57,12 @@ export const GlassCard = ({ children, className = "", title, icon: Icon, subtitl
                 <div className={`absolute top-0 left-6 right-6 h-px bg-gradient-to-r ${accent.topLine} via-transparent to-transparent`} />
             )}
 
-            {/* Subtle Gradient Glow */}
-            <div className={`absolute -top-24 -right-24 w-48 h-48 blur-3xl rounded-full transition-colors duration-700 ${accent.glowTop}`}></div>
-            <div className={`absolute -bottom-24 -left-24 w-48 h-48 blur-3xl rounded-full transition-colors duration-700 ${accent.glowBottom}`}></div>
+            {/* Studio Light Layers */}
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.01] via-transparent to-white/[0.02] opacity-40 pointer-events-none" />
+            <div className={`absolute -top-28 -right-28 w-64 h-64 blur-[120px] rounded-full transition-colors duration-700 ${accent.glowTop}`}></div>
+            <div className={`absolute -bottom-28 -left-28 w-64 h-64 blur-[120px] rounded-full transition-colors duration-700 ${accent.glowBottom}`}></div>
+
+            <div className="absolute inset-0 pointer-events-none border border-white/10 rounded-[1.5rem]" aria-hidden="true" />
 
             <div className="relative z-10">
                 {title && (

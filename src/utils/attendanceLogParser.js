@@ -141,20 +141,39 @@ function parseShortTimeOffLine(line, index) {
     const columns = splitLineToColumns(line);
     if (columns.length >= 4) {
         const requestDate = normalizeDateValue(columns[1]);
-        const [dateRaw, type, minutesRaw] = [columns[0], columns[2], columns[3]];
-        const date = normalizeDateValue(dateRaw);
-        const minutes = Number(minutesRaw);
-        const requestType = cleanText(type);
+        const date = normalizeDateValue(columns[0]);
+        const requestType = cleanText(columns[2]);
+        const minutes = Number(columns[3]);
 
-        if (date && requestDate && requestType && Number.isFinite(minutes) && minutes > 0) {
-    return {
-        appDate: date,
-        requestDate,
-        requestType,
-        minutes,
-        fromTo: cleanText(columns[4] || ''),
-        remark: cleanText(columns.slice(5).join(' ')),
-        lineNumber: index,
+        if (date && requestType && Number.isFinite(minutes) && minutes > 0) {
+            return {
+                appDate: date,
+                requestDate: requestDate || date,
+                requestType,
+                minutes,
+                fromTo: cleanText(columns[4] || ''),
+                remark: cleanText(columns.slice(5).join(' ')),
+                lineNumber: index,
+            };
+        }
+    }
+
+    const compactColumns = splitLineToColumns(line);
+    if (compactColumns.length >= 4 && compactColumns[0] && compactColumns[1] && compactColumns[2]) {
+        const date = normalizeDateValue(compactColumns[0]);
+        const requestDate = normalizeDateValue(compactColumns[1]) || date;
+        const requestType = cleanText(compactColumns[2]);
+        const minutes = Number(compactColumns[3]);
+
+        if (date && requestType && Number.isFinite(minutes) && minutes > 0) {
+            return {
+                appDate: date,
+                requestDate,
+                requestType,
+                minutes,
+                fromTo: '',
+                remark: cleanText(compactColumns.slice(4).join(' ')),
+                lineNumber: index,
             };
         }
     }
@@ -184,7 +203,7 @@ function normalizeSection(line) {
     if (/^Daily In Out Punch$/i.test(cleaned)) return 'punch';
     if (/^Leave Details$/i.test(cleaned)) return 'leave';
     if (/^Swipe Request Done$/i.test(cleaned)) return 'swipe';
-    if (/^Short Time-Off$/i.test(cleaned)) return 'shortTimeOff';
+    if (/^Short Time[-\s]Off$/i.test(cleaned)) return 'shortTimeOff';
     return null;
 }
 
@@ -402,21 +421,22 @@ export function buildCleanAttendanceLog(rawTextOrParsed) {
         lines.push('Daily In Out Punch');
         parsed.events
             .slice()
-            .sort((a, b) => a.minutes - b.minutes)
+            .sort((a, b) => {
+                if (a.date !== b.date) return a.date.localeCompare(b.date);
+                return (a.minutes || 0) - (b.minutes || 0);
+            })
             .forEach((event) => {
                 const time = event.rawTime || event.time24 || event.displayTime || '00:00';
                 const machine = cleanText(event.machine || '');
-                const remark = cleanText(event.approverRemark || '');
-                lines.push(`${event.date}\t${time}\t${event.type}\t${machine}\t${remark}`);
+                const machineSuffix = machine ? `\t${machine}` : '';
+                lines.push(`${event.date}\t${time}\t${event.type}${machineSuffix}`);
             });
     }
 
     if (Array.isArray(parsed.shortTimeOffEntries) && parsed.shortTimeOffEntries.length > 0) {
         lines.push('Short Time-Off');
         parsed.shortTimeOffEntries.forEach((row) => {
-            const remark = cleanText(row.remark || '');
-            const fromTo = cleanText(row.fromTo || '');
-            lines.push(`${row.appDate}\t${row.requestDate}\t${row.requestType}\t${row.minutes}\t${fromTo}\t${remark}`);
+            lines.push(`${row.appDate}\t${row.requestDate}\t${row.requestType}\t${row.minutes}`);
         });
     }
 

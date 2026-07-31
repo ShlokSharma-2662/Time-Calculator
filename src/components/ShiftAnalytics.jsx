@@ -71,7 +71,7 @@ export function ShiftAnalytics({ currentShift, history }) {
         <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-slate-800 dark:to-slate-900 rounded-2xl shadow-xl border border-blue-200 dark:border-slate-700 overflow-hidden"
+            className="glass-card bg-gradient-to-br from-slate-900/85 via-slate-900/55 to-indigo-500/10 rounded-[1.5rem] shadow-[0_0_70px_rgba(99,102,241,0.12)] border border-indigo-500/25 overflow-hidden"
         >
             {/* Header */}
             <div
@@ -79,24 +79,24 @@ export function ShiftAnalytics({ currentShift, history }) {
                 onClick={() => setExpanded(!expanded)}
             >
                 <div className="flex items-center gap-3">
-                    <div className="bg-gradient-to-br from-blue-500 to-cyan-600 p-3 rounded-xl">
+                    <div className="bg-gradient-to-br from-indigo-500 to-sky-500 p-3 rounded-2xl shadow-lg shadow-indigo-500/25">
                         <BarChart3 className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">
+                        <h2 className="text-2xl font-black text-white">
                             Shift Analytics
                         </h2>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                        <p className="text-sm text-indigo-200/80 font-semibold uppercase tracking-wide">
                             Track patterns, trends & insights
                         </p>
                     </div>
                 </div>
 
-                <button className="p-2 rounded-lg hover:bg-white/50 dark:hover:bg-slate-700 transition-colors">
+                <button className="p-2 rounded-lg hover:bg-indigo-500/20 transition-colors text-indigo-200">
                     {expanded ? (
-                        <ChevronUp className="w-6 h-6 text-slate-600 dark:text-slate-400" />
+                        <ChevronUp className="w-6 h-6" />
                     ) : (
-                        <ChevronDown className="w-6 h-6 text-slate-600 dark:text-slate-400" />
+                        <ChevronDown className="w-6 h-6" />
                     )}
                 </button>
             </div>
@@ -111,7 +111,7 @@ export function ShiftAnalytics({ currentShift, history }) {
                     >
                         <div className="px-6 pb-6 space-y-6">
                             {/* Tabs */}
-                            <div className="flex gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-xl">
+                            <div className="flex gap-2 bg-slate-900/45 border border-indigo-500/20 p-1.5 rounded-2xl">
                                 <TabButton
                                     active={activeTab === 'overview'}
                                     onClick={() => setActiveTab('overview')}
@@ -187,18 +187,18 @@ export function ShiftAnalytics({ currentShift, history }) {
 
 function TabButton({ active, onClick, icon, label }) {
     return (
-        <button
-            onClick={onClick}
-            className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 group ${active
-                ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg shadow-blue-500/25 scale-[1.02]'
-                : 'text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700/50'
+            <button
+                onClick={onClick}
+                className={`flex-1 px-4 py-3 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-2 group ${active
+                ? 'bg-gradient-to-r from-indigo-500 to-sky-500 text-white shadow-lg shadow-indigo-500/25 scale-[1.02]'
+                : 'text-slate-400 hover:bg-slate-900/60'
                 }`}
-        >
-            <span className={`${active ? 'text-white' : 'text-slate-400 dark:text-slate-500 group-hover:text-blue-500'} transition-colors`}>
-                {icon}
-            </span>
-            {label}
-        </button>
+            >
+                <span className={`${active ? 'text-white' : 'text-slate-400 group-hover:text-indigo-300'} transition-colors`}>
+                    {icon}
+                </span>
+                {label}
+            </button>
     );
 }
 
@@ -215,28 +215,28 @@ function OverviewTab({ stats, weeklySummary, monthlySummary, weeklyGoal, weeklyP
             {/* Quick Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <StatCard
-                    icon={<Clock className="w-5 h-5 text-blue-500" />}
+                    icon={<Clock className="w-5 h-5 text-indigo-300" />}
                     label="Avg Start"
                     value={stats.avgStartTime || '--:--'}
                     color="blue"
                     delay={0.1}
                 />
                 <StatCard
-                    icon={<Zap className="w-5 h-5 text-green-500" />}
+                    icon={<Zap className="w-5 h-5 text-emerald-300" />}
                     label="Avg Hours"
                     value={`${stats.avgHours}h`}
                     color="green"
                     delay={0.2}
                 />
                 <StatCard
-                    icon={<Target className="w-5 h-5 text-purple-500" />}
+                    icon={<Target className="w-5 h-5 text-violet-300" />}
                     label="Attendance"
                     value={`${stats.attendanceRate}%`}
                     color="purple"
                     delay={0.3}
                 />
                 <StatCard
-                    icon={<Coffee className="w-5 h-5 text-orange-500" />}
+                    icon={<Coffee className="w-5 h-5 text-orange-300" />}
                     label="Avg Break"
                     value={`${stats.avgBreak}m`}
                     color="orange"
@@ -255,7 +255,7 @@ function OverviewTab({ stats, weeklySummary, monthlySummary, weeklyGoal, weeklyP
                         className="grid grid-cols-1 md:grid-cols-2 gap-4"
                     >
                         {/* This Week Card */}
-                        <div className="bg-slate-900/40 dark:bg-slate-800/40 p-6 rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden group">
+                <div className="bg-slate-950/35 border border-indigo-400/20 p-6 rounded-3xl shadow-2xl relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-3xl -mr-16 -mt-16 group-hover:bg-indigo-500/20 transition-all duration-700"></div>
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="p-2.5 bg-indigo-500/20 rounded-xl border border-indigo-500/30">
@@ -292,7 +292,7 @@ function OverviewTab({ stats, weeklySummary, monthlySummary, weeklyGoal, weeklyP
                         </div>
 
                         {/* This Month Card (NEW) */}
-                        <div className="bg-slate-900/40 dark:bg-slate-800/40 p-6 rounded-3xl border border-white/5 shadow-2xl relative overflow-hidden group">
+                <div className="bg-slate-950/35 border border-indigo-400/20 p-6 rounded-3xl shadow-2xl relative overflow-hidden group">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-purple-500/10 blur-3xl -mr-16 -mt-16 group-hover:bg-purple-500/20 transition-all duration-700"></div>
                             <div className="flex items-center gap-3 mb-6">
                                 <div className="p-2.5 bg-purple-500/20 rounded-xl border border-purple-500/30">
@@ -336,26 +336,26 @@ function OverviewTab({ stats, weeklySummary, monthlySummary, weeklyGoal, weeklyP
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.6 }}
-                        className="bg-gradient-to-r from-amber-500/10 to-orange-500/10 dark:from-amber-900/20 dark:to-orange-900/30 border border-amber-200/50 dark:border-amber-800/30 rounded-2xl p-6 flex items-center justify-between relative overflow-hidden group"
+                        className="bg-gradient-to-r from-amber-500/15 to-orange-500/10 border border-amber-400/30 rounded-2xl p-6 flex items-center justify-between relative overflow-hidden group"
                     >
                         <div className="absolute right-0 top-0 h-full w-32 bg-gradient-to-l from-amber-500/10 to-transparent pointer-events-none"></div>
                         <div className="flex items-center gap-6">
-                            <div className="bg-amber-100 dark:bg-amber-900/50 p-4 rounded-2xl shadow-inner">
-                                <Award className="w-10 h-10 text-amber-600 dark:text-amber-400 animate-pulse" />
+                            <div className="bg-amber-500/10 border border-amber-500/30 p-4 rounded-2xl shadow-inner">
+                                <Award className="w-10 h-10 text-amber-300 animate-pulse" />
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-1">
+                                <p className="text-sm font-bold text-amber-200 uppercase tracking-widest mb-1">
                                     Continuous Achievement
                                 </p>
-                                <p className="text-slate-600 dark:text-slate-400 text-sm font-medium">
+                                <p className="text-slate-300 text-sm font-medium">
                                     You've maintained an active streak of consistency!
                                 </p>
                             </div>
                         </div>
                         <div className="text-right">
-                            <p className="text-5xl font-black text-amber-600 dark:text-amber-300 flex items-center gap-3">
+                            <p className="text-5xl font-black text-amber-300 flex items-center gap-3">
                                 <span className="text-3xl">🔥</span> {stats.currentStreak}
-                                <span className="text-xl font-bold text-amber-800/70 dark:text-amber-400/70">
+                                <span className="text-xl font-bold text-amber-200/80">
                                     {stats.currentStreak === 1 ? 'day' : 'days'}
                                 </span>
                             </p>
@@ -369,20 +369,20 @@ function OverviewTab({ stats, weeklySummary, monthlySummary, weeklyGoal, weeklyP
                 <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-blue-50/50 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-800/30 rounded-2xl p-4 flex items-center justify-between"
+                    className="bg-slate-950/45 border border-blue-400/20 rounded-2xl p-4 flex items-center justify-between"
                 >
                     <div className="flex items-center gap-3">
-                        <div className="bg-blue-500/10 p-2 rounded-lg">
-                            <Activity className="w-5 h-5 text-blue-500" />
+                        <div className="bg-blue-500/10 border border-blue-500/25 p-2 rounded-lg">
+                            <Activity className="w-5 h-5 text-blue-300" />
                         </div>
                         <div>
-                            <p className="text-sm font-bold text-slate-800 dark:text-white">Active Session Detected</p>
-                            <p className="text-xs text-slate-500">Ready to save your current progress?</p>
+                            <p className="text-sm font-black text-slate-100">Active Session Detected</p>
+                            <p className="text-xs text-slate-400">Ready to save your current progress?</p>
                         </div>
                     </div>
                     <button
                         onClick={onSaveShift}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                        className="px-6 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 text-white text-sm font-black rounded-xl transition-all shadow-md hover:shadow-lg shadow-blue-500/20 flex items-center gap-2"
                     >
                         <Save className="w-4 h-4" />
                         Save Now
@@ -390,7 +390,7 @@ function OverviewTab({ stats, weeklySummary, monthlySummary, weeklyGoal, weeklyP
                 </motion.div>
             )}
 
-            <div className="text-center text-xs font-bold text-slate-400 dark:text-slate-500 pt-2 uppercase tracking-widest">
+            <div className="text-center text-xs font-bold text-slate-400 pt-2 uppercase tracking-widest">
                 📊 {stats.totalShifts} Total Shifts Logged
             </div>
         </motion.div>
@@ -418,11 +418,11 @@ function TrendsTab({ trendData, monthlyComp, history }) {
             <WorkHeatmap history={history} />
 
             {/* Hours Trend Chart */}
-            <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
-                <h3 className="font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-3">
-                    <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg">
-                        <TrendingUp className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    </div>
+            <div className="bg-slate-950/35 border border-indigo-400/20 rounded-2xl p-6 shadow-sm">
+                <h3 className="font-bold text-slate-100 mb-6 flex items-center gap-3">
+                        <div className="bg-blue-500/10 p-2 rounded-lg border border-blue-500/20">
+                            <TrendingUp className="w-5 h-5 text-blue-300" />
+                        </div>
                     Hours Trend (Last 14 Days)
                 </h3>
                 {trendData.length > 0 ? (
@@ -441,7 +441,7 @@ function TrendsTab({ trendData, monthlyComp, history }) {
                                             stroke="currentColor"
                                             strokeWidth="0.5"
                                             strokeDasharray="4 4"
-                                            className="text-slate-200 dark:text-slate-700"
+                                            className="text-slate-500"
                                         />
                                         <text
                                             x={padding.left - 10}
@@ -528,7 +528,7 @@ function TrendsTab({ trendData, monthlyComp, history }) {
                                                 x={x}
                                                 y={y - 32}
                                                 textAnchor="middle"
-                                                className="text-[10px] fill-white font-black"
+                                                className="text-[10px] fill-indigo-200 font-black"
                                             >
                                                 {d.hours}h Worked
                                             </text>
@@ -549,8 +549,8 @@ function TrendsTab({ trendData, monthlyComp, history }) {
                         </svg>
                     </div>
                 ) : (
-                    <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-900/10">
-                        <TrendingUp className="w-8 h-8 text-slate-300 dark:text-slate-700 mb-2" />
+                        <div className="h-40 flex flex-col items-center justify-center border-2 border-dashed border-indigo-500/20 rounded-2xl bg-slate-900/40">
+                        <TrendingUp className="w-8 h-8 text-slate-500 mb-2" />
                         <p className="text-sm font-bold text-slate-400 italic">No trend data yet</p>
                     </div>
                 )}
@@ -558,22 +558,22 @@ function TrendsTab({ trendData, monthlyComp, history }) {
 
             {/* Monthly Comparison */}
             {monthlyComp && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                    <h3 className="font-semibold text-slate-800 dark:text-white mb-4">Monthly Comparison</h3>
+                <div className="bg-slate-950/35 border border-slate-700/40 rounded-xl p-4">
+                    <h3 className="font-semibold text-slate-100 mb-4">Monthly Comparison</h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <p className="text-xs text-slate-500 mb-1">This Month</p>
-                            <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{monthlyComp.thisMonth.totalHours}h</p>
-                            <p className="text-xs text-slate-500">{monthlyComp.thisMonth.daysWorked} days</p>
+                            <p className="text-xs text-slate-400 mb-1">This Month</p>
+                            <p className="text-2xl font-bold text-blue-300">{monthlyComp.thisMonth.totalHours}h</p>
+                            <p className="text-xs text-slate-400">{monthlyComp.thisMonth.daysWorked} days</p>
                         </div>
                         <div>
-                            <p className="text-xs text-slate-500 mb-1">Last Month</p>
-                            <p className="text-2xl font-bold text-slate-600 dark:text-slate-400">{monthlyComp.lastMonth.totalHours}h</p>
-                            <p className="text-xs text-slate-500">{monthlyComp.lastMonth.daysWorked} days</p>
+                            <p className="text-xs text-slate-400 mb-1">Last Month</p>
+                            <p className="text-2xl font-bold text-slate-300">{monthlyComp.lastMonth.totalHours}h</p>
+                            <p className="text-xs text-slate-400">{monthlyComp.lastMonth.daysWorked} days</p>
                         </div>
                     </div>
-                    <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-600">
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <div className="mt-4 pt-4 border-t border-slate-700/40">
+                        <p className="text-sm text-slate-300">
                             Change: <span className={`font-semibold ${monthlyComp.change.hours >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                                 {monthlyComp.change.hours >= 0 ? '+' : ''}{monthlyComp.change.hours}h ({monthlyComp.change.percentage >= 0 ? '+' : ''}{monthlyComp.change.percentage}%)
                             </span>
@@ -605,7 +605,7 @@ function PatternsTab({ breakPatterns, punctualityScore, consistencyRating }) {
                     delay={0.1}
                 />
                 <StatCard
-                    icon={<Activity className="w-5 h-5 text-purple-500" />}
+                    icon={<Activity className="w-5 h-5 text-violet-300" />}
                     label="Consistency"
                     value={`${consistencyRating}%`}
                     color="purple"
@@ -615,34 +615,34 @@ function PatternsTab({ breakPatterns, punctualityScore, consistencyRating }) {
 
             {/* Break Analysis */}
             {breakPatterns && (
-                <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-2xl p-6 border border-slate-200 dark:border-slate-700 shadow-sm">
-                    <h3 className="font-bold text-slate-800 dark:text-white mb-6 flex items-center gap-3">
-                        <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-lg">
-                            <Coffee className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+            <div className="bg-slate-950/35 border border-indigo-400/20 rounded-2xl p-6 shadow-sm">
+                <h3 className="font-bold text-slate-100 mb-6 flex items-center gap-3">
+                        <div className="bg-orange-500/10 border border-orange-500/20 p-2 rounded-lg">
+                            <Coffee className="w-5 h-5 text-orange-300" />
                         </div>
                         Break Analysis
                     </h3>
                     <div className="grid grid-cols-3 gap-4 mb-8">
-                        <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800">
+                        <div className="text-center p-3 rounded-xl bg-slate-900/30 border border-indigo-500/20">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Average</p>
-                            <p className="text-2xl font-black text-orange-600 dark:text-orange-400">{breakPatterns.avgBreak}m</p>
+                            <p className="text-2xl font-black text-orange-300">{breakPatterns.avgBreak}m</p>
                         </div>
-                        <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800">
+                        <div className="text-center p-3 rounded-xl bg-slate-900/30 border border-indigo-500/20">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Minimum</p>
-                            <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{breakPatterns.minBreak}m</p>
+                            <p className="text-2xl font-black text-emerald-300">{breakPatterns.minBreak}m</p>
                         </div>
-                        <div className="text-center p-3 rounded-xl bg-slate-50 dark:bg-slate-900/30 border border-slate-100 dark:border-slate-800">
+                        <div className="text-center p-3 rounded-xl bg-slate-900/30 border border-indigo-500/20">
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Maximum</p>
-                            <p className="text-2xl font-black text-rose-600 dark:text-rose-400">{breakPatterns.maxBreak}m</p>
+                            <p className="text-2xl font-black text-rose-300">{breakPatterns.maxBreak}m</p>
                         </div>
                     </div>
                     {breakPatterns.distribution.length > 0 && (
                         <div className="space-y-4">
-                            <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Frequency Distribution</p>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Frequency Distribution</p>
                             {breakPatterns.distribution.map((item, idx) => (
                                 <div key={idx} className="flex items-center gap-4 group">
                                     <span className="text-xs font-bold text-slate-400 w-24">{item.range}</span>
-                                    <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-700/50 rounded-full overflow-hidden">
+                                    <div className="flex-1 h-3 bg-slate-700/60 rounded-full overflow-hidden">
                                         <motion.div
                                             initial={{ width: 0 }}
                                             animate={{ width: `${(item.count / Math.max(...breakPatterns.distribution.map(d => d.count))) * 100}%` }}
@@ -650,7 +650,7 @@ function PatternsTab({ breakPatterns, punctualityScore, consistencyRating }) {
                                             className="h-full bg-gradient-to-r from-orange-400 to-rose-500 rounded-full"
                                         />
                                     </div>
-                                    <span className="text-xs font-black text-slate-600 dark:text-slate-300 w-8 text-right">{item.count}</span>
+                                    <span className="text-xs font-black text-slate-300 w-8 text-right">{item.count}</span>
                                 </div>
                             ))}
                         </div>
@@ -665,24 +665,24 @@ function PatternsTab({ breakPatterns, punctualityScore, consistencyRating }) {
 function StatCard({ icon, label, value, color, delay }) {
     const colorMap = {
         blue: {
-            bg: 'bg-blue-50 dark:bg-blue-900/10',
-            text: 'text-blue-600 dark:text-blue-400',
-            border: 'border-blue-100 dark:border-blue-800/30'
+            bg: 'bg-indigo-500/10',
+            text: 'text-indigo-300',
+            border: 'border-indigo-500/25'
         },
         green: {
-            bg: 'bg-emerald-50 dark:bg-emerald-900/10',
-            text: 'text-emerald-600 dark:text-emerald-400',
-            border: 'border-emerald-100 dark:border-emerald-800/30'
+            bg: 'bg-emerald-500/10',
+            text: 'text-emerald-300',
+            border: 'border-emerald-500/25'
         },
         purple: {
-            bg: 'bg-purple-50 dark:bg-purple-900/10',
-            text: 'text-purple-600 dark:text-purple-400',
-            border: 'border-purple-100 dark:border-purple-800/30'
+            bg: 'bg-violet-500/10',
+            text: 'text-violet-300',
+            border: 'border-violet-500/25'
         },
         orange: {
-            bg: 'bg-orange-50 dark:bg-orange-900/10',
-            text: 'text-orange-600 dark:text-orange-400',
-            border: 'border-orange-100 dark:border-orange-800/30'
+            bg: 'bg-orange-500/10',
+            text: 'text-orange-300',
+            border: 'border-orange-500/25'
         }
     };
 
@@ -696,10 +696,10 @@ function StatCard({ icon, label, value, color, delay }) {
             className={`p-5 rounded-2xl border ${style.border} ${style.bg} backdrop-blur-sm flex flex-col gap-3 group transition-all hover:scale-[1.02] hover:shadow-lg`}
         >
             <div className="flex items-center gap-3">
-                <div className="p-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 group-hover:scale-110 transition-transform">
+                <div className={`p-2 rounded-xl ${style.border} bg-slate-900/55 shadow-sm group-hover:scale-110 transition-transform`}>
                     {icon}
                 </div>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{label}</span>
+                <span className="text-xs font-bold text-slate-300 uppercase tracking-wider">{label}</span>
             </div>
             <p className={`text-2xl font-black ${style.text} tracking-tight`}>{value}</p>
         </motion.div>
@@ -742,14 +742,14 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
             <div className="grid grid-cols-2 gap-4">
                 <button
                     onClick={handleExportCSV}
-                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl"
+                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold hover:from-green-400 hover:to-emerald-400 transition-all shadow-lg hover:shadow-xl shadow-green-500/20"
                 >
                     <Download className="w-5 h-5" />
                     Export CSV
                 </button>
                 <button
                     onClick={handleCopyStats}
-                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-purple-500 to-violet-600 text-white font-semibold hover:from-purple-600 hover:to-violet-700 transition-all shadow-lg hover:shadow-xl"
+                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gradient-to-r from-violet-500 to-fuchsia-500 text-white font-semibold hover:from-violet-400 hover:to-fuchsia-400 transition-all shadow-lg hover:shadow-xl shadow-violet-500/20"
                 >
                     <Clipboard className="w-5 h-5" />
                     Copy Stats
@@ -758,8 +758,8 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
 
             {/* Goal Progress */}
             {goalProgress && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                    <h3 className="font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                <div className="bg-slate-950/35 border border-indigo-500/20 rounded-xl p-4">
+                        <h3 className="font-semibold text-slate-100 mb-4 flex items-center gap-2">
                         <Target className="w-5 h-5 text-indigo-500" />
                         Your Goals
                     </h3>
@@ -767,20 +767,20 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
                     {/* Weekly Hours Goal */}
                     <div className="mb-4">
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                                <span className="text-sm font-medium text-slate-300">
                                 Weekly Hours
                             </span>
-                            <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">
+                            <span className="text-sm font-bold text-indigo-300">
                                 {goalProgress.weeklyHours.current} / {goalProgress.weeklyHours.target}h
                             </span>
                         </div>
-                        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className="h-3 bg-slate-700/60 rounded-full overflow-hidden">
                             <div
                                 className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full transition-all"
                                 style={{ width: `${Math.min(goalProgress.weeklyHours.progress, 100)}%` }}
                             />
                         </div>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-slate-400 mt-1">
                             {Math.round(goalProgress.weeklyHours.progress)}% complete
                         </p>
                     </div>
@@ -788,14 +788,14 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
                     {/* Punctuality Goal */}
                     <div className="mb-4">
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                            <span className="text-sm font-medium text-slate-300">
                                 Punctuality (Target: 90%)
                             </span>
-                            <span className="text-sm font-bold text-green-600 dark:text-green-400">
+                            <span className="text-sm font-bold text-emerald-300">
                                 {goalProgress.punctuality.current}%
                             </span>
                         </div>
-                        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className="h-3 bg-slate-700/60 rounded-full overflow-hidden">
                             <div
                                 className={`h-full rounded-full transition-all ${goalProgress.punctuality.status === 'achieved'
                                     ? 'bg-gradient-to-r from-green-500 to-emerald-600'
@@ -804,7 +804,7 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
                                 style={{ width: `${Math.min(goalProgress.punctuality.progress, 100)}%` }}
                             />
                         </div>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-slate-400 mt-1">
                             {goalProgress.punctuality.status === 'achieved' ? '✅ Goal achieved!' : '📈 Keep improving'}
                         </p>
                     </div>
@@ -812,14 +812,14 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
                     {/* Break Time Goal */}
                     <div>
                         <div className="flex justify-between items-center mb-2">
-                            <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                            <span className="text-sm font-medium text-slate-300">
                                 Break Time (Max: {goalProgress.breakTime.target}m)
                             </span>
-                            <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
+                            <span className="text-sm font-bold text-amber-300">
                                 {goalProgress.breakTime.current}m
                             </span>
                         </div>
-                        <div className="h-3 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className="h-3 bg-slate-700/60 rounded-full overflow-hidden">
                             <div
                                 className={`h-full rounded-full transition-all ${goalProgress.breakTime.status === 'achieved'
                                     ? 'bg-gradient-to-r from-green-500 to-emerald-600'
@@ -828,7 +828,7 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
                                 style={{ width: `${Math.min(Math.abs(goalProgress.breakTime.progress), 100)}%` }}
                             />
                         </div>
-                        <p className="text-xs text-slate-500 mt-1">
+                        <p className="text-xs text-slate-400 mt-1">
                             {goalProgress.breakTime.status === 'achieved' ? '✅ Within budget!' : '⚠️ Exceeding target'}
                         </p>
                     </div>
@@ -837,28 +837,28 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
 
             {/* Recommendations */}
             {recommendations && recommendations.length > 0 && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-600">
-                    <h3 className="font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
-                        <Lightbulb className="w-5 h-5 text-yellow-500" />
+                <div className="bg-slate-950/35 border border-indigo-500/20 rounded-xl p-4">
+                    <h3 className="font-semibold text-slate-100 mb-4 flex items-center gap-2">
+                        <Lightbulb className="w-5 h-5 text-yellow-300" />
                         Smart Recommendations
                     </h3>
                     <div className="space-y-3">
                         {recommendations.map((rec, idx) => (
                             <div
                                 key={idx}
-                                className={`p-3 rounded-lg border-l-4 ${rec.type === 'success' ? 'bg-green-50 dark:bg-green-900/20 border-green-500' :
-                                    rec.type === 'warning' ? 'bg-yellow-50 dark:bg-yellow-900/20 border-yellow-500' :
-                                        rec.type === 'info' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-500' :
-                                            'bg-slate-50 dark:bg-slate-900/20 border-slate-500'
+                                className={`p-3 rounded-lg border-l-4 ${rec.type === 'success' ? 'bg-emerald-500/10 border-emerald-500' :
+                                    rec.type === 'warning' ? 'bg-amber-500/10 border-amber-500' :
+                                        rec.type === 'info' ? 'bg-blue-500/10 border-blue-500' :
+                                            'bg-slate-500/10 border-slate-500'
                                     }`}
                             >
                                 <div className="flex items-start gap-2">
                                     <span className="text-2xl">{rec.icon}</span>
                                     <div>
-                                        <h4 className="font-semibold text-sm text-slate-800 dark:text-white">
+                                        <h4 className="font-semibold text-sm text-slate-100">
                                             {rec.title}
                                         </h4>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
+                                        <p className="text-xs text-slate-300 mt-1">
                                             {rec.message}
                                         </p>
                                     </div>
@@ -870,8 +870,8 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
             )}
 
             {(!recommendations || recommendations.length === 0) && (
-                <div className="bg-white dark:bg-slate-800 rounded-xl p-8 border border-slate-200 dark:border-slate-600 text-center">
-                    <p className="text-slate-500 dark:text-slate-400">
+                <div className="bg-slate-950/35 border border-indigo-500/20 rounded-xl p-8 text-center">
+                    <p className="text-slate-300">
                         🎯 No recommendations yet. Keep logging shifts to get insights!
                     </p>
                 </div>
