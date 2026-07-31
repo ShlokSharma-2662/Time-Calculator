@@ -53,14 +53,14 @@ export const Dashboard = ({
 
     return (
         <section className="space-y-6 pb-4" aria-label="Dashboard overview">
-            <GlassCard className="dashboard-section p-6 sm:p-7" hover={false} animationDelayMs={40}>
+            <GlassCard className="dashboard-section p-6 sm:p-7 bg-gradient-to-br from-slate-900/70 via-slate-900/35 to-indigo-500/10" hover={false} animationDelayMs={40}>
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                     <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-indigo-300/90">Today</p>
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-indigo-200/90">Today</p>
                         <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">{dateLabel}</h2>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-400/30 bg-slate-500/10 text-xs font-bold uppercase tracking-wider text-slate-200">
+                        <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-300/35 bg-slate-500/10 text-xs font-bold uppercase tracking-wider text-slate-100">
                             MTD {Math.round(mtdProgress)}%
                         </span>
                         <span className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-bold uppercase tracking-wider ${isOvertime
