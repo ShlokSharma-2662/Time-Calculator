@@ -8,6 +8,7 @@ import {
 import { transformHistoryToShifts, getGoals } from '../utils/shiftHistory';
 import { useAuth } from '../context/AuthContext';
 import { useShiftState } from '../context/ShiftStateContext';
+import { parseAttendanceLogInput } from '../utils/attendanceLogParser';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -21,7 +22,7 @@ export function AttendanceLog() {
 
     // Editing State
     const [editingDate, setEditingDate] = useState(null);
-    const [editValues, setEditValues] = useState({ startTime: '', lastOutTime: '', totalBreak: 0 });
+    const [editValues, setEditValues] = useState({ startTime: '', lastOutTime: '', totalBreak: 0, shortTimeOffMinutes: 0 });
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [viewingShift, setViewingShift] = useState(null);
 
@@ -91,13 +92,30 @@ export function AttendanceLog() {
         setEditValues({
             startTime: shift.startTime || '09:00',
             lastOutTime: shift.fullDayEnd || '18:00',
-            totalBreak: shift.totalBreak || 0
+            totalBreak: shift.totalBreak || 0,
+            shortTimeOffMinutes: shift.shortTimeOffMinutes || 0
         });
         setIsModalOpen(true);
     };
 
     const handleQuickPaste = (text) => {
         if (!text || text.trim() === '') return;
+
+        const parsed = parseAttendanceLogInput(text);
+        if (parsed.hasPunchRows && parsed.punchCount >= 2) {
+            const firstIn = parsed.events.find(event => event.type === 'IN');
+            const lastOut = [...parsed.events].reverse().find(event => event.type === 'OUT');
+            const totalBreak = Number.isFinite(parsed.totalOutMinutes) ? parsed.totalOutMinutes : 0;
+
+            setEditValues(prev => ({
+                ...prev,
+                startTime: firstIn ? firstIn.time24 : prev.startTime,
+                lastOutTime: lastOut ? lastOut.time24 : prev.lastOutTime,
+                totalBreak: String(totalBreak),
+                shortTimeOffMinutes: parsed.shortTimeOffMinutes || 0
+            }));
+            return;
+        }
 
         const parseTimeString = (timeStr) => {
             if (!timeStr) return null;
@@ -150,7 +168,8 @@ export function AttendanceLog() {
                 ...prev,
                 startTime: firstIn,
                 lastOutTime: lastOut,
-                totalBreak: totalBreakMins.toString()
+                totalBreak: totalBreakMins.toString(),
+                shortTimeOffMinutes: 0
             }));
             return; // STOP: Multi-line log takes precedence
         }
@@ -171,14 +190,15 @@ export function AttendanceLog() {
                 }
             }
 
-            if (inTime && outTime) {
-                setEditValues(prev => ({
-                    ...prev,
-                    startTime: inTime,
-                    lastOutTime: outTime,
-                    totalBreak: breakMinutes.toString()
-                }));
-            }
+        if (inTime && outTime) {
+            setEditValues(prev => ({
+                ...prev,
+                startTime: inTime,
+                lastOutTime: outTime,
+                totalBreak: breakMinutes.toString(),
+                shortTimeOffMinutes: 0
+            }));
+        }
         }
     };
 
@@ -194,14 +214,19 @@ export function AttendanceLog() {
         const startMins = sH * 60 + (sM || 0);
         const endMins = eH * 60 + (eM || 0);
         const totalMins = Math.max(0, endMins - startMins);
-        const effectiveWorkTime = Math.max(0, totalMins - parseInt(editValues.totalBreak));
+        const totalBreakMinutes = Number.parseInt(editValues.totalBreak, 10);
+        const shortTimeOffMinutes = Number.parseInt(editValues.shortTimeOffMinutes, 10);
+        const totalBreak = Number.isFinite(totalBreakMinutes) && totalBreakMinutes > 0 ? totalBreakMinutes : 0;
+        const shortTimeOff = Number.isFinite(shortTimeOffMinutes) && shortTimeOffMinutes > 0 ? shortTimeOffMinutes : 0;
+        const effectiveWorkTime = Math.max(0, totalMins - totalBreak) + shortTimeOff;
 
         updatedHistory[editingDate] = {
             ...dayData,
             startTime: editValues.startTime,
             lastOutTime: editValues.lastOutTime,
-            totalOutTime: parseInt(editValues.totalBreak),
-            effectiveWorkTime: effectiveWorkTime
+            totalOutTime: totalBreak,
+            shortTimeOffMinutes: shortTimeOff,
+            effectiveWorkTime
         };
 
         saveEntry(editingDate, updatedHistory[editingDate]);

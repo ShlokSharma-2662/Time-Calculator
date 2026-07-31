@@ -231,16 +231,18 @@ export function ShiftStateProvider({ children }) {
         const targetDate = logStats.detectedDate || todayISO;
 
         if (logInput.trim() !== "" || startTime !== "09:00") {
-            const currentLeave = activeLeaveRef.current;
-            const entryData = {
-                startTime,
-                logInput,
-                totalOutTime: logStats.totalOutTime,
-                effectiveWorkTime: logStats.effectiveWorkTime,
-                firstInTime: logStats.firstInTime,
-                lastOutTime: logStats.lastOutTime,
-                activeLeave: currentLeave || null
-            };
+                const currentLeave = activeLeaveRef.current;
+                const entryData = {
+                    startTime,
+                    logInput,
+                    totalOutTime: logStats.totalOutTime,
+                    effectiveWorkTime: logStats.effectiveWorkTime,
+                    firstInTime: logStats.firstInTime,
+                    lastOutTime: logStats.lastOutTime,
+                    activeLeave: currentLeave || null,
+                    shortTimeOffMinutes: logStats.shortTimeOffMinutes || 0,
+                    shortTimeOffEntries: logStats.shortTimeOffEntries || []
+                };
             saveEntryRef.current(targetDate, entryData);
 
             if (logStats.detectedDate && user) {

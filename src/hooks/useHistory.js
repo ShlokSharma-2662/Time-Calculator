@@ -38,6 +38,9 @@ export const useHistory = () => {
         const rows = getAllEntries().map(([date, data]) => {
             // Basic validation
             if (!data) return [date, '-', '-', '-', '-', '-', '-'];
+            const leaveLabel = data.activeLeave
+                ? (data.activeLeave.type === 'Short Time Off' ? `${data.activeLeave.durationMinutes}m Off` : data.activeLeave.type)
+                : (data.shortTimeOffMinutes ? `${data.shortTimeOffMinutes}m Short Time Off` : '-');
 
             return [
                 date,
@@ -46,7 +49,7 @@ export const useHistory = () => {
                 data.lastOutTime || '-',
                 data.totalOutTime || '0',
                 data.effectiveWorkTime ? `${Math.floor(data.effectiveWorkTime / 60)}h ${data.effectiveWorkTime % 60}m` : '0h 0m',
-                data.activeLeave ? (data.activeLeave.type === 'Short Time Off' ? `${data.activeLeave.durationMinutes}m Off` : data.activeLeave.type) : '-'
+                leaveLabel
             ];
         });
 

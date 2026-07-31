@@ -232,7 +232,7 @@ Expo launches the Metro bundler and device dashboard. In a default Expo setup th
 | `mobile:ios` | `cd mobile && npm run ios` | Open the Expo app in an iOS target |
 | `mobile:web` | `cd mobile && npm run web` | Run the Expo app in a browser |
 | `server:test` | `cd server && npm test` | Placeholder script that currently exits with an error |
-| `server:start` | `cd server && node server.js` | Manual server start command because no npm start script is defined |
+| `server:start` | `cd server && npm start` | Start the optional API using the package entrypoint |
 
 ## API Reference
 

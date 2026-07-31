@@ -27,13 +27,25 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
-      // Leave records
+      // Leave records (legacy mobile/web schema)
       match /leaves/{leaveId} {
         allow read: if isOwner(userId);
         allow write: if isOwner(userId)
           && request.resource.data.keys().hasOnly([
             'date', 'type', 'duration', 'half', 'reason',
             'startTime', 'endTime', 'createdAt', 'updatedAt'
+          ]);
+      }
+
+      // Imported leave history records used by the web importer
+      match /leaveHistory/{leaveHistoryId} {
+        allow read: if isOwner(userId);
+        allow write: if isOwner(userId)
+          && request.resource.data.keys().hasOnly([
+            'leaveType', 'transactionType', 'openingBalance', 'days', 'closingBalance',
+            'transactionDate', 'date', 'remark', 'remarks', 'isAutoAdjustment',
+            'consumedDays', 'creditDays', 'source', 'type',
+            'id', 'importedAt', 'schemaVersion'
           ]);
       }
     }
