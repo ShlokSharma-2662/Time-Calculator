@@ -10,7 +10,6 @@ import {
     getQuickStats,
     getWeeklySummary,
     getMonthlySummary,
-    saveShift,
     getHoursTrend,
     analyzeBreakPatterns,
     getPunctualityScore,
@@ -24,7 +23,7 @@ import {
 import { useUI } from '../context/UIContext';
 import { getHolidayName } from '../utils/sandwichLeaveLogic';
 
-export function ShiftAnalytics({ currentShift, history }) {
+export function ShiftAnalytics({ currentShift, history, onSaveShift }) {
     const { showSuccess, showInfo } = useUI();
     const [expanded, setExpanded] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
@@ -53,9 +52,11 @@ export function ShiftAnalytics({ currentShift, history }) {
     // Save current shift
     const handleSaveShift = () => {
         if (currentShift && currentShift.startTime) {
-            saveShift(currentShift);
+            if (typeof onSaveShift === 'function') {
+                onSaveShift();
+            }
             refreshStats();
-            showSuccess('Shift saved successfully! ✅');
+            showSuccess('Shift saved successfully! (done)');
         }
     };
 
@@ -718,7 +719,7 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
             a.download = `shift_analytics_${new Date().toISOString().split('T')[0]}.csv`;
             a.click();
             URL.revokeObjectURL(url);
-            showSuccess('Exported to CSV successfully! 📥');
+            showSuccess('Exported to CSV successfully!');
         } else {
             showInfo('No data to export.');
         }
@@ -727,7 +728,7 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
     const handleCopyStats = () => {
         const stats = getStatsForClipboard();
         navigator.clipboard.writeText(stats);
-        showSuccess('Copied to clipboard! 📋');
+        showSuccess('Copied to clipboard!');
     };
 
     return (
@@ -879,3 +880,4 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
         </motion.div>
     );
 }
+

@@ -34,7 +34,7 @@ function AppContent() {
     startTime, setStartTime, logInput, setLogInput,
     shiftDuration, setShiftDuration, use24Hour, setUse24Hour,
     currentMinutes,
-    history, getAllEntries, exportToCSV,
+    history, getAllEntries, exportToCSV, saveEntry,
     activeLeave, logStats, shiftDetails, mtdProgress, currentDayProgress,
     hrmsSync, clearHrmsSync,
   } = useShiftState();
@@ -95,6 +95,21 @@ function AppContent() {
         setLogInput(entry.logInput || "");
         showSuccess('📥 Entry loaded successfully!');
       }
+    });
+  };
+
+  const handleSaveCurrentShift = () => {
+    const targetDate = logStats?.detectedDate || new Date().toISOString().slice(0, 10);
+    saveEntry(targetDate, {
+      startTime,
+      logInput,
+      totalOutTime: logStats.totalOutTime,
+      effectiveWorkTime: logStats.effectiveWorkTime,
+      firstInTime: logStats.firstInTime,
+      lastOutTime: logStats.lastOutTime,
+      activeLeave: activeLeave || null,
+      shortTimeOffMinutes: logStats.shortTimeOffMinutes || 0,
+      shortTimeOffEntries: logStats.shortTimeOffEntries || [],
     });
   };
 
@@ -196,6 +211,7 @@ function AppContent() {
                             <ShiftAnalytics
                               currentShift={{ ...logStats, startTime }}
                               history={history}
+                              onSaveShift={handleSaveCurrentShift}
                             />
                           </Suspense>
                         </ErrorBoundary>
