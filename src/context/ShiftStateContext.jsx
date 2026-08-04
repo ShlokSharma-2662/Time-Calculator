@@ -156,11 +156,15 @@ export function ShiftStateProvider({ children }) {
                 refreshHrmsSync();
             }
         };
+        // Same-tab writes from the Spine extension bridge do not fire `storage`.
+        const onHrmsBridge = () => refreshHrmsSync();
 
         window.addEventListener('storage', onStorage);
+        window.addEventListener('workshift-hrms-sync', onHrmsBridge);
         return () => {
             clearInterval(interval);
             window.removeEventListener('storage', onStorage);
+            window.removeEventListener('workshift-hrms-sync', onHrmsBridge);
         };
     }, []);
 

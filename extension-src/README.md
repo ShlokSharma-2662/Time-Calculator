@@ -1,0 +1,35 @@
+# WorkShift Spine Sync (extension-src)
+
+Manifest V3 extension that logs into / scrapes **rysun.spinehri.in** and writes punch data into the WorkShift Calc PWA via the existing `logInput` + `hrms*` localStorage contract.
+
+This is **not** Playwright. The SPA cannot scrape Spine itself (CORS / cookies); the extension supplies a real browser session.
+
+## Load unpacked
+
+1. Open Chrome or Edge → Extensions → Developer mode.
+2. **Load unpacked** → select this `extension-src/` folder (not the legacy `extension/` UI bundle).
+3. Keep WorkShift Calc open on an allowed origin:
+   - `http://localhost:5173`
+   - `http://localhost:4173` (preview)
+   - `https://*.firebaseapp.com` / `https://*.web.app`
+4. Click **Sync from Spine** in WorkShift (Log Analyzer) — that alone should sync. You do not need the extension popup for day-to-day use.
+
+Spine runs in a **pinned background tab** (not focused). The day detail dialog is loaded hidden and closed automatically — you should not see a Spine popup. Focus stays on WorkShift unless login credentials are missing.
+
+## Auth
+
+- **Default:** use your existing Spine browser session.
+- If the report redirects to login, sign in in the Spine tab and sync again.
+- Optional fallback: save username/password in the popup (stored in `chrome.storage.local` — weaker than desktop DPAPI).
+
+## Manual checklist
+
+- [ ] Logged into Spine → Sync → Log Analyzer HRMS panel shows today’s punches
+- [ ] Logged out → Sync → needs-login message; after manual login, sync succeeds
+- [ ] Portal DOM change / missing date link → clear error toast
+- [ ] Paste/manual override still works when sync is unavailable
+
+## Notes
+
+- Fragile against Spine HTML changes (same risk as the WPF WebView2 scraper).
+- The committed `extension/` folder remains the older full-app popup artifact; Spine sync source of truth is `extension-src/`.

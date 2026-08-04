@@ -1,0 +1,289 @@
+/**
+ * Spine HRI content script — silent scrape of Daily In Out Punch.
+ * Loads day details in the background, never leaves the day popup open.
+ */
+(() => {
+  const REPORT_URL =
+    'https://rysun.spinehri.in/Atten/MyAttendanceReport.aspx?mnusr=menu__10101';
+  const SPINE_ORIGIN = 'https://rysun.spinehri.in';
+  const HIDE_STYLE_ID = 'workshift-spine-silent-hide';
+
+  function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function waitFor(predicate, { attempts = 40, delayMs = 250 } = {}) {
+    for (let i = 0; i < attempts; i += 1) {
+      try {
+        if (await predicate()) return true;
+      } catch {
+        // keep polling
+      }
+      await sleep(delayMs);
+    }
+    return false;
+  }
+
+  function formatSpineDate(date = new Date()) {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const dd = String(date.getDate()).padStart(2, '0');
+    return `${dd}-${months[date.getMonth()]}-${String(date.getFullYear()).slice(-2)}`;
+  }
+
+  function isLoginPage() {
+    const url = (location.href || '').toLowerCase();
+    return url.includes('login.aspx') || Boolean(document.getElementById('txtUser'));
+  }
+
+  function isLoggedInSurface() {
+    const text = document.body?.innerText || '';
+    return (
+      text.includes('Attendance') ||
+      text.includes('Welcome') ||
+      (location.href || '').toLowerCase().includes('myattendancereport')
+    );
+  }
+
+  /** Hide day modal / overlays so sync never shows a popup UI. */
+  function enableSilentUi() {
+    if (document.getElementById(HIDE_STYLE_ID)) return;
+    const style = document.createElement('style');
+    style.id = HIDE_STYLE_ID;
+    style.textContent = `
+      .modal, .modal-backdrop, .popup, .ui-dialog, .ui-widget-overlay,
+      .ui-dialog-content, [role="dialog"], .fancybox-overlay, .fancybox-wrap {
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function disableSilentUi() {
+    document.getElementById(HIDE_STYLE_ID)?.remove();
+  }
+
+  function closeDayPopup() {
+    const selectors = [
+      '.ui-dialog-titlebar-close',
+      '.modal .close',
+      '.modal [data-dismiss="modal"]',
+      '.popup .close',
+      '[aria-label="Close"]',
+      'button.close',
+    ];
+    for (const sel of selectors) {
+      const btn = document.querySelector(sel);
+      if (btn) {
+        try {
+          btn.click();
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    document.querySelectorAll('.modal, .ui-dialog, .popup').forEach((el) => {
+      el.style.display = 'none';
+      el.classList.remove('show', 'in');
+    });
+    document.querySelectorAll('.modal-backdrop, .ui-widget-overlay').forEach((el) => el.remove());
+
+    try {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }));
+    } catch {
+      // ignore
+    }
+  }
+
+  async function attemptLogin(credentials) {
+    if (!credentials?.username || !credentials?.password) {
+      return {
+        ok: false,
+        needsLogin: true,
+        message:
+          'Not logged into Spine. Save credentials in the extension settings once, or sign in on Spine, then Sync again.',
+      };
+    }
+
+    const ready = await waitFor(() => document.getElementById('txtUser') != null, {
+      attempts: 30,
+      delayMs: 200,
+    });
+    if (!ready) {
+      return { ok: false, message: 'Spine login form not found.' };
+    }
+
+    const userEl = document.getElementById('txtUser');
+    const passEl = document.getElementById('txtPassword');
+    const btn = document.getElementById('btnLogin');
+    if (!userEl || !passEl || !btn) {
+      return { ok: false, message: 'Spine login controls missing.' };
+    }
+
+    userEl.value = credentials.username;
+    passEl.value = credentials.password;
+    userEl.dispatchEvent(new Event('input', { bubbles: true }));
+    passEl.dispatchEvent(new Event('input', { bubbles: true }));
+    btn.click();
+
+    await sleep(1200);
+    if (isLoginPage() && document.getElementById('txtUser')) {
+      return {
+        ok: false,
+        needsLogin: true,
+        message: 'Spine login failed. Update saved credentials in the extension, then Sync again.',
+      };
+    }
+    return { ok: true };
+  }
+
+  function extractPunchTextFromDocument(doc) {
+    const tables = doc.querySelectorAll('table');
+    for (const table of tables) {
+      const tableText = table.innerText || table.textContent || '';
+      if (!tableText.includes('Daily In Out Punch')) continue;
+
+      const lines = [];
+      for (const row of table.querySelectorAll('tr')) {
+        const cols = row.querySelectorAll('td');
+        if (cols.length < 3) continue;
+        const d = (cols[0].innerText || cols[0].textContent || '').trim();
+        const t = (cols[1].innerText || cols[1].textContent || '').trim();
+        const ty = (cols[2].innerText || cols[2].textContent || '').trim();
+        if (ty === 'In' || ty === 'Out') {
+          lines.push(`${d}\t${t}\t${ty}`);
+        }
+      }
+      if (lines.length) return lines.join('\n');
+    }
+    return '';
+  }
+
+  function findTodayAnchor(dateLabel) {
+    const target = dateLabel || formatSpineDate(new Date());
+    for (const a of document.querySelectorAll('a')) {
+      if ((a.textContent || '').trim() === target) return a;
+    }
+    return null;
+  }
+
+  async function ensureOnReport() {
+    const url = (location.href || '').toLowerCase();
+    if (url.includes('myattendancereport')) return true;
+    location.href = REPORT_URL;
+    return false;
+  }
+
+  async function scrapeToday(options = {}) {
+    const credentials = options.credentials || null;
+    const dateLabel = options.dateLabel || formatSpineDate(new Date());
+
+    try {
+      if (isLoginPage()) {
+        const loginResult = await attemptLogin(credentials);
+        if (!loginResult.ok) return loginResult;
+        location.href = REPORT_URL;
+        return { ok: false, navigating: true, message: 'Logged in — loading attendance…' };
+      }
+
+      if (
+        !isLoggedInSurface() &&
+        !location.href.toLowerCase().includes(SPINE_ORIGIN.replace('https://', ''))
+      ) {
+        return { ok: false, message: 'Unexpected Spine page.' };
+      }
+
+      enableSilentUi();
+
+      // Reuse data already in DOM (no click).
+      let punchText = extractPunchTextFromDocument(document);
+      if (punchText.trim()) {
+        closeDayPopup();
+        return { ok: true, punchText, dateLabel, reused: true };
+      }
+
+      if (!(location.href || '').toLowerCase().includes('myattendancereport')) {
+        const stayed = await ensureOnReport();
+        if (!stayed) {
+          return { ok: false, navigating: true, message: 'Loading attendance report…' };
+        }
+      }
+
+      await waitFor(
+        () =>
+          (document.body?.innerText || '').includes('Date') ||
+          document.querySelectorAll('a').length > 5,
+        { attempts: 40, delayMs: 250 },
+      );
+
+      const anchor = findTodayAnchor(dateLabel);
+      if (!anchor) {
+        return {
+          ok: false,
+          message: `Could not find attendance date "${dateLabel}" on the report.`,
+        };
+      }
+
+      // Trigger day load silently (popup is CSS-hidden), then close it.
+      anchor.click();
+      await sleep(900);
+      await waitFor(
+        () => (document.body?.innerText || '').includes('Daily In Out Punch'),
+        { attempts: 40, delayMs: 250 },
+      );
+
+      const modal =
+        document.querySelector('.modal, .popup, .ui-dialog, .ui-dialog-content') || document;
+      punchText = extractPunchTextFromDocument(modal);
+      if (!punchText) {
+        punchText = extractPunchTextFromDocument(document);
+      }
+
+      closeDayPopup();
+
+      if (!punchText.trim()) {
+        return {
+          ok: false,
+          message: 'No Daily In Out Punch rows were found for today.',
+        };
+      }
+
+      return {
+        ok: true,
+        punchText,
+        dateLabel,
+      };
+    } finally {
+      closeDayPopup();
+      disableSilentUi();
+    }
+  }
+
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (!message || typeof message !== 'object') return undefined;
+
+    if (message.type === 'SPINE_PING') {
+      sendResponse({ ok: true, url: location.href });
+      return false;
+    }
+
+    if (message.type === 'SPINE_SCRAPE_TODAY') {
+      scrapeToday({
+        credentials: message.credentials || null,
+        dateLabel: message.dateLabel || null,
+      })
+        .then((result) => sendResponse(result))
+        .catch((err) =>
+          sendResponse({
+            ok: false,
+            message: err?.message || String(err),
+          }),
+        );
+      return true;
+    }
+
+    return undefined;
+  });
+})();

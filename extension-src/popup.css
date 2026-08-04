@@ -1,0 +1,123 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.panel {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+header h1 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.status {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.status.error {
+  border-color: #fb7185;
+  color: #fecdd3;
+}
+
+.status.ok {
+  border-color: #34d399;
+  color: #a7f3d0;
+}
+
+.actions {
+  display: grid;
+  gap: 8px;
+}
+
+button {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.primary {
+  background: #4f46e5;
+  color: white;
+}
+
+.ghost {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #334155;
+}
+
+.creds {
+  border-top: 1px solid #334155;
+  padding-top: 10px;
+}
+
+.creds summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  color: #cbd5e1;
+}
+
+.warn {
+  font-size: 11px;
+  color: #fbbf24;
+  line-height: 1.4;
+}
+
+label {
+  display: grid;
+  gap: 4px;
+  font-size: 11px;
+  margin-top: 8px;
+  color: #94a3b8;
+}
+
+label.row {
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+input[type="text"],
+input[type="password"] {
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #020617;
+  color: #e2e8f0;
+  padding: 8px 10px;
+}
+
+code {
+  font-size: 10px;
+}
