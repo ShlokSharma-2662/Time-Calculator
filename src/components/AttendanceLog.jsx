@@ -48,7 +48,7 @@ export function AttendanceLog() {
                 try {
                     const parsed = JSON.parse(stored);
                     setLeaveHistory(parsed.leaves || []);
-                } catch (e) {
+                } catch (_e) {
                     setLeaveHistory([]);
                 }
             }

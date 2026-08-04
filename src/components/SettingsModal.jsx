@@ -6,7 +6,7 @@ import { HolidayManager } from './HolidayManager';
 import { useFinancialSettings } from '../hooks/useFinancialSettings';
 import { PasscodeModal } from './PasscodeModal';
 
-export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration, use24Hour, setUse24Hour }) => {
+export const SettingsModal = ({ isOpen, onClose, shiftDuration, setShiftDuration, use24Hour: _use24Hour, setUse24Hour: _setUse24Hour }) => {
     const { showSuccess, showError, confirm } = useUI();
     const { settings, updateSettings, isPrivacyMode, togglePrivacy, hasPasscode, setPasscode } = useFinancialSettings();
     const [isPasscodeModalOpen, setIsPasscodeModalOpen] = useState(false);
