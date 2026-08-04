@@ -7,6 +7,127 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
+    function isHHMM(value) {
+      return value is string
+        && value.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+    }
+
+    function isIsoDate(value) {
+      return value is string
+        && value.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isSafeIsoTimestamp(value) {
+      return value is string
+        && value.matches('^\\d{4}-\\d{2}-\\d{2}T[0-2][0-9]:[0-5][0-9]:[0-5][0-9](?:\\.\\d{1,})?Z$');
+    }
+
+    function isLogMetaAllowed() {
+      return request.resource.data.keys().hasOnly([
+        'date', 'startTime', 'logInput', 'totalOutTime',
+        'effectiveWorkTime', 'firstInTime', 'lastOutTime',
+        'activeLeave', 'updatedAt', 'raw', 'shortTimeOffMinutes',
+        'shortTimeOffEntries'
+      ]);
+    }
+
+    function isNullableHHMM(value) {
+      return value == null || isHHMM(value);
+    }
+
+    function isNonNegativeInt(value) {
+      return value is int && value >= 0;
+    }
+
+    function isBoundedString(value, maxLen) {
+      return value is string && value.size() <= maxLen;
+    }
+
+    function isValidShortTimeOffEntries(value) {
+      return value == null || (
+        value is list
+        && value.size() < 200
+        && value.all((entry) =>
+          entry is map
+          && entry.keys().hasOnly(['appDate', 'requestDate', 'requestType', 'minutes'])
+          && isIsoDate(entry.appDate)
+          && isIsoDate(entry.requestDate)
+          && isBoundedString(entry.requestType, 80)
+          && entry.requestType.size() > 0
+          && (entry.minutes is int && entry.minutes >= 0 && entry.minutes <= 24 * 60)
+        )
+      );
+    }
+
+    function isActiveLeaveValue(value) {
+      return value == null || (
+        value is map
+        && value.keys().hasOnly([
+          'type', 'category', 'half', 'date', 'startDate', 'endDate',
+          'days', 'durationMinutes', 'remarks', 'reason'
+        ])
+        && (!('type' in value) || isBoundedString(value.type, 80))
+        && (!('category' in value) || isBoundedString(value.category, 40))
+        && (!('half' in value) || isBoundedString(value.half, 40))
+        && (!('date' in value) || isIsoDate(value.date))
+        && (!('startDate' in value) || isIsoDate(value.startDate))
+        && (!('endDate' in value) || isIsoDate(value.endDate))
+        && (!('days' in value) || value.days is number)
+        && (!('durationMinutes' in value) || (value.durationMinutes is int && value.durationMinutes >= 0 && value.durationMinutes <= 24 * 60))
+        && (!('remarks' in value) || isBoundedString(value.remarks, 500))
+        && (!('reason' in value) || isBoundedString(value.reason, 500))
+      );
+    }
+
+    function isLogPayloadValid(logId) {
+      return isLogMetaAllowed()
+        && isIsoDate(request.resource.data.date)
+        && request.resource.data.date == logId
+        && isHHMM(request.resource.data.startTime)
+        && request.resource.data.logInput is string
+        && request.resource.data.logInput.size() <= 50000
+        && isNonNegativeInt(request.resource.data.totalOutTime)
+        && request.resource.data.effectiveWorkTime is number
+        && request.resource.data.effectiveWorkTime >= 0
+        && (request.resource.data.shortTimeOffMinutes == null || isNonNegativeInt(request.resource.data.shortTimeOffMinutes))
+        && isValidShortTimeOffEntries(request.resource.data.shortTimeOffEntries)
+        && isActiveLeaveValue(request.resource.data.activeLeave)
+        && isNullableHHMM(request.resource.data.firstInTime)
+        && isNullableHHMM(request.resource.data.lastOutTime)
+        && isSafeIsoTimestamp(request.resource.data.updatedAt)
+        && request.resource.data.raw in [string, map, int, null];
+    }
+
+    function isLeavePayloadValid() {
+      return request.resource.data.keys().hasOnly([
+          'date', 'type', 'duration', 'half', 'reason',
+          'startTime', 'endTime', 'createdAt', 'updatedAt'
+        ])
+        && (!('date' in request.resource.data) || isIsoDate(request.resource.data.date))
+        && (!('type' in request.resource.data) || isBoundedString(request.resource.data.type, 80))
+        && (!('half' in request.resource.data) || isBoundedString(request.resource.data.half, 40))
+        && (!('reason' in request.resource.data) || isBoundedString(request.resource.data.reason, 500))
+        && (!('duration' in request.resource.data) || request.resource.data.duration is number)
+        && (!('startTime' in request.resource.data) || isNullableHHMM(request.resource.data.startTime))
+        && (!('endTime' in request.resource.data) || isNullableHHMM(request.resource.data.endTime));
+    }
+
+    function isLeaveHistoryPayloadValid() {
+      return request.resource.data.keys().hasOnly([
+          'leaveType', 'transactionType', 'openingBalance', 'days', 'closingBalance',
+          'transactionDate', 'date', 'remark', 'remarks', 'isAutoAdjustment',
+          'consumedDays', 'creditDays', 'source', 'type',
+          'id', 'importedAt', 'schemaVersion'
+        ])
+        && (!('date' in request.resource.data) || request.resource.data.date is string || request.resource.data.date is timestamp)
+        && (!('transactionDate' in request.resource.data) || request.resource.data.transactionDate is string || request.resource.data.transactionDate is timestamp)
+        && (!('leaveType' in request.resource.data) || isBoundedString(request.resource.data.leaveType, 40))
+        && (!('type' in request.resource.data) || isBoundedString(request.resource.data.type, 80))
+        && (!('remark' in request.resource.data) || isBoundedString(request.resource.data.remark, 500))
+        && (!('remarks' in request.resource.data) || isBoundedString(request.resource.data.remarks, 500))
+        && (!('source' in request.resource.data) || isBoundedString(request.resource.data.source, 80));
+    }
+
     match /users/{userId} {
       // User profile document
       allow read, write: if isOwner(userId);
@@ -14,12 +135,9 @@ service cloud.firestore {
       // Attendance / shift logs
       match /logs/{logId} {
         allow read: if isOwner(userId);
-        allow write: if isOwner(userId)
-          && request.resource.data.keys().hasOnly([
-            'date', 'startTime', 'logInput', 'totalOutTime',
-            'effectiveWorkTime', 'firstInTime', 'lastOutTime',
-            'activeLeave', 'updatedAt', 'raw'
-          ]);
+        allow create, update: if isOwner(userId)
+          && isLogPayloadValid(logId);
+        allow delete: if isOwner(userId);
       }
 
       // User settings / preferences
@@ -30,23 +148,13 @@ service cloud.firestore {
       // Leave records (legacy mobile/web schema)
       match /leaves/{leaveId} {
         allow read: if isOwner(userId);
-        allow write: if isOwner(userId)
-          && request.resource.data.keys().hasOnly([
-            'date', 'type', 'duration', 'half', 'reason',
-            'startTime', 'endTime', 'createdAt', 'updatedAt'
-          ]);
+        allow write: if isOwner(userId) && isLeavePayloadValid();
       }
 
       // Imported leave history records used by the web importer
       match /leaveHistory/{leaveHistoryId} {
         allow read: if isOwner(userId);
-        allow write: if isOwner(userId)
-          && request.resource.data.keys().hasOnly([
-            'leaveType', 'transactionType', 'openingBalance', 'days', 'closingBalance',
-            'transactionDate', 'date', 'remark', 'remarks', 'isAutoAdjustment',
-            'consumedDays', 'creditDays', 'source', 'type',
-            'id', 'importedAt', 'schemaVersion'
-          ]);
+        allow write: if isOwner(userId) && isLeaveHistoryPayloadValid();
       }
     }
   }

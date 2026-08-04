@@ -120,7 +120,7 @@ function parsePunchLine(line, index) {
     const date = normalizeDateValue(dateRaw);
     const minutes = toMinutes(timeRaw);
 
-        if (!date || minutes === null || Number.isNaN(minutes) || !DATE_CELL_RE.test(swipeDateRaw)) return null;
+    if (!date || minutes === null || Number.isNaN(minutes) || !DATE_CELL_RE.test(swipeDateRaw)) return null;
 
     return {
         date,
@@ -218,26 +218,48 @@ function extractDetectedDate(lines) {
     return null;
 }
 
+function daysBetweenIso(startDate, endDate) {
+    if (!startDate || !endDate) return 0;
+    const startMs = Date.parse(`${startDate}T00:00:00Z`);
+    const endMs = Date.parse(`${endDate}T00:00:00Z`);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return 0;
+    return Math.round((endMs - startMs) / 86400000);
+}
+
 function buildSessionStats(events) {
+    // Preserve source order within a date so same-calendar overnight
+    // wraps (23:00 → 01:30) stay chronological; only reorder across dates.
     const sorted = events
         .map((punch, index) => ({ ...punch, sortIndex: index }))
         .sort((a, b) => {
-            if (a.minutes !== b.minutes) return a.minutes - b.minutes;
+            if (a.date !== b.date) return String(a.date || '').localeCompare(String(b.date || ''));
             return a.sortIndex - b.sortIndex;
         });
 
-    let dayOffset = 0;
+    const originDate = sorted[0]?.date || null;
+    let wrapOffset = 0;
     let previousRawMinutes = null;
+    let previousDate = null;
+
     const absoluteEvents = sorted.map((event) => {
-        if (previousRawMinutes !== null && event.minutes < previousRawMinutes) {
-            const sameDayGap = previousRawMinutes - event.minutes;
-            if (sameDayGap > 180) {
-                dayOffset += 24 * 60;
-            }
+        const dateOffset = originDate && event.date
+            ? Math.max(0, daysBetweenIso(originDate, event.date)) * 24 * 60
+            : 0;
+
+        const sameCalendarDay = !previousDate || !event.date || previousDate === event.date;
+        if (
+            previousRawMinutes !== null
+            && sameCalendarDay
+            && event.minutes < previousRawMinutes
+            && (previousRawMinutes - event.minutes) > 180
+        ) {
+            wrapOffset += 24 * 60;
         }
 
-        const absoluteMinutes = event.minutes + dayOffset;
-        previousRawMinutes = absoluteMinutes;
+        const absoluteMinutes = event.minutes + dateOffset + wrapOffset;
+        previousRawMinutes = event.minutes;
+        previousDate = event.date || previousDate;
+
         return {
             ...event,
             absoluteMinutes,
@@ -441,4 +463,66 @@ export function buildCleanAttendanceLog(rawTextOrParsed) {
     }
 
     return lines.join('\n');
+}
+
+/**
+ * Fallback for single-line portal summaries:
+ * Planned In, Planned Out, Actual In, Actual Out (+ optional break hours).
+ */
+export function parsePortalSummaryTimes(rawText) {
+    const text = String(rawText || '');
+    const timeMatches = text.match(/(\d{1,2}:\d{2}\s*(?:AM|PM))/gi);
+    if (!timeMatches || timeMatches.length < 4) return null;
+
+    const inMinutes = toMinutes(timeMatches[2]);
+    const outMinutes = toMinutes(timeMatches[3]);
+    if (inMinutes == null || outMinutes == null) return null;
+
+    const durationMatches = text.match(/\b(\d+\.\d{2})\b/g);
+    let totalBreak = 45;
+    if (durationMatches && durationMatches.length >= 3) {
+        const breakHours = Number.parseFloat(durationMatches[durationMatches.length - 1]);
+        if (Number.isFinite(breakHours) && breakHours < 12) {
+            totalBreak = Math.round(breakHours * 60);
+        }
+    }
+
+    return {
+        startTime: to24HourString(inMinutes),
+        lastOutTime: to24HourString(outMinutes),
+        totalBreak,
+        shortTimeOffMinutes: 0,
+    };
+}
+
+/**
+ * Apply parsed attendance data to edit-form style fields.
+ */
+export function applyParsedLogToEditValues(parsed, fallbackSummaryText = '') {
+    if (parsed?.hasPunchRows && parsed.punchCount >= 2) {
+        const firstIn = parsed.events.find((event) => event.type === 'IN');
+        const lastOut = [...parsed.events].reverse().find((event) => event.type === 'OUT');
+        const totalBreak = Number.isFinite(parsed.totalOutMinutes) ? parsed.totalOutMinutes : 0;
+
+        return {
+            startTime: firstIn?.time24 || null,
+            lastOutTime: lastOut?.time24 || null,
+            totalBreak: String(totalBreak),
+            shortTimeOffMinutes: parsed.shortTimeOffMinutes || 0,
+            shortTimeOffEntries: parsed.shortTimeOffEntries || [],
+            logInput: buildCleanAttendanceLog(parsed),
+            source: 'punch-log',
+        };
+    }
+
+    const summary = parsePortalSummaryTimes(fallbackSummaryText);
+    if (!summary) return null;
+
+    return {
+        ...summary,
+        totalBreak: String(summary.totalBreak),
+        shortTimeOffEntries: [],
+        logInput: '',
+        source: 'summary',
+    };
 }
