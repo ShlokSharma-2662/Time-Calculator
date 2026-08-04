@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     TrendingUp, Clock, Coffee, Calendar, Target,
@@ -204,7 +204,7 @@ function TabButton({ active, onClick, icon, label }) {
 }
 
 // Overview Tab
-function OverviewTab({ stats, weeklySummary, monthlySummary, weeklyGoal, weeklyProgress, currentShift, onSaveShift }) {
+function OverviewTab({ stats, weeklySummary, monthlySummary, weeklyGoal: _weeklyGoal, weeklyProgress: _weeklyProgress, currentShift, onSaveShift }) {
     return (
         <motion.div
             key="overview"

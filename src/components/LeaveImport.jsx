@@ -9,7 +9,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { parseHRExport, parseCSVTemplate, importToFirestore, generateCompositeKey, clearLeaveHistory } from '../utils/leaveImporter';
 import { downloadCSVTemplate } from '../utils/csvTemplate';
-import { syncLeavesFromFirestore, pushLeavesToFirestore, getLeaveHistory } from '../utils/leaveHistory';
+import { syncLeavesFromFirestore, pushLeavesToFirestore } from '../utils/leaveHistory';
 import { useUI } from '../context/UIContext';
 import { formatFinancialYearLabel, getFinancialYearStartYear } from '../utils/financialYear';
 

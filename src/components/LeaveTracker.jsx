@@ -12,7 +12,7 @@ export function LeaveTracker() {
     const [type, setType] = useState(LEAVE_TYPES.FULL);
     const [category, setCategory] = useState(LEAVE_CATEGORIES.EL);
     const [remarks, setRemarks] = useState('');
-    const [shortDuration, setShortDuration] = useState(60); // minutes
+    const [shortDuration] = useState(60); // minutes
 
     useEffect(() => {
         loadHistory();
@@ -160,9 +160,3 @@ export function LeaveTracker() {
         </div>
     );
 }
-
-const customScrollbarStyle = `
-.custom-scrollbar::-webkit-scrollbar { width: 4px; }
-.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.1); }
-`;

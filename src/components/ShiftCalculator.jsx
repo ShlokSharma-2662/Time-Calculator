@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Sun, CheckCircle2, Briefcase, Clock3, ShieldCheck, Coffee, Timer, History, Clock, Lock, Unlock, Zap, Settings, Info, Moon } from 'lucide-react';
 import { LEAVE_TYPES } from '../utils/leaveHistory';
-import { useUI } from '../context/UIContext';
 import { motion } from 'framer-motion';
 import { useTimeHelpers } from '../hooks/useTimeHelpers';
 import { GlassCard } from './GlassCard';
@@ -50,7 +49,6 @@ export const ShiftCalculator = ({
     }, [shiftDetails, activeTarget]);
 
     const isOvertime = diffMinutes < 0;
-    const targetLabel = activeTarget === 'fullDay' ? 'Full' : activeTarget === 'halfDay' ? 'Half' : 'Short';
     const targetAdjustedKey = `${activeTarget}Adjusted`;
 
     return (

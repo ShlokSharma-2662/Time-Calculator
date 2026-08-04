@@ -77,7 +77,7 @@ export function getHolidayName(dateString) {
         const customHolidays = JSON.parse(localStorage.getItem('workShift_holidays') || '[]');
         const custom = customHolidays.find(h => h.date === dateString);
         if (custom) return custom.name;
-    } catch (e) { }
+    } catch (_e) { /* ignore invalid custom holiday JSON */ }
 
     // Check hardcoded holidays
     for (const fyHolidays of Object.values(HOLIDAYS_BY_FY)) {
@@ -278,7 +278,6 @@ export function getDateTypeLabel(date, holidays = COMPANY_HOLIDAYS) {
 export function getMonthDates(year, month) {
     const dates = [];
     // Use UTC to avoid timezone shifts
-    const firstDay = new Date(Date.UTC(year, month - 1, 1));
     const lastDay = new Date(Date.UTC(year, month, 0));
 
     for (let date = 1; date <= lastDay.getUTCDate(); date++) {

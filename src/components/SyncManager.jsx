@@ -51,7 +51,7 @@ export function SyncManager({ children }) {
 
             const newHistory = {};
             cloudLogsArray.forEach(log => {
-                const { date, id, updatedAt, ...rest } = log;
+                const { date, id: _id, updatedAt: _updatedAt, ...rest } = log;
                 newHistory[date] = rest.raw ? rest.raw : rest;
             });
 
@@ -76,7 +76,7 @@ export function SyncManager({ children }) {
 
             // Phase 1: Batch-save all shift entries first
             const entries = cloudLogs.map(log => {
-                const { id, date, updatedAt, ...data } = log;
+                const { id, date, updatedAt: _updatedAt, ...data } = log;
                 return { date: date || id, data };
             });
             for (const entry of entries) {

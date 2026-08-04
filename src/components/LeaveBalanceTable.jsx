@@ -1,5 +1,4 @@
-import React, { useState, useMemo } from 'react';
-import { motion } from 'framer-motion';
+import React, { useMemo } from 'react';
 import { Info, TrendingUp, Calendar, RefreshCcw, AlertTriangle, Shield, CheckCircle2 } from 'lucide-react';
 import { calculateMonthlyAccrual } from '../utils/elCalculations';
 import { getLeaveHistory, clearHistory, calculateCOStatus } from '../utils/leaveHistory';

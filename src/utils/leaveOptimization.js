@@ -4,7 +4,6 @@
  */
 
 import {
-    isWeekend,
     isNonWorkingDay,
     getDatesBetween,
     evaluateSandwichLeave,
