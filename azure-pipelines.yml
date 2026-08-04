@@ -101,23 +101,19 @@ stages:
     dependsOn: Build
     condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
     jobs:
-      - deployment: DeployWeb
+      - job: DeployWeb
         displayName: Deploy web-dist
-        environment: production
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - download: current
-                  artifact: web-dist
+        steps:
+          - download: current
+            artifact: web-dist
 
-                - task: AzureStaticWebApp@0
-                  displayName: Deploy to Static Web Apps
-                  inputs:
-                    workingDirectory: $(Pipeline.Workspace)/web-dist
-                    app_location: '/'
-                    api_location: ''
-                    output_location: ''
-                    skip_app_build: true
-                    skip_api_build: true
-                    azure_static_web_apps_api_token: $(AZURE_STATIC_WEB_APPS_API_TOKEN)
+          - task: AzureStaticWebApp@0
+            displayName: Deploy to Static Web Apps
+            inputs:
+              workingDirectory: $(Pipeline.Workspace)/web-dist
+              app_location: '/'
+              api_location: ''
+              output_location: ''
+              skip_app_build: true
+              skip_api_build: true
+              azure_static_web_apps_api_token: $(AZURE_STATIC_WEB_APPS_API_TOKEN)
