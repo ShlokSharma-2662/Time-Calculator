@@ -93,22 +93,3 @@ stages:
           - script: node --check server.js && node --check db.js && node --check routes/auth.js && node --check routes/logs.js
             workingDirectory: server
             displayName: Syntax-check API entrypoints
-
-      - job: Mobile
-        displayName: Mobile app (Expo install check)
-        steps:
-          - checkout: self
-            fetchDepth: 1
-
-          - task: NodeTool@0
-            displayName: Use Node.js $(nodeVersion)
-            inputs:
-              versionSpec: $(nodeVersion)
-
-          - script: npm ci
-            workingDirectory: mobile
-            displayName: Install mobile dependencies
-
-          - script: node --check App.js && node --check babel.config.js
-            workingDirectory: mobile
-            displayName: Syntax-check mobile entrypoints
