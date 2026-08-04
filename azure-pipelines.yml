@@ -34,8 +34,7 @@ pool:
 
 variables:
   nodeVersion: '22.x'
-  # Uncomment after creating the variable group in Library:
-  # - group: workshift-web-build
+  - group: workshift-web-build
 
 stages:
   - stage: Build
