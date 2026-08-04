@@ -16,8 +16,6 @@ trigger:
   branches:
     include:
       - main
-      - codex/*
-      - cursor/*
   paths:
     exclude:
       - README.md
