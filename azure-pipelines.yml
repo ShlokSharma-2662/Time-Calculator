@@ -33,7 +33,8 @@ pool:
   vmImage: ubuntu-latest
 
 variables:
-  nodeVersion: '22.x'
+  - name: nodeVersion
+    value: '22.x'
   - group: workshift-web-build
 
 stages:
