@@ -7,6 +7,8 @@ A multi-surface shift intelligence workspace for employees who need to turn raw 
 ![Version](https://img.shields.io/badge/version-0.0.0-blue)
 ![Stack](https://img.shields.io/badge/stack-React%2019%20%7C%20Firebase%20%7C%20Expo%2054%20%7C%20Express%205-success)
 
+📘 Project wiki is now in [/wiki](./wiki/Home.md).
+
 ## Table of Contents
 
 - [Overview](#overview)
