@@ -8,9 +8,26 @@ npm run build
 
 Deploy the generated `dist/` directory on your static host (Firebase Hosting, Netlify, Vercel, etc.).
 
-## Browser extension
+## Browser extension — Spine sync
 
-The repository includes an `extension/` directory (built artifact).
+Load **`extension-src/`** (Manifest V3) to sync punches from Spine HRI into WorkShift Calc.
+
+1. Open Chrome/Edge extensions → enable Developer mode.
+2. **Load unpacked** → select `extension-src/`.
+3. Open the PWA on an allowed origin (`localhost:5173`, `localhost:4173`, `*.web.app`, `*.firebaseapp.com`).
+4. Use the extension popup **Sync today**, or the in-app **Sync from Spine** button.
+
+Notes:
+
+- Uses your Spine browser session by default (optional credential fallback in the popup).
+- Writes `logInput` + `hrms*` keys into the PWA origin `localStorage` (same contract as existing HRMS sync UI).
+- Does **not** use Express / Playwright. Paste remains the fallback when the extension is unavailable.
+
+See [`extension-src/README.md`](../extension-src/README.md) for the manual test checklist.
+
+## Browser extension — legacy UI popup
+
+The repository also includes an `extension/` directory (older full-app popup build artifact).
 
 1. Open Chrome/Edge extensions.
 2. Enable Developer mode.
@@ -41,3 +58,4 @@ Use Expo tooling to run on simulator/device.
 - Restrict CORS in `server/` before public exposure.
 - Configure CI/build for any deployment path you add.
 - Keep OAuth client IDs consistent with Google platform configuration.
+- Spine scrape breaks if the portal DOM / date-link format changes.

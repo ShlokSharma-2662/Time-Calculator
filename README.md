@@ -43,6 +43,7 @@ What makes the project notable is its hybrid persistence model. The main web app
 
 ## Features
 
+- Syncs today’s Spine HRI punches via the `extension-src` browser extension (session-first; paste remains the fallback).
 - Parses pasted attendance logs into first-in, last-out, total break time, effective work time, and projected exit time.
 - Auto-saves working state to `localStorage` and can push per-day logs to Firestore through batched writes.
 - Computes real-time progress, overtime, month-to-date adherence, weekly trends, and heatmap-style analytics.
@@ -107,7 +108,8 @@ What makes the project notable is its hybrid persistence model. The main web app
 |-- public/
 |   |-- manifest.json               # Manifest V3 extension manifest copied into web builds
 |   `-- pwa-*.png                   # Shared icons for PWA and extension packaging
-|-- extension/                      # Committed browser-extension build artifact
+|-- extension-src/                  # Spine HRI sync extension (load unpacked — source of truth)
+|-- extension/                      # Legacy full-app popup build artifact
 |-- data/
 |   |-- users.json                  # File-based API users
 |   `-- logs.json                   # File-based API logs
@@ -411,7 +413,20 @@ Deploy the generated `dist/` folder (or the pipeline `web-dist` artifact) to any
 
 ### Browser extension
 
-The repository already contains a committed build artifact in `extension/`.
+#### Spine sync (recommended)
+
+Use [`extension-src/`](./extension-src) to pull **Daily In Out Punch** rows from `rysun.spinehri.in` into the PWA. This replaces paste for users who already have a Spine browser session. There is **no** Playwright/Express scraper — the SPA cannot scrape Spine due to CORS; the extension is required.
+
+1. Open Chrome or Edge → Extensions → enable Developer Mode.
+2. **Load unpacked** → select the `extension-src/` directory.
+3. Run the web app (`npm run dev`) and keep the tab open.
+4. Click **Sync today** in the extension popup, or **Sync from Spine** in Log Analyzer.
+
+Session-first auth: sign into Spine in the browser. Optional saved credentials live in `chrome.storage.local` (see `extension-src/README.md`). Paste/import remains the offline fallback.
+
+#### Legacy UI popup artifact
+
+The repository also contains a committed full-app popup build in `extension/`:
 
 1. Open Chrome or Edge extensions.
 2. Enable Developer Mode.

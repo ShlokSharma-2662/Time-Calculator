@@ -1,0 +1,67 @@
+{
+  "manifest_version": 3,
+  "name": "WorkShift Spine Sync",
+  "version": "1.0.0",
+  "description": "Log into Spine HRI and sync Daily In Out Punch data into WorkShift Calc.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "WorkShift Spine Sync"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://rysun.spinehri.in/*",
+    "http://localhost:5173/*",
+    "http://127.0.0.1:5173/*",
+    "http://localhost:4173/*",
+    "http://127.0.0.1:4173/*",
+    "https://*.firebaseapp.com/*",
+    "https://*.web.app/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://rysun.spinehri.in/*"
+      ],
+      "js": [
+        "content/spine-scraper.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "http://localhost:5173/*",
+        "http://127.0.0.1:5173/*",
+        "http://localhost:4173/*",
+        "http://127.0.0.1:4173/*",
+        "https://*.firebaseapp.com/*",
+        "https://*.web.app/*"
+      ],
+      "js": [
+        "content/pwa-bridge.js"
+      ],
+      "run_at": "document_start"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "lib/extractPunches.js"
+      ],
+      "matches": [
+        "https://rysun.spinehri.in/*",
+        "http://localhost:5173/*",
+        "http://127.0.0.1:5173/*",
+        "https://*.firebaseapp.com/*",
+        "https://*.web.app/*"
+      ]
+    }
+  ]
+}
