@@ -53,9 +53,61 @@ stages:
           - script: npm ci
             displayName: Install web dependencies
 
+          - script: |
+              set -e
+              fail=0
+              check() {
+                name="$1"
+                val="$2"
+                if [ -z "$val" ]; then
+                  echo "##vso[task.logissue type=error]$name is empty — check Library group workshift-web-build and pipeline authorization"
+                  fail=1
+                elif echo "$val" | grep -q '\$('; then
+                  echo "##vso[task.logissue type=error]$name was not expanded (literal \$(...) seen) — authorize the variable group for this pipeline"
+                  fail=1
+                fi
+              }
+              check VITE_FIREBASE_API_KEY "$VITE_FIREBASE_API_KEY"
+              check VITE_FIREBASE_AUTH_DOMAIN "$VITE_FIREBASE_AUTH_DOMAIN"
+              check VITE_FIREBASE_PROJECT_ID "$VITE_FIREBASE_PROJECT_ID"
+              check VITE_FIREBASE_STORAGE_BUCKET "$VITE_FIREBASE_STORAGE_BUCKET"
+              check VITE_FIREBASE_MESSAGING_SENDER_ID "$VITE_FIREBASE_MESSAGING_SENDER_ID"
+              check VITE_FIREBASE_APP_ID "$VITE_FIREBASE_APP_ID"
+
+              # Format check without printing the secret
+              KEY="$VITE_FIREBASE_API_KEY"
+              KEY="${KEY%\"}"; KEY="${KEY#\"}"; KEY="${KEY%\'}"; KEY="${KEY#\'}"
+              case "$KEY" in
+                AIza*)
+                  LEN=${#KEY}
+                  if [ "$LEN" -lt 39 ]; then
+                    echo "##vso[task.logissue type=error]VITE_FIREBASE_API_KEY looks truncated (length $LEN)"
+                    fail=1
+                  else
+                    echo "VITE_FIREBASE_API_KEY format OK (length $LEN, starts with AIza)"
+                  fi
+                  ;;
+                *)
+                  echo "##vso[task.logissue type=error]VITE_FIREBASE_API_KEY must start with AIza (got length ${#KEY})"
+                  fail=1
+                  ;;
+              esac
+
+              if [ "$fail" -ne 0 ]; then
+                echo "##vso[task.complete result=Failed;]"
+                exit 1
+              fi
+            displayName: Validate Firebase env vars
+            env:
+              VITE_FIREBASE_API_KEY: $(VITE_FIREBASE_API_KEY)
+              VITE_FIREBASE_AUTH_DOMAIN: $(VITE_FIREBASE_AUTH_DOMAIN)
+              VITE_FIREBASE_PROJECT_ID: $(VITE_FIREBASE_PROJECT_ID)
+              VITE_FIREBASE_STORAGE_BUCKET: $(VITE_FIREBASE_STORAGE_BUCKET)
+              VITE_FIREBASE_MESSAGING_SENDER_ID: $(VITE_FIREBASE_MESSAGING_SENDER_ID)
+              VITE_FIREBASE_APP_ID: $(VITE_FIREBASE_APP_ID)
+
           - script: npm run lint
             displayName: Lint
-
           - script: npm run build
             displayName: Build production bundle
             env:
