@@ -381,27 +381,22 @@ The repo includes [`azure-pipelines.yml`](./azure-pipelines.yml) for Azure Pipel
 
 **What it runs**
 
-| Job | Steps | Artifact |
+| Stage / Job | Steps | Artifact |
 | --- | --- | --- |
-| Web app | `npm ci` → `npm run lint` → `npm run build` | `web-dist` (`dist/`) |
-| Express API | `npm ci` in `server/` → Node syntax check | — |
+| Build → Web app | `npm ci` → `npm run lint` → `npm run build` | `web-dist` (`dist/`) |
+| Build → Express API | `npm ci` in `server/` → Node syntax check | — |
+| Deploy | Publish `web-dist` to Azure Static Web Apps | — |
 
 **Create the pipeline in Azure DevOps**
 
 1. Push this branch to your Azure Repos (or connect the GitHub repo).
 2. **Pipelines → New pipeline** → select the repo → **Existing Azure Pipelines YAML file** → path `/azure-pipelines.yml`.
-3. **Library → Variable groups** → create `workshift-web-build` with these variables (mark Firebase values as **secret**):
-   - `VITE_FIREBASE_API_KEY`
-   - `VITE_FIREBASE_AUTH_DOMAIN`
-   - `VITE_FIREBASE_PROJECT_ID`
-   - `VITE_FIREBASE_STORAGE_BUCKET`
-   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
-   - `VITE_FIREBASE_APP_ID`
-   - `VITE_FIREBASE_MEASUREMENT_ID` (optional)
-4. Edit `azure-pipelines.yml` and uncomment `- group: workshift-web-build` under `variables`, **or** set the same names as pipeline variables.
-5. Run the pipeline. Download the `web-dist` artifact for static hosting.
+3. **Pipelines → Edit → Variables** (or Library variable group) — add these as **secret**:
+   - Firebase: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID` (+ optional `VITE_FIREBASE_MEASUREMENT_ID`)
+   - Azure: `AZURE_STATIC_WEB_APPS_API_TOKEN` (Azure Portal → your Static Web App → **Manage deployment token**)
+4. Run the pipeline. Branch builds deploy automatically; PR builds only validate.
 
-Triggers: pushes/PRs to `main`, plus pushes to `codex/*` and `cursor/*`.
+Triggers: pushes/PRs to `main`, plus pushes to `codex/*` and `cursor/*`. Deploy stage skips pull-request builds.
 
 ### Web app / PWA
 
