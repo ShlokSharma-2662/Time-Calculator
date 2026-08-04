@@ -246,7 +246,10 @@ export function ShiftStateProvider({ children }) {
             saveEntryRef.current(targetDate, entryData);
 
             if (logStats.detectedDate && user) {
-                syncLogsToCloudRef.current([[targetDate, entryData]]);
+                Promise.resolve(syncLogsToCloudRef.current([[targetDate, entryData]]))
+                    .catch((err) => {
+                        console.warn('[ShiftState] Auto-sync failed:', err?.message || err);
+                    });
             }
         }
     }, [startTime, logInput, logStats.totalOutTime, logStats.effectiveWorkTime, logStats.detectedDate, user]);

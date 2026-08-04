@@ -31,6 +31,10 @@ export default defineConfig({
       }
     })
   ],
+  test: {
+    environment: 'node',
+    include: ['tests/**/*.{test,spec}.{js,jsx,ts,tsx}'],
+  },
   build: {
     rollupOptions: {
       output: {

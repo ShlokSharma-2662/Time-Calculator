@@ -20,6 +20,7 @@ import {
   orderBy,
   onSnapshot
 } from 'firebase/firestore';
+import { buildFirestoreLogDto } from '../utils/firestoreLogDto';
 
 const AuthContext = createContext();
 const googleProvider = new GoogleAuthProvider();
@@ -134,15 +135,13 @@ export const AuthProvider = ({ children }) => {
       const [date, data] = Array.isArray(log) ? log : [log.date, log];
       if (!date) continue;
 
-      // Sanitize data specifically for Firestore (replaces undefined with key removal)
-      const sanitizedData = JSON.parse(JSON.stringify(data));
-
-      const ref = doc(db, 'users', user.uid, 'logs', date);
-      batch.set(ref, {
+      // Full replace with a rules-compliant DTO (no merge — avoids leftover illegal keys)
+      const payload = buildFirestoreLogDto(
         date,
-        ...(typeof sanitizedData === 'object' ? sanitizedData : { raw: sanitizedData }),
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+        data && typeof data === 'object' ? data : { raw: data }
+      );
+      const ref = doc(db, 'users', user.uid, 'logs', date);
+      batch.set(ref, payload);
     }
     await batch.commit();
   };

@@ -8,13 +8,24 @@ import {
 import { transformHistoryToShifts, getGoals } from '../utils/shiftHistory';
 import { useAuth } from '../context/AuthContext';
 import { useShiftState } from '../context/ShiftStateContext';
-import { parseAttendanceLogInput } from '../utils/attendanceLogParser';
+import { parseAttendanceLogInput, applyParsedLogToEditValues } from '../utils/attendanceLogParser';
+import { useUI } from '../context/UIContext';
 
 const ITEMS_PER_PAGE = 10;
+
+const emptyEditValues = {
+    startTime: '',
+    lastOutTime: '',
+    totalBreak: 0,
+    shortTimeOffMinutes: 0,
+    shortTimeOffEntries: [],
+    logInput: '',
+};
 
 export function AttendanceLog() {
     const { syncLogsToCloud, user } = useAuth();
     const { history, saveEntry } = useShiftState();
+    const { showError } = useUI();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('All');
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -22,7 +33,7 @@ export function AttendanceLog() {
 
     // Editing State
     const [editingDate, setEditingDate] = useState(null);
-    const [editValues, setEditValues] = useState({ startTime: '', lastOutTime: '', totalBreak: 0, shortTimeOffMinutes: 0 });
+    const [editValues, setEditValues] = useState(emptyEditValues);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [viewingShift, setViewingShift] = useState(null);
 
@@ -88,12 +99,15 @@ export function AttendanceLog() {
     useEffect(() => setCurrentPage(1), [searchTerm, filterStatus]);
 
     const handleStartEdit = (shift) => {
+        const dayData = history[shift.date] || {};
         setEditingDate(shift.date);
         setEditValues({
             startTime: shift.startTime || '09:00',
             lastOutTime: shift.fullDayEnd || '18:00',
             totalBreak: shift.totalBreak || 0,
-            shortTimeOffMinutes: shift.shortTimeOffMinutes || 0
+            shortTimeOffMinutes: shift.shortTimeOffMinutes || dayData.shortTimeOffMinutes || 0,
+            shortTimeOffEntries: dayData.shortTimeOffEntries || [],
+            logInput: dayData.logInput || '',
         });
         setIsModalOpen(true);
     };
@@ -102,117 +116,31 @@ export function AttendanceLog() {
         if (!text || text.trim() === '') return;
 
         const parsed = parseAttendanceLogInput(text);
-        if (parsed.hasPunchRows && parsed.punchCount >= 2) {
-            const firstIn = parsed.events.find(event => event.type === 'IN');
-            const lastOut = [...parsed.events].reverse().find(event => event.type === 'OUT');
-            const totalBreak = Number.isFinite(parsed.totalOutMinutes) ? parsed.totalOutMinutes : 0;
+        const applied = applyParsedLogToEditValues(parsed, text);
+        if (!applied) return;
 
-            setEditValues(prev => ({
-                ...prev,
-                startTime: firstIn ? firstIn.time24 : prev.startTime,
-                lastOutTime: lastOut ? lastOut.time24 : prev.lastOutTime,
-                totalBreak: String(totalBreak),
-                shortTimeOffMinutes: parsed.shortTimeOffMinutes || 0
-            }));
-            return;
-        }
-
-        const parseTimeString = (timeStr) => {
-            if (!timeStr) return null;
-            const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-            if (!match) return null;
-            let [_, hours, minutes, ampm] = match;
-            hours = parseInt(hours);
-            if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
-            if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
-            return `${String(hours).padStart(2, '0')}:${minutes}`;
-        };
-
-        const timeToMins = (timeStr) => {
-            const [h, m] = timeStr.split(':').map(Number);
-            return h * 60 + m;
-        };
-
-        // Detect Multi-line Punch Log (Format B)
-        // Robust global search for [Time] [In/Out] pairs (handles tabs, spaces, newlines)
-        const punchMatches = [];
-        const punchRegex = /(\d{1,2}:\d{2}\s*(?:AM|PM))\s+(In|Out)\b/gi;
-        let match;
-
-        while ((match = punchRegex.exec(text)) !== null) {
-            punchMatches.push({
-                time: parseTimeString(match[1]),
-                type: match[2].toLowerCase()
-            });
-        }
-
-        if (punchMatches.length >= 2) {
-            // Sort by time to ensure chronological processing
-            punchMatches.sort((a, b) => timeToMins(a.time) - timeToMins(b.time));
-
-            const firstIn = punchMatches.find(p => p.type === 'in')?.time || punchMatches[0].time;
-            const lastOut = [...punchMatches].reverse().find(p => p.type === 'out')?.time || punchMatches[punchMatches.length - 1].time;
-
-            // Calculate Break Gaps (Sum of Out -> next In intervals)
-            let totalBreakMins = 0;
-            for (let i = 0; i < punchMatches.length - 1; i++) {
-                if (punchMatches[i].type === 'out' && punchMatches[i + 1].type === 'in') {
-                    const gap = timeToMins(punchMatches[i + 1].time) - timeToMins(punchMatches[i].time);
-                    if (gap > 0 && gap < 480) { // Safety: gaps > 8h are probably different days
-                        totalBreakMins += gap;
-                    }
-                }
-            }
-
-            setEditValues(prev => ({
-                ...prev,
-                startTime: firstIn,
-                lastOutTime: lastOut,
-                totalBreak: totalBreakMins.toString(),
-                shortTimeOffMinutes: 0
-            }));
-            return; // STOP: Multi-line log takes precedence
-        }
-
-        // Fallback to Single-Line Summary (Format A: Planned In, Planned Out, Actual In, Actual Out)
-        const timeMatches = text.match(/(\d{1,2}:\d{2}\s*(?:AM|PM))/gi);
-        if (timeMatches && timeMatches.length >= 4) {
-            const inTime = parseTimeString(timeMatches[2]);
-            const outTime = parseTimeString(timeMatches[3]);
-
-            const durationMatches = text.match(/\b(\d+\.\d{2})\b/g);
-            let breakMinutes = 45;
-            if (durationMatches && durationMatches.length >= 3) {
-                const lastMatch = durationMatches[durationMatches.length - 1];
-                const breakHours = parseFloat(lastMatch);
-                if (breakHours < 12) { // 12+ hours break in a summary is unlikely
-                    breakMinutes = Math.round(breakHours * 60);
-                }
-            }
-
-        if (inTime && outTime) {
-            setEditValues(prev => ({
-                ...prev,
-                startTime: inTime,
-                lastOutTime: outTime,
-                totalBreak: breakMinutes.toString(),
-                shortTimeOffMinutes: 0
-            }));
-        }
-        }
+        setEditValues((prev) => ({
+            ...prev,
+            startTime: applied.startTime || prev.startTime,
+            lastOutTime: applied.lastOutTime || prev.lastOutTime,
+            totalBreak: applied.totalBreak,
+            shortTimeOffMinutes: applied.shortTimeOffMinutes || 0,
+            shortTimeOffEntries: applied.shortTimeOffEntries || [],
+            logInput: applied.logInput || text,
+        }));
     };
 
-    const handleSaveEdit = () => {
+    const handleSaveEdit = async () => {
         if (!editingDate) return;
 
-        const updatedHistory = { ...history };
-        const dayData = updatedHistory[editingDate] || {};
+        const dayData = history[editingDate] || {};
 
         // Recalculate effective minutes
         const [sH, sM] = editValues.startTime.split(':').map(Number);
         const [eH, eM] = editValues.lastOutTime.split(':').map(Number);
-        const startMins = sH * 60 + (sM || 0);
-        const endMins = eH * 60 + (eM || 0);
+        let startMins = sH * 60 + (sM || 0);
+        let endMins = eH * 60 + (eM || 0);
+        if (endMins < startMins) endMins += 24 * 60;
         const totalMins = Math.max(0, endMins - startMins);
         const totalBreakMinutes = Number.parseInt(editValues.totalBreak, 10);
         const shortTimeOffMinutes = Number.parseInt(editValues.shortTimeOffMinutes, 10);
@@ -220,19 +148,28 @@ export function AttendanceLog() {
         const shortTimeOff = Number.isFinite(shortTimeOffMinutes) && shortTimeOffMinutes > 0 ? shortTimeOffMinutes : 0;
         const effectiveWorkTime = Math.max(0, totalMins - totalBreak) + shortTimeOff;
 
-        updatedHistory[editingDate] = {
+        const entryData = {
             ...dayData,
             startTime: editValues.startTime,
             lastOutTime: editValues.lastOutTime,
+            firstInTime: editValues.startTime,
             totalOutTime: totalBreak,
             shortTimeOffMinutes: shortTimeOff,
+            shortTimeOffEntries: Array.isArray(editValues.shortTimeOffEntries)
+                ? editValues.shortTimeOffEntries
+                : (dayData.shortTimeOffEntries || []),
+            logInput: editValues.logInput || dayData.logInput || '',
             effectiveWorkTime
         };
 
-        saveEntry(editingDate, updatedHistory[editingDate]);
+        saveEntry(editingDate, entryData);
 
         if (user) {
-            syncLogsToCloud([[editingDate, updatedHistory[editingDate]]]);
+            try {
+                await syncLogsToCloud([[editingDate, entryData]]);
+            } catch (err) {
+                showError('Cloud sync failed: ' + (err?.message || 'Unknown error'));
+            }
         }
 
         setEditingDate(null);
@@ -566,16 +503,38 @@ export function AttendanceLog() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Total Break/Shortage (Mins)</label>
-                                    <div className="relative">
-                                        <Coffee className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                                        <input
-                                            type="number"
-                                            value={editValues.totalBreak}
-                                            onChange={(e) => setEditValues({ ...editValues, totalBreak: e.target.value })}
-                                            className="w-full pl-10 pr-4 py-2.5 bg-slate-900/40 border border-indigo-400/20 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500 font-mono shadow-inner shadow-black/20"
-                                        />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Total Break (Mins)</label>
+                                        <div className="relative">
+                                            <Coffee className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={editValues.totalBreak}
+                                                onChange={(e) => setEditValues({ ...editValues, totalBreak: e.target.value })}
+                                                className="w-full pl-10 pr-4 py-2.5 bg-slate-900/40 border border-indigo-400/20 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500 font-mono shadow-inner shadow-black/20"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Short Time-Off (Mins)</label>
+                                        <div className="relative">
+                                            <Timer className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                            <input
+                                                type="number"
+                                                min="0"
+                                                value={editValues.shortTimeOffMinutes}
+                                                onChange={(e) => setEditValues({
+                                                    ...editValues,
+                                                    shortTimeOffMinutes: e.target.value,
+                                                    shortTimeOffEntries: Number(e.target.value) > 0
+                                                        ? editValues.shortTimeOffEntries
+                                                        : [],
+                                                })}
+                                                className="w-full pl-10 pr-4 py-2.5 bg-slate-900/40 border border-indigo-400/20 rounded-xl text-sm text-white focus:outline-none focus:border-indigo-500 font-mono shadow-inner shadow-black/20"
+                                            />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -653,40 +612,29 @@ export function AttendanceLog() {
                                 </div>
 
                                 {(() => {
-                                    const rawLog = history[viewingShift.date]?.logInput;
+                                    const dayData = history[viewingShift.date] || {};
+                                    const rawLog = dayData.logInput;
                                     if (!rawLog) return null;
 
-                                    const parseTimeString = (timeStr) => {
-                                        if (!timeStr) return null;
-                                        const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-                                        if (!match) return timeStr;
-                                        let [_, hours, minutes, ampm] = match;
-                                        hours = parseInt(hours);
-                                        if (ampm.toUpperCase() === 'PM' && hours < 12) hours += 12;
-                                        if (ampm.toUpperCase() === 'AM' && hours === 12) hours = 0;
-                                        return `${String(hours).padStart(2, '0')}:${minutes}`;
-                                    };
-
-                                    const punchMatches = [];
-                                    const punchRegex = /(\d{1,2}:\d{2}\s*(?:AM|PM))\s+(In|Out)\b/gi;
-                                    let match;
-                                    while ((match = punchRegex.exec(rawLog)) !== null) {
-                                        punchMatches.push({
-                                            timeStr: match[1],
-                                            time24: parseTimeString(match[1]),
-                                            type: match[2].toLowerCase()
-                                        });
-                                    }
-
-                                    // Sort by 24h time to ensure chronological display
-                                    punchMatches.sort((a, b) => {
-                                        const [hA, mA] = a.time24.split(':').map(Number);
-                                        const [hB, mB] = b.time24.split(':').map(Number);
-                                        return (hA * 60 + mA) - (hB * 60 + mB);
-                                    });
+                                    const parsed = parseAttendanceLogInput(rawLog);
+                                    const punchMatches = (parsed.events || []).map((event) => ({
+                                        timeStr: event.rawTime || event.time24 || event.displayTime,
+                                        time24: event.time24 || event.displayTime,
+                                        type: String(event.type || '').toLowerCase(),
+                                        machine: event.machine || '',
+                                    }));
+                                    const shortTimeOffMinutes = dayData.shortTimeOffMinutes
+                                        || parsed.shortTimeOffMinutes
+                                        || 0;
 
                                     return (
                                         <div className="space-y-4">
+                                            {shortTimeOffMinutes > 0 && (
+                                                <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200 font-mono">
+                                                    Short Time-Off credited: {shortTimeOffMinutes}m
+                                                </div>
+                                            )}
+
                                             <div className="flex items-center justify-between">
                                                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                                     <LayoutGrid className="w-3 h-3 text-indigo-400" />
@@ -699,18 +647,23 @@ export function AttendanceLog() {
                                                     <div className="absolute left-[31px] top-6 bottom-6 w-px bg-indigo-500/20 shadow-[0_0_10px_rgba(99,102,241,0.35)]"></div>
                                                     <div className="space-y-4 relative z-10">
                                                         {punchMatches.map((punch, idx) => (
-                                                                <motion.div
-                                                                    initial={{ opacity: 0, x: -10 }}
-                                                                    animate={{ opacity: 1, x: 0 }}
-                                                                    transition={{ delay: idx * 0.05 }}
-                                                                key={idx}
+                                                            <motion.div
+                                                                initial={{ opacity: 0, x: -10 }}
+                                                                animate={{ opacity: 1, x: 0 }}
+                                                                transition={{ delay: idx * 0.05 }}
+                                                                key={`${punch.time24}-${punch.type}-${idx}`}
                                                                 className="flex items-center gap-4"
                                                             >
                                                                 <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center bg-slate-900 shadow-lg ${punch.type === 'in' ? 'border-emerald-500 shadow-emerald-500/20' : 'border-rose-500 shadow-rose-500/20'}`}>
                                                                     <div className={`w-1.5 h-1.5 rounded-full ${punch.type === 'in' ? 'bg-emerald-500' : 'bg-rose-500'}`}></div>
                                                                 </div>
                                                                 <div className="flex-1 flex justify-between items-center px-4 py-2.5 bg-slate-900/35 hover:bg-indigo-500/15 transition-colors border border-indigo-500/20 rounded-lg shadow-inner">
-                                                                    <span className="font-mono text-sm text-white drop-shadow-md">{punch.timeStr}</span>
+                                                                    <div className="flex flex-col">
+                                                                        <span className="font-mono text-sm text-white drop-shadow-md">{punch.timeStr}</span>
+                                                                        {punch.machine ? (
+                                                                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">{punch.machine}</span>
+                                                                        ) : null}
+                                                                    </div>
                                                                     <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-md shadow-sm ${punch.type === 'in' ? 'text-emerald-400 bg-emerald-400/10 border border-emerald-500/20' : 'text-rose-400 bg-rose-400/10 border border-rose-500/20'}`}>
                                                                         Punch {punch.type}
                                                                     </span>
