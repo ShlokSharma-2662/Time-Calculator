@@ -2,7 +2,7 @@
 
 A multi-surface shift intelligence workspace for employees who need to turn raw attendance logs into work-time, leave, and encashment insights.
 
-![Build](https://img.shields.io/badge/build-no%20CI-lightgrey)
+![Build](https://img.shields.io/badge/build-Azure%20Pipelines-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Version](https://img.shields.io/badge/version-0.0.0-blue)
 ![Stack](https://img.shields.io/badge/stack-React%2019%20%7C%20Firebase%20%7C%20Expo%2054%20%7C%20Express%205-success)
@@ -375,7 +375,33 @@ Notable patterns used in the codebase:
 
 ## Deployment
 
-No Dockerfiles, CI workflows, host-specific config files, or release pipelines are checked into this repository. The sections below reflect the deployment paths implied by the current code.
+### Azure DevOps CI pipeline
+
+The repo includes [`azure-pipelines.yml`](./azure-pipelines.yml) for Azure Pipelines.
+
+**What it runs**
+
+| Job | Steps | Artifact |
+| --- | --- | --- |
+| Web app | `npm ci` → `npm run lint` → `npm run build` | `web-dist` (`dist/`) |
+| Express API | `npm ci` in `server/` → Node syntax check | — |
+
+**Create the pipeline in Azure DevOps**
+
+1. Push this branch to your Azure Repos (or connect the GitHub repo).
+2. **Pipelines → New pipeline** → select the repo → **Existing Azure Pipelines YAML file** → path `/azure-pipelines.yml`.
+3. **Library → Variable groups** → create `workshift-web-build` with these variables (mark Firebase values as **secret**):
+   - `VITE_FIREBASE_API_KEY`
+   - `VITE_FIREBASE_AUTH_DOMAIN`
+   - `VITE_FIREBASE_PROJECT_ID`
+   - `VITE_FIREBASE_STORAGE_BUCKET`
+   - `VITE_FIREBASE_MESSAGING_SENDER_ID`
+   - `VITE_FIREBASE_APP_ID`
+   - `VITE_FIREBASE_MEASUREMENT_ID` (optional)
+4. Edit `azure-pipelines.yml` and uncomment `- group: workshift-web-build` under `variables`, **or** set the same names as pipeline variables.
+5. Run the pipeline. Download the `web-dist` artifact for static hosting.
+
+Triggers: pushes/PRs to `main`, plus pushes to `codex/*` and `cursor/*`.
 
 ### Web app / PWA
 
@@ -384,7 +410,7 @@ npm install
 npm run build
 ```
 
-Deploy the generated `dist/` folder to any static host that can serve a single-page application. The repository does not include Firebase Hosting, Netlify, Vercel, or nginx config, so routing and caching rules must be supplied by the deployment platform.
+Deploy the generated `dist/` folder (or the pipeline `web-dist` artifact) to any static host that can serve a single-page application. The repository does not include Firebase Hosting, Netlify, Vercel, or nginx config, so routing and caching rules must be supplied by the deployment platform.
 
 ### Browser extension
 
