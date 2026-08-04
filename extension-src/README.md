@@ -11,7 +11,8 @@ This is **not** Playwright. The SPA cannot scrape Spine itself (CORS / cookies);
 3. Keep WorkShift Calc open on an allowed origin:
    - `http://localhost:5173`
    - `http://localhost:4173` (preview)
-   - `https://*.firebaseapp.com` / `https://*.web.app`
+   - `https://time-calculator-2v4o.onrender.com` (production)
+   - `https://*.onrender.com` / `https://*.firebaseapp.com` / `https://*.web.app`
 4. Click **Sync from Spine** in WorkShift (Log Analyzer) — that alone should sync. You do not need the extension popup for day-to-day use.
 
 Spine runs in a **pinned background tab** (not focused). The day detail dialog is loaded hidden and closed automatically — you should not see a Spine popup. Focus stays on WorkShift unless login credentials are missing.

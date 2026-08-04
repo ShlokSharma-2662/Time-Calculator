@@ -11,6 +11,8 @@ const PWA_URL_PATTERNS = [
   /^http:\/\/127\.0\.0\.1:4173\//i,
   /^https:\/\/[^/]+\.firebaseapp\.com\//i,
   /^https:\/\/[^/]+\.web\.app\//i,
+  /^https:\/\/time-calculator-2v4o\.onrender\.com\//i,
+  /^https:\/\/[^/]+\.onrender\.com\//i,
 ];
 
 function sleep(ms) {

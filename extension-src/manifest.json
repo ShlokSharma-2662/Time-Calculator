@@ -23,7 +23,9 @@
     "http://localhost:4173/*",
     "http://127.0.0.1:4173/*",
     "https://*.firebaseapp.com/*",
-    "https://*.web.app/*"
+    "https://*.web.app/*",
+    "https://time-calculator-2v4o.onrender.com/*",
+    "https://*.onrender.com/*"
   ],
   "content_scripts": [
     {
@@ -42,7 +44,9 @@
         "http://localhost:4173/*",
         "http://127.0.0.1:4173/*",
         "https://*.firebaseapp.com/*",
-        "https://*.web.app/*"
+        "https://*.web.app/*",
+        "https://time-calculator-2v4o.onrender.com/*",
+        "https://*.onrender.com/*"
       ],
       "js": [
         "content/pwa-bridge.js"
@@ -60,7 +64,9 @@
         "http://localhost:5173/*",
         "http://127.0.0.1:5173/*",
         "https://*.firebaseapp.com/*",
-        "https://*.web.app/*"
+        "https://*.web.app/*",
+        "https://time-calculator-2v4o.onrender.com/*",
+        "https://*.onrender.com/*"
       ]
     }
   ]
