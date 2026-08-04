@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion } from 'framer-motion';
 import { IndianRupee, TrendingUp, ShieldHalf, ArrowDownToLine, ReceiptText, Eye, EyeOff } from 'lucide-react';
 import { useFinancialSettings } from '../hooks/useFinancialSettings';
 import { PasscodeModal } from './PasscodeModal';

@@ -89,19 +89,19 @@ export function ShiftStateProvider({ children }) {
 
     const [logInput, setLogInput] = useState(() => {
         try { return localStorage.getItem('logInput') || ""; }
-        catch (e) { return ""; }
+        catch (_e) { return ""; }
     });
 
     const [shiftDuration, setShiftDuration] = useState(() => {
         try {
             const saved = localStorage.getItem('shiftDuration');
             return saved ? Number(saved) : 9;
-        } catch (e) { return 9; }
+        } catch (_e) { return 9; }
     });
 
     const [use24Hour, setUse24Hour] = useState(() => {
         try { return localStorage.getItem('use24Hour') === 'true'; }
-        catch (e) { return false; }
+        catch (_e) { return false; }
     });
     const [hrmsSync, setHrmsSync] = useState(() => readHrmsSyncSnapshot());
 

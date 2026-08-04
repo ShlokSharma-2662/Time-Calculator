@@ -2,7 +2,7 @@
 
 A multi-surface shift intelligence workspace for employees who need to turn raw attendance logs into work-time, leave, and encashment insights.
 
-![Build](https://img.shields.io/badge/build-no%20CI-lightgrey)
+![Build](https://img.shields.io/badge/build-Azure%20Pipelines-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 ![Version](https://img.shields.io/badge/version-0.0.0-blue)
 ![Stack](https://img.shields.io/badge/stack-React%2019%20%7C%20Firebase%20%7C%20Expo%2054%20%7C%20Express%205-success)
@@ -377,7 +377,28 @@ Notable patterns used in the codebase:
 
 ## Deployment
 
-No Dockerfiles, CI workflows, host-specific config files, or release pipelines are checked into this repository. The sections below reflect the deployment paths implied by the current code.
+### Azure DevOps CI pipeline
+
+The repo includes [`azure-pipelines.yml`](./azure-pipelines.yml) for Azure Pipelines.
+
+**What it runs**
+
+| Stage / Job | Steps | Artifact |
+| --- | --- | --- |
+| Build → Web app | `npm ci` → `npm run lint` → `npm run build` | `web-dist` (`dist/`) |
+| Build → Express API | `npm ci` in `server/` → Node syntax check | — |
+| Deploy | Publish `web-dist` to Azure Static Web Apps | — |
+
+**Create the pipeline in Azure DevOps**
+
+1. Push this branch to your Azure Repos (or connect the GitHub repo).
+2. **Pipelines → New pipeline** → select the repo → **Existing Azure Pipelines YAML file** → path `/azure-pipelines.yml`.
+3. **Pipelines → Edit → Variables** (or Library variable group) — add these as **secret**:
+   - Firebase: `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID` (+ optional `VITE_FIREBASE_MEASUREMENT_ID`)
+   - Azure: `AZURE_STATIC_WEB_APPS_API_TOKEN` (Azure Portal → your Static Web App → **Manage deployment token**)
+4. Run the pipeline. Branch builds deploy automatically; PR builds only validate.
+
+Triggers: pushes/PRs to `main`, plus pushes to `codex/*` and `cursor/*`. Deploy stage skips pull-request builds.
 
 ### Web app / PWA
 
@@ -386,7 +407,7 @@ npm install
 npm run build
 ```
 
-Deploy the generated `dist/` folder to any static host that can serve a single-page application. The repository does not include Firebase Hosting, Netlify, Vercel, or nginx config, so routing and caching rules must be supplied by the deployment platform.
+Deploy the generated `dist/` folder (or the pipeline `web-dist` artifact) to any static host that can serve a single-page application. The repository does not include Firebase Hosting, Netlify, Vercel, or nginx config, so routing and caching rules must be supplied by the deployment platform.
 
 ### Browser extension
 

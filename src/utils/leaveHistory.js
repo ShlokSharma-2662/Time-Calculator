@@ -1,7 +1,5 @@
 const STORAGE_KEY = 'leave_history_data';
 
-import { formatDate } from './dateUtils';
-
 export const LEAVE_TYPES = {
     FULL: 'Full Day',
     HALF_1: 'Half Day (1st Half)',
@@ -21,7 +19,7 @@ export const LEAVE_CATEGORIES = {
 };
 
 import { SEED_LEAVE_HISTORY } from '../data/seedHistory';
-import { collection, getDocs, query, orderBy, doc, writeBatch, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { importToFirestore } from './leaveImporter';
 

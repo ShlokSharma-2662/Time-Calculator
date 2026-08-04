@@ -4,7 +4,7 @@ import { LEAVE_TYPES } from '../utils/leaveHistory';
 import { parseAttendanceLogInput } from '../utils/attendanceLogParser';
 
 const LOG_REGEX = /(\d{1,2}:\d{2})\s*(AM|PM)?\s*(IN|OUT)/gi;
-const DATE_REGEX = /(\d{4}-\d{2}-\d{2})|(\d{1,2}[\/-][A-Za-z]{3}[\/-]\d{2,4})|(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/g;
+const DATE_REGEX = /(\d{4}-\d{2}-\d{2})|(\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4})|(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/g;
 
 const detectDate = (logInput) => {
     const parsed = parseAttendanceLogInput(logInput);

@@ -1,7 +1,7 @@
 import { normalizeDate } from './dateUtils';
 
-const DATE_RE = /(\d{4}-\d{2}-\d{2})|(\d{1,2}[\/-][A-Za-z]{3}[\/-]\d{2,4})|(\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})/g;
-const DATE_CELL_RE = /^(?:\d{4}-\d{2}-\d{2}|\d{1,2}[\/-][A-Za-z]{3}[\/-]\d{2,4}|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})$/;
+const DATE_RE = /(\d{4}-\d{2}-\d{2})|(\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4})|(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/g;
+const DATE_CELL_RE = /^(?:\d{4}-\d{2}-\d{2}|\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})$/;
 const TIME_WITH_MERIDIAN_RE = /^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i;
 const TIME_ONLY_RE = /^(\d{1,2}:\d{2})(?:\s*(AM|PM))?$/i;
 const NO_DETAILS_RE = /^No details available$/i;
@@ -113,7 +113,7 @@ function parsePunchLine(line, index) {
         }
     }
 
-    const fallback = line.match(/^\s*(\d{1,2}[\/-][A-Za-z]{3}[\/-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})\s+(\d{1,2}:\d{2}\s*(?:AM|PM))\s+(IN|OUT)\b.+?\b(\d{1,3}(?:\.\d{1,3}){3})\s+(.+?)\s+(\d{1,2}[\/-][A-Za-z]{3}[\/-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})\s+(\d{1,2}:\d{2}\s*(?:AM|PM))(?:\s+(.*))?$/i);
+    const fallback = line.match(/^\s*(\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\s+(\d{1,2}:\d{2}\s*(?:AM|PM))\s+(IN|OUT)\b.+?\b(\d{1,3}(?:\.\d{1,3}){3})\s+(.+?)\s+(\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\s+(\d{1,2}:\d{2}\s*(?:AM|PM))(?:\s+(.*))?$/i);
     if (!fallback) return null;
 
     const [, dateRaw, timeRaw, direction, , machine, swipeDateRaw, , remark = ''] = fallback;
@@ -178,7 +178,7 @@ function parseShortTimeOffLine(line, index) {
         }
     }
 
-    const fallback = line.match(/^\s*(\d{1,2}[\/-][A-Za-z]{3}[\/-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})\s+(\d{1,2}[\/-][A-Za-z]{3}[\/-]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}[\/-]\d{1,2}[\/-]\d{2,4})\s+([A-Za-z ].*?)\s+(\d+)\s*.*$/i);
+    const fallback = line.match(/^\s*(\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\s+(\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4}|\d{4}-\d{2}-\d{2}|\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\s+([A-Za-z ].*?)\s+(\d+)\s*.*$/i);
     if (!fallback) return null;
 
     const [, dateRaw, requestDateRaw, requestTypeRaw, minutesRaw, ...rest] = fallback;

@@ -4,7 +4,7 @@ import {
     Search, Filter, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
     Calendar, Tag, FileText, Cloud, User, Trash2, SlidersHorizontal
 } from 'lucide-react';
-import { getLeaveHistory, removeLeaveFromHistory } from '../utils/leaveHistory';
+import { getLeaveHistory } from '../utils/leaveHistory';
 
 const CATEGORIES = ['All', 'EL', 'CO', 'CF', 'MR', 'PFH', 'WFH'];
 const TYPES = ['All', 'Taken', 'Credit'];

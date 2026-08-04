@@ -15,7 +15,7 @@ export function ELEncashmentCalculator() {
     const [saved, setSaved] = useState(false);
 
     // Use leave balance hook
-    const { current, history, saveBalance, loadFromHistory, deleteHistoryEntry } = useLeaveBalance();
+    const { current, history, saveBalance } = useLeaveBalance();
     const { financialData, isPrivacyMode } = useFinancialSettings();
 
     // Load last saved balance on mount
