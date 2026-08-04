@@ -1,0 +1,107 @@
+trigger:
+  branches:
+    include:
+      - main
+      - develop
+      - release/*
+      - feature/*
+      - codex/*
+
+pr:
+  branches:
+    include:
+      - main
+      - develop
+      - release/*
+      - feature/*
+      - codex/*
+
+variables:
+  NODE_VERSION: "22.x"
+
+stages:
+  - stage: Web
+    displayName: Web App CI
+    jobs:
+      - job: web_build
+        displayName: Build, Test, and Package Web
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+            clean: true
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+            displayName: Use Node.js $(NODE_VERSION)
+          - script: |
+              npm ci
+              npm run test
+              npm run build
+            displayName: Install dependencies, run tests, and build web app
+          - task: PublishPipelineArtifact@1
+            displayName: Publish web build artifact
+            inputs:
+              targetPath: dist
+              artifact: web-dist
+              publishLocation: pipeline
+
+  - stage: Validation
+    displayName: Additional Surface Checks
+    dependsOn: Web
+    jobs:
+      - job: mobile_dependency_check
+        displayName: Validate Mobile Dependencies
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+            clean: true
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+            displayName: Use Node.js $(NODE_VERSION)
+          - script: |
+              cd mobile
+              npm ci
+            displayName: Install mobile dependencies
+          - script: |
+              echo "Note: This project does not include mobile build/test automation in CI today."
+            displayName: Info
+
+      - job: api_smoke_check
+        displayName: Validate Express API Start
+        pool:
+          vmImage: ubuntu-latest
+        steps:
+          - checkout: self
+            clean: true
+          - task: NodeTool@0
+            inputs:
+              versionSpec: $(NODE_VERSION)
+            displayName: Use Node.js $(NODE_VERSION)
+          - script: |
+              cd server
+              npm ci
+              JWT_SECRET="ci-smoke-secret" node server.js > ../server-start.log 2>&1 &
+              SERVER_PID=$!
+              STARTED=0
+
+              for i in {1..30}; do
+                if curl -sf http://127.0.0.1:5000/ > /dev/null; then
+                  STARTED=1
+                  break
+                fi
+                sleep 1
+              done
+
+              if [ "$STARTED" -ne 1 ]; then
+                echo "API health check failed. Server output:"
+                cat ../server-start.log
+                kill $SERVER_PID || true
+                exit 1
+              fi
+
+              echo "API started successfully."
+              kill $SERVER_PID
+            displayName: Install dependencies and run API smoke check
