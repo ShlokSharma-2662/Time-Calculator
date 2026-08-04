@@ -385,6 +385,7 @@ The repo includes [`azure-pipelines.yml`](./azure-pipelines.yml) for Azure Pipel
 | --- | --- | --- |
 | Web app | `npm ci` → `npm run lint` → `npm run build` | `web-dist` (`dist/`) |
 | Express API | `npm ci` in `server/` → Node syntax check | — |
+| Mobile | `npm ci` in `mobile/` → Node syntax check | — |
 
 **Create the pipeline in Azure DevOps**
 
