@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "WorkShift Spine Sync",
-  "version": "1.0.6",
+  "version": "1.0.8",
   "description": "Log into Spine HRI and sync Daily In Out Punch data into WorkShift Calc.",
   "action": {
     "default_popup": "popup.html",

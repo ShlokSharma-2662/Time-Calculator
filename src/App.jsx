@@ -17,6 +17,8 @@ import { UIProvider, useUI } from './context/UIContext';
 import { ShiftStateProvider, useShiftState } from './context/ShiftStateContext';
 import { RefreshCw } from 'lucide-react';
 import { HeroSection } from './components/HeroSection';
+import { detectSpineExtension, requestSpineSync } from './utils/spineExtension';
+import { toSpineDateLabel } from './utils/dateUtils';
 
 const LogAnalyzer = lazy(() => import('./components/LogAnalyzer').then((module) => ({ default: module.LogAnalyzer })));
 const ShiftAnalytics = lazy(() => import('./components/ShiftAnalytics').then((module) => ({ default: module.ShiftAnalytics })));
@@ -26,7 +28,7 @@ const AttendanceLog = lazy(() => import('./components/AttendanceLog').then((modu
 function AppContent() {
   const { user, loading, logout } = useAuth();
   const {
-    showSuccess, toasts, dismissToast,
+    showSuccess, showError, showInfo, toasts, dismissToast,
     confirm, confirmDialog, closeConfirm
   } = useUI();
 
@@ -87,13 +89,45 @@ function AppContent() {
   );
 
   const handleLoadEntryAttempt = (entry) => {
+    const targetDate = entry?.date || null;
+    const spineLabel = targetDate ? toSpineDateLabel(targetDate) : null;
+
     confirm({
       title: "Load Entry?",
-      message: "This will replace your current workspace logs with the data from this historical entry. Any unsaved changes will be lost.",
-      onConfirm: () => {
+      message: spineLabel
+        ? `This will fetch ${spineLabel} from Spine (or fall back to the saved history entry). Current workspace logs will be replaced.`
+        : "This will replace your current workspace logs with the data from this historical entry. Any unsaved changes will be lost.",
+      onConfirm: async () => {
+        setIsHistoryOpen(false);
+
+        if (spineLabel) {
+          showInfo(`Fetching ${spineLabel} from Spine…`);
+          try {
+            const present = await detectSpineExtension();
+            if (present) {
+              const result = await requestSpineSync({ date: targetDate, dateLabel: spineLabel });
+              if (result.ok) {
+                showSuccess(result.message || `Loaded ${spineLabel} from Spine.`);
+                return;
+              }
+              if (result.needsRefresh) {
+                showError(result.message);
+              } else if (result.needsLogin) {
+                showError(result.message || 'Spine login required.');
+              } else {
+                showError(result.message || 'Spine fetch failed — loading saved history instead.');
+              }
+            } else {
+              showInfo('Spine extension not connected — loading saved history.');
+            }
+          } catch (err) {
+            showError(err?.message || 'Spine fetch failed — loading saved history instead.');
+          }
+        }
+
         setStartTime(entry.startTime || "00:00");
         setLogInput(entry.logInput || "");
-        showSuccess('📥 Entry loaded successfully!');
+        showSuccess('📥 Entry loaded from local history.');
       }
     });
   };

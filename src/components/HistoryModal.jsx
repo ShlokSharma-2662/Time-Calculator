@@ -98,11 +98,10 @@ export const HistoryModal = ({ isOpen, onClose, historyEntries, history, onLoadE
                                                         </div>
                                                         <button
                                                             onClick={() => {
-                                                                onLoadEntry(data);
-                                                                showSuccess && showSuccess('📥 Entry loaded successfully!');
-                                                                onClose();
+                                                                // Keep History open until confirm runs; App closes it on proceed.
+                                                                onLoadEntry({ ...data, date });
                                                             }}
-                            className="text-[9px] bg-slate-900/80 text-white px-4 py-2 rounded-xl font-black uppercase tracking-widest hover:bg-indigo-500 transition-all flex items-center gap-2 border border-indigo-400/20 hover:shadow-lg shadow-indigo-500/20"
+                                                            className="text-[9px] bg-slate-900/80 text-white px-4 py-2 rounded-xl font-black uppercase tracking-widest hover:bg-indigo-500 transition-all flex items-center gap-2 border border-indigo-400/20 hover:shadow-lg shadow-indigo-500/20"
                                                         >
                                                             <CornerUpLeft className="w-3.5 h-3.5" /> Load
                                                         </button>

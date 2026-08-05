@@ -43,8 +43,11 @@ export const ConfirmDialog = ({ isOpen, onClose, onConfirm, title, message, type
                             <div className="mt-8 flex flex-col gap-3">
                                 <button
                                     onClick={() => {
-                                        onConfirm();
-                                        onClose();
+                                        try {
+                                          if (typeof onConfirm === 'function') onConfirm();
+                                        } finally {
+                                          onClose();
+                                        }
                                     }}
                                     className={`w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg hover:shadow-xl active:scale-95 ${
                                         type === 'warning' 

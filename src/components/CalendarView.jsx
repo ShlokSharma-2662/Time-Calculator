@@ -42,8 +42,8 @@ export const CalendarView = ({ history, onLoadEntry, onClose }) => {
                 title={holidayName ? `Holiday: ${holidayName}` : ''}
                 onClick={() => {
                     if (hasData) {
-                        onLoadEntry(history[dateStr]);
-                        onClose();
+                        // Keep History open until confirm runs; App closes it on proceed.
+                        onLoadEntry({ ...history[dateStr], date: dateStr });
                     }
                 }}
                 className={`h-12 w-full flex flex-col items-center justify-center rounded-xl relative transition-all border
