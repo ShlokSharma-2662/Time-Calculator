@@ -244,6 +244,8 @@ export const LogAnalyzer = ({ logInput, setLogInput, stats, currentTimeMinutes, 
             if (result.ok) {
                 showSuccess(result.message || 'Synced punches from Spine.');
                 setManualOverride(false);
+            } else if (result.needsRefresh) {
+                showError(result.message || 'Extension was reloaded. Refresh this page, then Sync again.');
             } else if (result.needsLogin) {
                 showError(
                     result.message ||

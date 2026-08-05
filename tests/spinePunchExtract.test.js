@@ -78,6 +78,24 @@ Date\tEntry Time\tIn/Out
     expect(Number(payload.hrmsSyncAt)).toBe(now.getTime());
   });
 
+  it('repairs same-minute In/Out glitches to alternate correctly', () => {
+    const glitched = [
+      '05-Aug-26\t09:06 AM\tIn',
+      '05-Aug-26\t09:07 AM\tIn',
+      '05-Aug-26\t09:07 AM\tOut',
+    ].join('\n');
+
+    const summary = summarizePunchText(glitched);
+    expect(summary.logInput).toBe(
+      [
+        'Daily In Out Punch',
+        '05-Aug-26\t09:06 AM\tIn',
+        '05-Aug-26\t09:07 AM\tOut',
+        '05-Aug-26\t09:07 AM\tIn',
+      ].join('\n'),
+    );
+  });
+
   it('formats Spine date links as dd-MMM-yy', () => {
     expect(formatSpineDate(new Date('2026-08-04T10:00:00'))).toBe('04-Aug-26');
   });

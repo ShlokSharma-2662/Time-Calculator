@@ -4,6 +4,7 @@ import {
   buildCleanAttendanceLog,
   parsePortalSummaryTimes,
   applyParsedLogToEditValues,
+  normalizePunchSequence,
 } from '../src/utils/attendanceLogParser.js';
 
 const samplePopup = `
@@ -168,5 +169,30 @@ Daily In Out Punch
     expect(applied.shortTimeOffMinutes).toBe(90);
     expect(applied.logInput).toContain('Daily In Out Punch');
     expect(applied.logInput).toContain('Short Time-Off');
+  });
+
+  it('repairs glitched same-minute In/Out order from HRMS', () => {
+    const glitched = `
+Daily In Out Punch
+05-Aug-26\t09:06 AM\tIn
+05-Aug-26\t09:07 AM\tIn
+05-Aug-26\t09:07 AM\tOut
+`;
+    const cleaned = buildCleanAttendanceLog(glitched);
+    expect(cleaned).toBe(
+      [
+        'Daily In Out Punch',
+        '2026-08-05\t09:06 AM\tIn',
+        '2026-08-05\t09:07 AM\tOut',
+        '2026-08-05\t09:07 AM\tIn',
+      ].join('\n'),
+    );
+
+    const repaired = normalizePunchSequence([
+      { date: '2026-08-05', minutes: 546, type: 'IN' },
+      { date: '2026-08-05', minutes: 547, type: 'IN' },
+      { date: '2026-08-05', minutes: 547, type: 'OUT' },
+    ]);
+    expect(repaired.map((p) => p.type)).toEqual(['IN', 'OUT', 'IN']);
   });
 });

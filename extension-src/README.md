@@ -6,13 +6,29 @@ This is **not** Playwright. The SPA cannot scrape Spine itself (CORS / cookies);
 
 ## Load unpacked
 
-1. Open Chrome or Edge → Extensions → Developer mode.
-2. **Load unpacked** → select this `extension-src/` folder (not the legacy `extension/` UI bundle).
-3. Keep WorkShift Calc open on an allowed origin:
-   - `http://localhost:5173`
-   - `http://localhost:4173` (preview)
-   - `https://*.firebaseapp.com` / `https://*.web.app`
-4. Click **Sync from Spine** in WorkShift (Log Analyzer) — that alone should sync. You do not need the extension popup for day-to-day use.
+**Important:** select the `extension-src` folder itself (the one that contains `manifest.json`). Do **not** select the repo root or the old `extension/` UI bundle.
+
+1. Open Chrome → `chrome://extensions`
+2. Enable **Developer mode** (top right)
+3. Click **Load unpacked**
+4. Choose: `Time-Calculator/extension-src`
+5. Pin the extension (puzzle icon → pin **WorkShift Spine Sync**)
+6. Click the toolbar icon — the Spine Sync popup should open
+
+If Chrome shows an error under the extension card, open **Errors** and reload after fixing. After updating files, click **Reload** on the extension card.
+
+If load still fails, copy `extension-src` to a path **without spaces** (e.g. `C:\WorkShift\extension-src`) and load that folder — Chrome can mis-handle paths like `Azure DevOps`.
+
+## Use with WorkShift
+
+Keep WorkShift Calc open on an allowed origin:
+
+- `http://localhost:5173`
+- `http://localhost:4173` (preview)
+- `https://time-calculator-2v4o.onrender.com` (production)
+- `https://*.onrender.com` / `https://*.firebaseapp.com` / `https://*.web.app`
+
+Click **Sync from Spine** in WorkShift (Log Analyzer) — that alone should sync. You do not need the extension popup for day-to-day use.
 
 Spine runs in a **pinned background tab** (not focused). The day detail dialog is loaded hidden and closed automatically — you should not see a Spine popup. Focus stays on WorkShift unless login credentials are missing.
 

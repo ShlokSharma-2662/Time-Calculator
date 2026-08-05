@@ -14,7 +14,7 @@ Load **`extension-src/`** (Manifest V3) to sync punches from Spine HRI into Work
 
 1. Open Chrome/Edge extensions → enable Developer mode.
 2. **Load unpacked** → select `extension-src/`.
-3. Open the PWA on an allowed origin (`localhost:5173`, `localhost:4173`, `*.web.app`, `*.firebaseapp.com`).
+3. Open the PWA on an allowed origin (`localhost:5173`, `https://time-calculator-2v4o.onrender.com`, `*.onrender.com`, `*.web.app`, `*.firebaseapp.com`).
 4. Use the extension popup **Sync today**, or the in-app **Sync from Spine** button.
 
 Notes:

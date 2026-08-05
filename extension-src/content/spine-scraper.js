@@ -169,6 +169,93 @@
     return null;
   }
 
+  function parseDoPostBackArgs(anchor) {
+    if (!anchor) return null;
+    const href = anchor.getAttribute('href') || '';
+    const onclick = anchor.getAttribute('onclick') || '';
+    const source = `${href}\n${onclick}`;
+
+    const patterns = [
+      /__doPostBack\s*\(\s*'([^']*)'\s*,\s*'([^']*)'\s*\)/i,
+      /__doPostBack\s*\(\s*"([^"]*)"\s*,\s*"([^"]*)"\s*\)/i,
+      /__doPostBack\s*\(\s*'([^']*)'\s*,\s*"([^"]*)"\s*\)/i,
+      /__doPostBack\s*\(\s*"([^"]*)"\s*,\s*'([^']*)'\s*\)/i,
+    ];
+
+    for (const pattern of patterns) {
+      const match = source.match(pattern);
+      if (match) {
+        return { eventTarget: match[1], eventArgument: match[2] };
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Spine date cells use javascript:__doPostBack(...). Clicking those from a
+   * content script is blocked by Chrome CSP — invoke postback in MAIN world.
+   */
+  async function openDayDetails(anchor) {
+    const postback = parseDoPostBackArgs(anchor);
+    if (postback) {
+      const response = await new Promise((resolve) => {
+        try {
+          chrome.runtime.sendMessage(
+            {
+              type: 'SPINE_INVOKE_POSTBACK',
+              eventTarget: postback.eventTarget,
+              eventArgument: postback.eventArgument,
+            },
+            (result) => {
+              const err = chrome.runtime.lastError;
+              if (err) {
+                resolve({ ok: false, message: err.message });
+                return;
+              }
+              resolve(result || { ok: false, message: 'No postback response.' });
+            },
+          );
+        } catch (err) {
+          resolve({ ok: false, message: err?.message || String(err) });
+        }
+      });
+
+      if (!response?.ok) {
+        return {
+          ok: false,
+          message: response?.message || 'Failed to open attendance day via postback.',
+        };
+      }
+      return { ok: true, method: 'postback' };
+    }
+
+    const href = (anchor.getAttribute('href') || '').trim();
+    if (href && !/^javascript:/i.test(href)) {
+      try {
+        anchor.click();
+        return { ok: true, method: 'click' };
+      } catch (err) {
+        return { ok: false, message: err?.message || String(err) };
+      }
+    }
+
+    // Last resort: dispatch a trusted-looking click without following javascript: href
+    try {
+      const onclick = anchor.onclick;
+      if (typeof onclick === 'function') {
+        onclick.call(anchor, new MouseEvent('click', { bubbles: true, cancelable: true }));
+        return { ok: true, method: 'onclick' };
+      }
+    } catch {
+      // ignore
+    }
+
+    return {
+      ok: false,
+      message: 'Date link uses a blocked javascript: URL and no __doPostBack args were found.',
+    };
+  }
+
   async function ensureOnReport() {
     const url = (location.href || '').toLowerCase();
     if (url.includes('myattendancereport')) return true;
@@ -226,8 +313,11 @@
         };
       }
 
-      // Trigger day load silently (popup is CSS-hidden), then close it.
-      anchor.click();
+      const opened = await openDayDetails(anchor);
+      if (!opened.ok) {
+        return opened;
+      }
+
       await sleep(900);
       await waitFor(
         () => (document.body?.innerText || '').includes('Daily In Out Punch'),
@@ -263,6 +353,22 @@
 
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || typeof message !== 'object') return undefined;
+
+    try {
+      if (!chrome.runtime?.id) {
+        sendResponse({
+          ok: false,
+          message: 'Extension was reloaded. Refresh Spine/WorkShift tabs, then Sync again.',
+        });
+        return false;
+      }
+    } catch {
+      sendResponse({
+        ok: false,
+        message: 'Extension was reloaded. Refresh Spine/WorkShift tabs, then Sync again.',
+      });
+      return false;
+    }
 
     if (message.type === 'SPINE_PING') {
       sendResponse({ ok: true, url: location.href });

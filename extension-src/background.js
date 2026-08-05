@@ -1,4 +1,7 @@
-import { buildHrmsSyncPayload, formatSpineDate } from './lib/extractPunches.js';
+/* global SpineExtract, importScripts */
+importScripts('lib/extractPunches.js');
+
+const { buildHrmsSyncPayload, formatSpineDate } = SpineExtract;
 
 const SPINE_HOME = 'https://rysun.spinehri.in/';
 const SPINE_REPORT =
@@ -11,6 +14,8 @@ const PWA_URL_PATTERNS = [
   /^http:\/\/127\.0\.0\.1:4173\//i,
   /^https:\/\/[^/]+\.firebaseapp\.com\//i,
   /^https:\/\/[^/]+\.web\.app\//i,
+  /^https:\/\/time-calculator-2v4o\.onrender\.com\//i,
+  /^https:\/\/[^/]+\.onrender\.com\//i,
 ];
 
 function sleep(ms) {
@@ -121,16 +126,41 @@ async function waitForTabComplete(tabId, timeoutMs = 45000) {
 }
 
 async function sendToTab(tabId, message) {
+  const trySend = async () => chrome.tabs.sendMessage(tabId, message);
+
   try {
-    return await chrome.tabs.sendMessage(tabId, message);
-  } catch {
-    // Content script may not be injected yet (e.g. fresh navigation)
-    await chrome.scripting.executeScript({
-      target: { tabId },
-      files: ['content/spine-scraper.js'],
-    });
-    await sleep(200);
-    return chrome.tabs.sendMessage(tabId, message);
+    return await trySend();
+  } catch (firstErr) {
+    // Content script may not be injected yet, or bfcache closed the port.
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: message.type?.startsWith('WRITE_') || message.type === 'PWA_PING' || message.type === 'CLEAR_HRMS_SYNC'
+          ? ['content/pwa-bridge.js']
+          : ['content/spine-scraper.js'],
+      });
+    } catch {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['content/spine-scraper.js'],
+      });
+    }
+    await sleep(250);
+    try {
+      return await trySend();
+    } catch (secondErr) {
+      const text = String(secondErr?.message || firstErr?.message || secondErr);
+      if (
+        text.toLowerCase().includes('back/forward cache') ||
+        text.toLowerCase().includes('message channel is closed')
+      ) {
+        // Nudge the tab awake without stealing focus, then retry once more.
+        await chrome.tabs.update(tabId, { active: false }).catch(() => null);
+        await sleep(400);
+        return trySend();
+      }
+      throw secondErr;
+    }
   }
 }
 
@@ -273,6 +303,47 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .create({ url: SPINE_HOME, active: true })
       .then(() => sendResponse({ ok: true }))
       .catch((err) => sendResponse({ ok: false, message: err?.message || String(err) }));
+    return true;
+  }
+
+  if (message.type === 'SPINE_INVOKE_POSTBACK') {
+    const tabId = _sender?.tab?.id;
+    if (!tabId) {
+      sendResponse({ ok: false, message: 'Missing Spine tab for postback.' });
+      return false;
+    }
+
+    const eventTarget = String(message.eventTarget ?? '');
+    const eventArgument = String(message.eventArgument ?? '');
+
+    chrome.scripting
+      .executeScript({
+        target: { tabId },
+        world: 'MAIN',
+        func: (target, argument) => {
+          try {
+            if (typeof window.__doPostBack === 'function') {
+              window.__doPostBack(target, argument);
+              return { ok: true };
+            }
+            if (typeof __doPostBack === 'function') {
+              __doPostBack(target, argument);
+              return { ok: true };
+            }
+            return { ok: false, message: '__doPostBack is not available on this page.' };
+          } catch (err) {
+            return { ok: false, message: err?.message || String(err) };
+          }
+        },
+        args: [eventTarget, eventArgument],
+      })
+      .then((results) => {
+        const value = results?.[0]?.result;
+        sendResponse(value && typeof value === 'object' ? value : { ok: false, message: 'Postback failed.' });
+      })
+      .catch((err) => {
+        sendResponse({ ok: false, message: err?.message || String(err) });
+      });
     return true;
   }
 

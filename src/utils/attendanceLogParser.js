@@ -218,6 +218,70 @@ function extractDetectedDate(lines) {
     return null;
 }
 
+function punchTypeKey(type) {
+    const value = String(type || '').trim().toUpperCase();
+    if (value === 'IN') return 'IN';
+    if (value === 'OUT') return 'OUT';
+    return value;
+}
+
+/**
+ * Repair glitched HRMS punch order (common same-minute In/Out swaps).
+ * Keeps source order across different times (needed for overnight wraps).
+ * Within a consecutive same-timestamp cluster, prefers In/Out alternation.
+ *
+ * Example glitch:
+ *   In 09:06, In 09:07, Out 09:07  →  In 09:06, Out 09:07, In 09:07
+ */
+export function normalizePunchSequence(punches) {
+    if (!Array.isArray(punches) || punches.length <= 1) return punches || [];
+
+    const result = [];
+    let expectIn = true;
+    let cursor = 0;
+
+    while (cursor < punches.length) {
+        const current = punches[cursor];
+        const currentDate = String(current.date || '');
+        const currentMinutes = Number.isFinite(current.minutes) ? current.minutes : null;
+
+        let end = cursor + 1;
+        while (end < punches.length) {
+            const next = punches[end];
+            const nextDate = String(next.date || '');
+            const nextMinutes = Number.isFinite(next.minutes) ? next.minutes : null;
+            if (nextDate !== currentDate || nextMinutes !== currentMinutes) break;
+            end += 1;
+        }
+
+        const cluster = punches.slice(cursor, end).map((punch, offset) => ({
+            punch,
+            index: cursor + offset,
+            type: punchTypeKey(punch.type),
+        }));
+
+        if (cluster.length === 1) {
+            result.push(cluster[0].punch);
+            expectIn = cluster[0].type === 'OUT';
+        } else {
+            const remaining = cluster.slice();
+            let wantIn = expectIn;
+            while (remaining.length) {
+                const want = wantIn ? 'IN' : 'OUT';
+                const pickAt = remaining.findIndex((item) => item.type === want);
+                const chosen = pickAt >= 0 ? remaining.splice(pickAt, 1)[0] : remaining.shift();
+                result.push(chosen.punch);
+                wantIn = chosen.type === 'OUT';
+            }
+            expectIn = wantIn;
+        }
+
+        cursor = end;
+    }
+
+    return result;
+}
+
 function daysBetweenIso(startDate, endDate) {
     if (!startDate || !endDate) return 0;
     const startMs = Date.parse(`${startDate}T00:00:00Z`);
@@ -410,7 +474,8 @@ export function parseAttendanceLogInput(rawText) {
     });
 
     const detectedDate = extractDetectedDate(lines) || null;
-    const parsed = buildSessionStats(punchRows);
+    const normalizedPunches = normalizePunchSequence(punchRows);
+    const parsed = buildSessionStats(normalizedPunches);
 
     const shortTimeOffMinutes = shortTimeOffEntries.reduce((total, row) => total + (Number(row.minutes) || 0), 0);
 
@@ -441,17 +506,14 @@ export function buildCleanAttendanceLog(rawTextOrParsed) {
     const lines = [];
     if (parsed.events?.length) {
         lines.push('Daily In Out Punch');
-        parsed.events
-            .slice()
-            .sort((a, b) => {
-                if (a.date !== b.date) return a.date.localeCompare(b.date);
-                return (a.minutes || 0) - (b.minutes || 0);
-            })
-            .forEach((event) => {
+        // Keep parser order (already time-sorted + same-minute In/Out repaired).
+        // Do not re-sort by minutes alone — that can reshuffle same-timestamp rows.
+        parsed.events.forEach((event) => {
                 const time = event.rawTime || event.time24 || event.displayTime || '00:00';
                 const machine = cleanText(event.machine || '');
                 const machineSuffix = machine ? `\t${machine}` : '';
-                lines.push(`${event.date}\t${time}\t${event.type}${machineSuffix}`);
+                const direction = punchTypeKey(event.type) === 'IN' ? 'In' : 'Out';
+                lines.push(`${event.date}\t${time}\t${direction}${machineSuffix}`);
             });
     }
 
