@@ -137,6 +137,60 @@ export function extractPunchTextFromPlainText(text) {
 }
 
 /**
+ * Repair glitched HRMS punch order (common same-minute In/Out swaps).
+ * Keeps source order across different times; only reorders consecutive
+ * same-timestamp clusters for In/Out alternation.
+ */
+export function normalizePunchSequence(entries) {
+  if (!Array.isArray(entries) || entries.length <= 1) return entries || [];
+
+  const result = [];
+  let expectIn = true;
+  let cursor = 0;
+
+  while (cursor < entries.length) {
+    const current = entries[cursor];
+    const currentDate = String(current.date || '');
+    const currentMinutes = Number.isFinite(current.minutes) ? current.minutes : null;
+
+    let end = cursor + 1;
+    while (end < entries.length) {
+      const next = entries[end];
+      const nextDate = String(next.date || '');
+      const nextMinutes = Number.isFinite(next.minutes) ? next.minutes : null;
+      if (nextDate !== currentDate || nextMinutes !== currentMinutes) break;
+      end += 1;
+    }
+
+    const cluster = entries.slice(cursor, end).map((entry, offset) => ({
+      entry,
+      index: cursor + offset,
+      type: String(entry.type || '').trim().toUpperCase() === 'OUT' ? 'OUT' : 'IN',
+    }));
+
+    if (cluster.length === 1) {
+      result.push(cluster[0].entry);
+      expectIn = cluster[0].type === 'OUT';
+    } else {
+      const remaining = cluster.slice();
+      let wantIn = expectIn;
+      while (remaining.length) {
+        const want = wantIn ? 'IN' : 'OUT';
+        const pickAt = remaining.findIndex((item) => item.type === want);
+        const chosen = pickAt >= 0 ? remaining.splice(pickAt, 1)[0] : remaining.shift();
+        result.push(chosen.entry);
+        wantIn = chosen.type === 'OUT';
+      }
+      expectIn = wantIn;
+    }
+
+    cursor = end;
+  }
+
+  return result;
+}
+
+/**
  * Parse punch lines into first/last times, break minutes, punch count.
  * @param {string} punchText
  */
@@ -145,10 +199,11 @@ export function summarizePunchText(punchText) {
   for (const line of String(punchText || '').split(/\r?\n/)) {
     const match = line.trim().match(PUNCH_ROW_RE);
     if (!match) continue;
+    const typeRaw = match[3][0].toUpperCase() + match[3].slice(1).toLowerCase();
     entries.push({
       date: match[1].trim(),
       time: match[2].trim(),
-      type: match[3][0].toUpperCase() + match[3].slice(1).toLowerCase(),
+      type: typeRaw === 'Out' ? 'Out' : 'In',
       minutes: parseClockToMinutes(match[2].trim()),
     });
   }
@@ -165,13 +220,15 @@ export function summarizePunchText(punchText) {
     };
   }
 
-  const selectedDate = entries[0].date;
-  const firstInEntry = entries.find((e) => e.type === 'In');
-  const lastOutEntry = [...entries].reverse().find((e) => e.type === 'Out') || entries[entries.length - 1];
+  const normalized = normalizePunchSequence(entries);
+
+  const selectedDate = normalized[0].date;
+  const firstInEntry = normalized.find((e) => e.type === 'In');
+  const lastOutEntry = [...normalized].reverse().find((e) => e.type === 'Out') || normalized[normalized.length - 1];
 
   let breakMinutes = 0;
   let lastOutAt = null;
-  for (const entry of entries) {
+  for (const entry of normalized) {
     if (entry.type === 'Out') {
       lastOutAt = entry.minutes;
     } else if (entry.type === 'In' && lastOutAt != null && entry.minutes != null) {
@@ -181,7 +238,7 @@ export function summarizePunchText(punchText) {
     }
   }
 
-  const logInput = `Daily In Out Punch\n${entries
+  const logInput = `Daily In Out Punch\n${normalized
     .map((e) => `${e.date}\t${e.time}\t${e.type}`)
     .join('\n')}`;
 
@@ -190,7 +247,7 @@ export function summarizePunchText(punchText) {
     firstIn: firstInEntry?.time || '',
     lastOut: lastOutEntry?.time || '',
     breakMinutes,
-    punchCount: entries.length,
+    punchCount: normalized.length,
     startTime24: firstInEntry ? minutesTo24h(firstInEntry.minutes) : '',
     logInput,
   };
