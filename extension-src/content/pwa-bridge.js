@@ -40,7 +40,7 @@
     'hrmsSource',
   ];
 
-  const EXTENSION_VERSION = '1.0.8';
+  const EXTENSION_VERSION = '1.0.9';
   const REFRESH_HINT =
     'Extension was reloaded. Refresh this page, then click Sync again.';
 
@@ -78,6 +78,7 @@
     return (
       text.includes('back/forward cache') ||
       text.includes('message channel is closed') ||
+      text.includes('asynchronous response') ||
       text.includes('receiving end does not exist') ||
       text.includes('could not establish connection')
     );
@@ -249,7 +250,14 @@
       if (last?.needsRefresh || isContextInvalidatedError(last?.message)) {
         return { ok: false, message: REFRESH_HINT, needsRefresh: true };
       }
-      if (last?.ok || !isTransientChannelError(last?.message)) {
+      // Chrome warns when an async listener's port dies mid-flight; treat as retryable.
+      if (
+        last?.ok ||
+        (!isTransientChannelError(last?.message) &&
+          !String(last?.message || '')
+            .toLowerCase()
+            .includes('asynchronous response'))
+      ) {
         return last;
       }
       await sleep(250 * (i + 1));

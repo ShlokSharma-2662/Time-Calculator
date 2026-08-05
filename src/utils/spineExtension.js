@@ -14,6 +14,7 @@ function isTransientChannelError(message) {
   return (
     text.includes('back/forward cache') ||
     text.includes('message channel is closed') ||
+    text.includes('asynchronous response') ||
     text.includes('extension context invalidated') ||
     text.includes('receiving end does not exist') ||
     text.includes('could not establish connection')

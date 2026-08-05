@@ -256,11 +256,18 @@
     };
   }
 
-  async function ensureOnReport() {
+  /**
+   * Do not navigate immediately — that closes the message channel before
+   * sendResponse can run. Return a navigateTo URL; the listener replies first.
+   */
+  function ensureOnReport() {
     const url = (location.href || '').toLowerCase();
-    if (url.includes('myattendancereport')) return true;
-    location.href = REPORT_URL;
-    return false;
+    if (url.includes('myattendancereport')) return { stayed: true };
+    return {
+      stayed: false,
+      navigateTo: REPORT_URL,
+      message: 'Loading attendance report…',
+    };
   }
 
   async function scrapeToday(options = {}) {
@@ -271,8 +278,12 @@
       if (isLoginPage()) {
         const loginResult = await attemptLogin(credentials);
         if (!loginResult.ok) return loginResult;
-        location.href = REPORT_URL;
-        return { ok: false, navigating: true, message: 'Logged in — loading attendance…' };
+        return {
+          ok: false,
+          navigating: true,
+          navigateTo: REPORT_URL,
+          message: 'Logged in — loading attendance…',
+        };
       }
 
       if (
@@ -293,9 +304,14 @@
       }
 
       if (!(location.href || '').toLowerCase().includes('myattendancereport')) {
-        const stayed = await ensureOnReport();
-        if (!stayed) {
-          return { ok: false, navigating: true, message: 'Loading attendance report…' };
+        const report = ensureOnReport();
+        if (!report.stayed) {
+          return {
+            ok: false,
+            navigating: true,
+            navigateTo: report.navigateTo,
+            message: report.message,
+          };
         }
       }
 
@@ -360,19 +376,48 @@
     }
   }
 
+  function safeSendResponse(sendResponse, payload) {
+    try {
+      sendResponse(payload);
+      return true;
+    } catch {
+      // Channel already closed (navigation / bfcache / extension reload).
+      return false;
+    }
+  }
+
+  function replyThenNavigate(sendResponse, result) {
+    const navigateTo = result?.navigateTo || null;
+    const payload = { ...result };
+    delete payload.navigateTo;
+
+    safeSendResponse(sendResponse, payload);
+
+    if (navigateTo) {
+      // Defer so the response can leave before unload tears down the port.
+      window.setTimeout(() => {
+        try {
+          location.href = navigateTo;
+        } catch {
+          // ignore
+        }
+      }, 60);
+    }
+  }
+
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     if (!message || typeof message !== 'object') return undefined;
 
     try {
       if (!chrome.runtime?.id) {
-        sendResponse({
+        safeSendResponse(sendResponse, {
           ok: false,
           message: 'Extension was reloaded. Refresh Spine/WorkShift tabs, then Sync again.',
         });
         return false;
       }
     } catch {
-      sendResponse({
+      safeSendResponse(sendResponse, {
         ok: false,
         message: 'Extension was reloaded. Refresh Spine/WorkShift tabs, then Sync again.',
       });
@@ -380,7 +425,7 @@
     }
 
     if (message.type === 'SPINE_PING') {
-      sendResponse({ ok: true, url: location.href });
+      safeSendResponse(sendResponse, { ok: true, url: location.href });
       return false;
     }
 
@@ -389,9 +434,9 @@
         credentials: message.credentials || null,
         dateLabel: message.dateLabel || null,
       })
-        .then((result) => sendResponse(result))
+        .then((result) => replyThenNavigate(sendResponse, result))
         .catch((err) =>
-          sendResponse({
+          safeSendResponse(sendResponse, {
             ok: false,
             message: err?.message || String(err),
           }),

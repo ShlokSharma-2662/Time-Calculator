@@ -125,6 +125,25 @@ async function waitForTabComplete(tabId, timeoutMs = 45000) {
   });
 }
 
+function isChannelClosedError(err) {
+  const text = String(err?.message || err || '').toLowerCase();
+  return (
+    text.includes('message channel is closed') ||
+    text.includes('asynchronous response') ||
+    text.includes('back/forward cache') ||
+    text.includes('receiving end does not exist') ||
+    text.includes('could not establish connection')
+  );
+}
+
+function safeSendResponse(sendResponse, payload) {
+  try {
+    sendResponse(payload);
+  } catch {
+    // Popup closed or port already gone — ignore.
+  }
+}
+
 async function sendToTab(tabId, message) {
   const trySend = async () => chrome.tabs.sendMessage(tabId, message);
 
@@ -149,15 +168,13 @@ async function sendToTab(tabId, message) {
     try {
       return await trySend();
     } catch (secondErr) {
-      const text = String(secondErr?.message || firstErr?.message || secondErr);
-      if (
-        text.toLowerCase().includes('back/forward cache') ||
-        text.toLowerCase().includes('message channel is closed')
-      ) {
-        // Nudge the tab awake without stealing focus, then retry once more.
-        await chrome.tabs.update(tabId, { active: false }).catch(() => null);
-        await sleep(400);
-        return trySend();
+      if (isChannelClosedError(secondErr) || isChannelClosedError(firstErr)) {
+        // Treat as in-flight navigation — caller waits and retries.
+        return {
+          ok: false,
+          navigating: true,
+          message: 'Spine tab navigated during scrape — retrying…',
+        };
       }
       throw secondErr;
     }
@@ -234,11 +251,22 @@ async function syncDate(dateLabel) {
   let tab = await ensureSpineTab();
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
-    const result = await sendToTab(tab.id, {
-      type: 'SPINE_SCRAPE_TODAY',
-      credentials,
-      dateLabel: label,
-    });
+    let result;
+    try {
+      result = await sendToTab(tab.id, {
+        type: 'SPINE_SCRAPE_TODAY',
+        credentials,
+        dateLabel: label,
+      });
+    } catch (err) {
+      if (isChannelClosedError(err)) {
+        await waitForTabComplete(tab.id).catch(() => null);
+        await sleep(800);
+        tab = await chrome.tabs.get(tab.id);
+        continue;
+      }
+      return { ok: false, message: err?.message || String(err) };
+    }
 
     if (result?.ok && result.punchText) {
       const payload = buildHrmsSyncPayload(result.punchText);
@@ -259,7 +287,7 @@ async function syncDate(dateLabel) {
       };
     }
 
-    if (result?.navigating) {
+    if (result?.navigating || isChannelClosedError(result?.message)) {
       await waitForTabComplete(tab.id).catch(() => null);
       await sleep(800);
       tab = await chrome.tabs.get(tab.id);
@@ -282,15 +310,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || typeof message !== 'object') return undefined;
 
   if (message.type === 'EXTENSION_PING') {
-    sendResponse({ ok: true, name: 'WorkShift Spine Sync' });
+    safeSendResponse(sendResponse, { ok: true, name: 'WorkShift Spine Sync' });
     return false;
   }
 
   if (message.type === 'SYNC_TODAY' || message.type === 'SYNC_DATE') {
     syncDate(message.dateLabel || null)
-      .then((result) => sendResponse(result))
+      .then((result) => safeSendResponse(sendResponse, result))
       .catch((err) =>
-        sendResponse({
+        safeSendResponse(sendResponse, {
           ok: false,
           message: err?.message || String(err),
         }),
@@ -301,15 +329,17 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message.type === 'OPEN_SPINE') {
     chrome.tabs
       .create({ url: SPINE_HOME, active: true })
-      .then(() => sendResponse({ ok: true }))
-      .catch((err) => sendResponse({ ok: false, message: err?.message || String(err) }));
+      .then(() => safeSendResponse(sendResponse, { ok: true }))
+      .catch((err) =>
+        safeSendResponse(sendResponse, { ok: false, message: err?.message || String(err) }),
+      );
     return true;
   }
 
   if (message.type === 'SPINE_INVOKE_POSTBACK') {
     const tabId = _sender?.tab?.id;
     if (!tabId) {
-      sendResponse({ ok: false, message: 'Missing Spine tab for postback.' });
+      safeSendResponse(sendResponse, { ok: false, message: 'Missing Spine tab for postback.' });
       return false;
     }
 
@@ -339,10 +369,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       })
       .then((results) => {
         const value = results?.[0]?.result;
-        sendResponse(value && typeof value === 'object' ? value : { ok: false, message: 'Postback failed.' });
+        safeSendResponse(
+          sendResponse,
+          value && typeof value === 'object' ? value : { ok: false, message: 'Postback failed.' },
+        );
       })
       .catch((err) => {
-        sendResponse({ ok: false, message: err?.message || String(err) });
+        safeSendResponse(sendResponse, { ok: false, message: err?.message || String(err) });
       });
     return true;
   }
@@ -351,12 +384,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     chrome.storage.local
       .get(['lastSyncAt', 'lastHrmsPayload', 'spineSaveCredentials', 'spineUsername'])
       .then((data) =>
-        sendResponse({
+        safeSendResponse(sendResponse, {
           ok: true,
           lastSyncAt: data.lastSyncAt || null,
           lastPayload: data.lastHrmsPayload || null,
           credentialsSaved: Boolean(data.spineSaveCredentials && data.spineUsername),
         }),
+      )
+      .catch((err) =>
+        safeSendResponse(sendResponse, { ok: false, message: err?.message || String(err) }),
       );
     return true;
   }
