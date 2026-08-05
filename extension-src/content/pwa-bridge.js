@@ -40,7 +40,7 @@
     'hrmsSource',
   ];
 
-  const EXTENSION_VERSION = '1.0.6';
+  const EXTENSION_VERSION = '1.0.8';
   const REFRESH_HINT =
     'Extension was reloaded. Refresh this page, then click Sync again.';
 
@@ -258,12 +258,13 @@
     return last;
   }
 
-  async function handlePageSyncRequest(requestId) {
+  async function handlePageSyncRequest(requestId, dateLabel) {
     try {
       const result = await runtimeSendMessageWithRetry({
         type: 'SYNC_TODAY',
         source: 'pwa',
         requestId: requestId || null,
+        dateLabel: dateLabel || null,
       });
 
       window.postMessage(
@@ -343,7 +344,7 @@
         );
         return;
       }
-      handlePageSyncRequest(data.requestId || null);
+      handlePageSyncRequest(data.requestId || null, data.dateLabel || null);
     }
   }
 

@@ -283,10 +283,11 @@
       }
 
       enableSilentUi();
+      closeDayPopup();
 
-      // Reuse data already in DOM (no click).
+      // Reuse open popup only when it already contains the requested date.
       let punchText = extractPunchTextFromDocument(document);
-      if (punchText.trim()) {
+      if (punchText.trim() && punchText.includes(dateLabel)) {
         closeDayPopup();
         return { ok: true, punchText, dateLabel, reused: true };
       }
@@ -336,7 +337,15 @@
       if (!punchText.trim()) {
         return {
           ok: false,
-          message: 'No Daily In Out Punch rows were found for today.',
+          message: `No Daily In Out Punch rows were found for ${dateLabel}.`,
+        };
+      }
+
+      // Guard against wrong-day payload if Spine returned another date's modal.
+      if (!punchText.includes(dateLabel)) {
+        return {
+          ok: false,
+          message: `Spine returned punches that do not match ${dateLabel}. Try again.`,
         };
       }
 

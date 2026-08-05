@@ -3,6 +3,8 @@
  * Retries when Chrome bfcache closes the extension message channel.
  */
 
+import { toSpineDateLabel } from './dateUtils.js';
+
 function createRequestId() {
   return `ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
@@ -58,7 +60,8 @@ export function detectSpineExtension(timeoutMs = 800) {
   });
 }
 
-function requestSpineSyncOnce(timeoutMs = 90000) {
+function requestSpineSyncOnce(options = {}, timeoutMs = 90000) {
+  const dateLabel = options.dateLabel || null;
   return new Promise((resolve) => {
     const requestId = createRequestId();
     let settled = false;
@@ -97,24 +100,38 @@ function requestSpineSyncOnce(timeoutMs = 90000) {
     }, timeoutMs);
 
     window.addEventListener('message', onMessage);
-    window.postMessage({ type: 'WORKSHIFT_SPINE_SYNC', requestId }, '*');
+    window.postMessage(
+      {
+        type: 'WORKSHIFT_SPINE_SYNC',
+        requestId,
+        dateLabel,
+      },
+      '*',
+    );
   });
 }
 
 /**
  * Ask the extension to scrape Spine and write HRMS localStorage keys.
- * Retries once or twice if Chrome closed the port due to bfcache.
+ * @param {{ date?: string|Date, dateLabel?: string }} [options]
+ *        `date` can be YYYY-MM-DD or Date; `dateLabel` is Spine dd-MMM-yy.
  * @returns {Promise<{ ok: boolean, message?: string, needsLogin?: boolean, wrote?: boolean }>}
  */
-export async function requestSpineSync() {
+export async function requestSpineSync(options = {}) {
   if (typeof window === 'undefined') {
     return { ok: false, message: 'Not in a browser context.' };
+  }
+
+  let dateLabel = options.dateLabel || null;
+  if (!dateLabel && options.date) {
+    dateLabel = toSpineDateLabel(options.date);
   }
 
   // Ensure the bridge is awake after bfcache / tab sleep.
   await detectSpineExtension(500);
 
-  let last = await requestSpineSyncOnce();
+  const syncOptions = { dateLabel };
+  let last = await requestSpineSyncOnce(syncOptions);
   for (let attempt = 0; attempt < 2 && !last.ok && isTransientChannelError(last.message); attempt += 1) {
     await wait(400 * (attempt + 1));
     // Clear stale marker so detect re-pings the content script.
@@ -122,7 +139,7 @@ export async function requestSpineSync() {
       window.__WORKSHIFT_SPINE_EXTENSION__.present = false;
     }
     await detectSpineExtension(800);
-    last = await requestSpineSyncOnce();
+    last = await requestSpineSyncOnce(syncOptions);
   }
 
   if (!last.ok && isTransientChannelError(last.message)) {

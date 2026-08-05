@@ -226,18 +226,18 @@ async function writePayloadToPwaTabs(payload) {
 }
 
 /**
- * Orchestrate Spine scrape with a few navigation retries (login redirect / report open).
+ * Orchestrate Spine scrape for a specific date (dd-MMM-yy), defaulting to today.
  */
-async function syncToday() {
+async function syncDate(dateLabel) {
   const credentials = await getStoredCredentials();
-  const dateLabel = formatSpineDate(new Date());
+  const label = dateLabel || formatSpineDate(new Date());
   let tab = await ensureSpineTab();
 
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const result = await sendToTab(tab.id, {
       type: 'SPINE_SCRAPE_TODAY',
       credentials,
-      dateLabel,
+      dateLabel: label,
     });
 
     if (result?.ok && result.punchText) {
@@ -268,7 +268,7 @@ async function syncToday() {
 
     return {
       ok: false,
-      message: result?.message || 'Spine scrape failed.',
+      message: result?.message || `Spine scrape failed for ${label}.`,
     };
   }
 
@@ -286,8 +286,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return false;
   }
 
-  if (message.type === 'SYNC_TODAY') {
-    syncToday()
+  if (message.type === 'SYNC_TODAY' || message.type === 'SYNC_DATE') {
+    syncDate(message.dateLabel || null)
       .then((result) => sendResponse(result))
       .catch((err) =>
         sendResponse({
