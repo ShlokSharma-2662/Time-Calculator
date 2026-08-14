@@ -1,55 +1,18 @@
-import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ClipboardList,
     Trash2,
     Copy,
     Timer,
-    CalendarDays,
-    Link2,
-    PencilLine,
     CheckCircle2,
     ArrowRight,
     MapPin,
-    Activity,
-    RefreshCw,
-    DownloadCloud
+    Activity
 } from 'lucide-react';
 import { Timeline } from './Timeline';
 import { GlassCard } from './GlassCard';
 import { useUI } from '../context/UIContext';
 import { parseAttendanceLogInput, buildCleanAttendanceLog } from '../utils/attendanceLogParser';
-import { detectSpineExtension, requestSpineSync } from '../utils/spineExtension';
-
-const MONTHS = {
-    Jan: 'January',
-    Feb: 'February',
-    Mar: 'March',
-    Apr: 'April',
-    May: 'May',
-    Jun: 'June',
-    Jul: 'July',
-    Aug: 'August',
-    Sep: 'September',
-    Oct: 'October',
-    Nov: 'November',
-    Dec: 'December',
-};
-
-function formatHrmsDate(value) {
-    const match = String(value || '').match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
-    if (!match) return value || '—';
-    const year = 2000 + Number(match[3]);
-    const month = MONTHS[match[2]] || match[2];
-    return `${Number(match[1])} ${month} ${year}`;
-}
-
-function formatSyncTime(epochMs) {
-    if (!epochMs) return '';
-    const date = new Date(epochMs);
-    if (Number.isNaN(date.getTime())) return '';
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
 
 function formatMinutes(totalMinutes) {
     const value = Math.max(0, Math.floor(Number(totalMinutes) || 0));
@@ -63,82 +26,6 @@ function formatPunchDuration(totalMinutes) {
     const hours = Math.floor(value / 60);
     const minutes = value % 60;
     return `${hours > 0 ? `${hours}h ` : ''}${minutes}m`;
-}
-
-function HrmsSummaryPanel({ hrmsSync, manualOverride, setManualOverride }) {
-    if (!hrmsSync?.selectedDate && !hrmsSync?.syncedAt) return null;
-
-    const status = hrmsSync.status || (hrmsSync.isToday ? 'today' : 'past');
-    const statusMeta = status === 'today'
-        ? { text: 'Today • Live', color: 'bg-emerald-500/15 text-emerald-200 border-emerald-400/35' }
-        : status === 'future'
-            ? { text: 'Upcoming', color: 'bg-sky-500/15 text-sky-200 border-sky-400/35' }
-            : { text: 'Past day', color: 'bg-amber-500/15 text-amber-200 border-amber-400/35' };
-
-    return (
-        <div className="mb-6 rounded-[1.3rem] border border-indigo-500/25 bg-gradient-to-br from-indigo-500/10 via-slate-900/10 to-violet-500/10 p-5">
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <div className="flex items-center gap-2 text-indigo-300 mb-1">
-                        <CalendarDays className="w-4 h-4" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em]">HRMS Sync</span>
-                    </div>
-                    <p className="text-lg font-black text-slate-100">
-                        {formatHrmsDate(hrmsSync.selectedDate)}
-                    </p>
-                    <p className="text-[11px] text-slate-300/90 font-bold">
-                        {hrmsSync.syncedAt ? `Synced at ${formatSyncTime(hrmsSync.syncedAt)}` : 'Waiting for a synced attendance day'}
-                    </p>
-                </div>
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-[0.16em] border ${statusMeta.color}`}>
-                    {statusMeta.text}
-                </span>
-            </div>
-
-            {hrmsSync.hasData ? (
-                <>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-                        <div className="rounded-2xl bg-slate-900/45 border border-slate-200/10 p-3">
-                            <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Day Start</p>
-                            <p className="text-xl font-black tabular-nums text-slate-100">{hrmsSync.firstIn || '—'}</p>
-                        </div>
-                        <div className="rounded-2xl bg-slate-900/45 border border-slate-200/10 p-3">
-                            <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Day End</p>
-                            <p className="text-xl font-black tabular-nums text-slate-100">{hrmsSync.lastOut || '—'}</p>
-                        </div>
-                        <div className="rounded-2xl bg-slate-900/45 border border-slate-200/10 p-3">
-                            <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Punches</p>
-                            <p className="text-xl font-black tabular-nums text-slate-100">{hrmsSync.punchCount || 0}</p>
-                        </div>
-                        <div className="rounded-2xl bg-slate-900/45 border border-slate-200/10 p-3">
-                            <p className="text-[9px] text-slate-400 uppercase font-black tracking-wider">Break Time</p>
-                            <p className="text-xl font-black tabular-nums text-slate-100">{hrmsSync.breakMinutes || 0}<span className="text-sm opacity-50 ml-1">m</span></p>
-                        </div>
-                    </div>
-
-                    <div className="mt-4 flex items-center justify-between gap-3 rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-3">
-                        <p className="text-[11px] font-bold text-slate-300">
-                            {manualOverride
-                                ? 'Manual mode enabled. You can paste and edit attendance data.'
-                                : 'Attendance logs are auto-filled from HRMS sync data.'}
-                        </p>
-                        <button
-                            onClick={() => setManualOverride((prev) => !prev)}
-                            className="shrink-0 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider border border-indigo-500/30 bg-slate-900/20 hover:bg-indigo-500/15 text-indigo-300 transition-all flex items-center gap-1.5"
-                        >
-                            {manualOverride ? <Link2 className="w-3.5 h-3.5" /> : <PencilLine className="w-3.5 h-3.5" />}
-                            {manualOverride ? 'Use HRMS' : 'Manual Input'}
-                        </button>
-                    </div>
-                </>
-            ) : (
-                <p className="mt-4 text-sm text-slate-300/90 font-medium">
-                    Use <span className="font-black text-indigo-200">Sync from Spine</span> (extension)
-                    or select a date in the Spine attendance report to auto-load punches.
-                </p>
-            )}
-        </div>
-    );
 }
 
 function SessionCard({ session, index, totalMinutes }) {
@@ -198,68 +85,8 @@ function SessionCard({ session, index, totalMinutes }) {
     );
 }
 
-export const LogAnalyzer = ({ logInput, setLogInput, stats, currentTimeMinutes, hrmsSync, clearHrmsSync }) => {
-    const { showSuccess, showError, showInfo } = useUI();
-    const [manualOverride, setManualOverride] = React.useState(false);
-    const [extensionPresent, setExtensionPresent] = React.useState(false);
-    const [syncingSpine, setSyncingSpine] = React.useState(false);
-
-    React.useEffect(() => {
-        if (hrmsSync?.hasData) {
-            setManualOverride(false);
-        }
-    }, [hrmsSync?.syncedAt, hrmsSync?.selectedDate, hrmsSync?.hasData]);
-
-    React.useEffect(() => {
-        let cancelled = false;
-        const refreshPresence = () => {
-            detectSpineExtension().then((present) => {
-                if (!cancelled) setExtensionPresent(present);
-            });
-        };
-        refreshPresence();
-        const onExt = () => refreshPresence();
-        window.addEventListener('workshift-spine-extension', onExt);
-        const interval = window.setInterval(refreshPresence, 8000);
-        return () => {
-            cancelled = true;
-            window.removeEventListener('workshift-spine-extension', onExt);
-            window.clearInterval(interval);
-        };
-    }, []);
-
-    const handleSpineSync = async () => {
-        if (syncingSpine) return;
-
-        if (!extensionPresent) {
-            showInfo(
-                'Install the WorkShift Spine Sync extension (Load unpacked → extension-src), then open this app again.',
-            );
-            return;
-        }
-
-        setSyncingSpine(true);
-        try {
-            const result = await requestSpineSync();
-            if (result.ok) {
-                showSuccess(result.message || 'Synced punches from Spine.');
-                setManualOverride(false);
-            } else if (result.needsRefresh) {
-                showError(result.message || 'Extension was reloaded. Refresh this page, then Sync again.');
-            } else if (result.needsLogin) {
-                showError(
-                    result.message ||
-                        'Spine login needed. Open the extension once → save credentials (optional), or sign into Spine in a tab, then Sync again.',
-                );
-            } else {
-                showError(result.message || 'Spine sync failed.');
-            }
-        } catch (err) {
-            showError(err?.message || 'Spine sync failed.');
-        } finally {
-            setSyncingSpine(false);
-        }
-    };
+export const LogAnalyzer = ({ logInput, setLogInput, stats, currentTimeMinutes }) => {
+    const { showSuccess } = useUI();
 
     const handleCopy = () => {
         if (!stats) return;
@@ -292,15 +119,8 @@ Generated by WorkShift Calc
     const totalSessionMinutes = Number(stats?.totalSessionMinutes || 0);
     const totalBreakMinutes = Number(stats?.totalOutTime || 0);
     const shortTimeOffMinutes = Number(stats?.shortTimeOffMinutes || 0);
-    const showManualInput = !hrmsSync?.hasData || manualOverride;
-    const subtitle = showManualInput ? 'Paste your attendance entries here' : 'Auto-filled from HRMS sync';
-
     const handleClear = () => {
         setLogInput('');
-        if (clearHrmsSync) {
-            clearHrmsSync();
-        }
-        setManualOverride(false);
     };
 
     const handlePaste = (event) => {
@@ -324,19 +144,9 @@ Generated by WorkShift Calc
         <GlassCard
             title="Attendance Session Ledger"
             icon={ClipboardList}
-            subtitle={subtitle}
+            subtitle="Paste your attendance entries here"
         >
             <div className="absolute top-5 right-5 flex gap-2">
-                <button
-                    onClick={handleSpineSync}
-                    disabled={syncingSpine}
-                    className="p-2.5 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-300/25 transition-all disabled:opacity-60"
-                    title={extensionPresent ? 'Sync today from Spine' : 'Install Spine Sync extension'}
-                >
-                    {syncingSpine
-                        ? <RefreshCw className="w-4 h-4 text-indigo-300 animate-spin" />
-                        : <DownloadCloud className="w-4 h-4 text-indigo-300" />}
-                </button>
                 <button
                     onClick={handleClear}
                     className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-300/25 transition-all"
@@ -355,43 +165,13 @@ Generated by WorkShift Calc
             </div>
 
             <div className="mt-6">
-                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-[1.3rem] border border-slate-200/10 bg-slate-900/30 px-4 py-3">
-                    <div>
-                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-indigo-300">Spine HRI</p>
-                        <p className="text-sm font-bold text-slate-200">
-                            {extensionPresent
-                                ? 'Extension connected — sync today’s punches from Spine.'
-                                : 'Load unpacked extension-src to enable one-click Spine sync.'}
-                        </p>
-                    </div>
-                    <button
-                        type="button"
-                        onClick={handleSpineSync}
-                        disabled={syncingSpine}
-                        className="shrink-0 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider border border-indigo-500/35 bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-200 transition-all flex items-center gap-2 disabled:opacity-60"
-                    >
-                        {syncingSpine
-                            ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            : <DownloadCloud className="w-3.5 h-3.5" />}
-                        {syncingSpine ? 'Syncing…' : extensionPresent ? 'Sync from Spine' : 'Install / Sync'}
-                    </button>
-                </div>
-
-                <HrmsSummaryPanel
-                    hrmsSync={hrmsSync}
-                    manualOverride={manualOverride}
-                    setManualOverride={setManualOverride}
+                <textarea
+                    value={logInput}
+                    onChange={(e) => setLogInput(e.target.value)}
+                    onPaste={handlePaste}
+                    placeholder="Paste HRMS Daily In Out Punch, then we parse and clean only the useful lines"
+                    className="w-full h-56 p-6 rounded-[1.5rem] bg-slate-950/50 border border-slate-200/10 focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500/40 outline-none text-base font-black transition-all resize-none text-slate-200 placeholder:text-slate-500 dark:placeholder:text-slate-600 tabular-nums"
                 />
-
-                {showManualInput && (
-                    <textarea
-                        value={logInput}
-                        onChange={(e) => setLogInput(e.target.value)}
-                        onPaste={handlePaste}
-                        placeholder="Paste HRMS Daily In Out Punch, then we parse and clean only the useful lines"
-                        className="w-full h-56 p-6 rounded-[1.5rem] bg-slate-950/50 border border-slate-200/10 focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500/40 outline-none text-base font-black transition-all resize-none text-slate-200 placeholder:text-slate-500 dark:placeholder:text-slate-600 tabular-nums"
-                    />
-                )}
 
                 <AnimatePresence>
                     {hasEvents && (
@@ -481,4 +261,3 @@ Generated by WorkShift Calc
         </GlassCard>
     );
 };
-
