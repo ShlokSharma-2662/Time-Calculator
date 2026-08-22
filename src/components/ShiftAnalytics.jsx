@@ -25,7 +25,7 @@ import { getHolidayName } from '../utils/sandwichLeaveLogic';
 
 export function ShiftAnalytics({ currentShift, history, onSaveShift }) {
     const { showSuccess, showInfo } = useUI();
-    const [expanded, setExpanded] = useState(false);
+    const [expanded, setExpanded] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
     const [analyticsData, setAnalyticsData] = useState(null);
 
@@ -84,11 +84,11 @@ export function ShiftAnalytics({ currentShift, history, onSaveShift }) {
                         <BarChart3 className="w-6 h-6 text-white" />
                     </div>
                     <div>
-                        <h2 className="text-2xl font-black text-white">
-                            Shift Analytics
+                        <h2 className="text-xl font-semibold text-white">
+                            Analytics
                         </h2>
-                        <p className="text-sm text-indigo-200/80 font-semibold uppercase tracking-wide">
-                            Track patterns, trends & insights
+                        <p className="text-sm text-slate-400">
+                            Patterns, trends, and insights
                         </p>
                     </div>
                 </div>

@@ -25,10 +25,6 @@ export const useHistory = () => {
         }));
     }, []);
 
-    const getEntry = useCallback((date) => {
-        return history[date] || null;
-    }, [history]);
-
     const getAllEntries = useCallback(() => {
         return Object.entries(history).sort((a, b) => new Date(b[0]) - new Date(a[0]));
     }, [history]);
@@ -72,5 +68,5 @@ export const useHistory = () => {
         setHistory(newHistoryObj);
     }, []);
 
-    return { history, saveEntry, getEntry, getAllEntries, exportToCSV, setFullHistory };
+    return { history, saveEntry, getAllEntries, exportToCSV, setFullHistory };
 };

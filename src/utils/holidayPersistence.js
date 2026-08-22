@@ -50,12 +50,3 @@ export function removeCustomHoliday(date) {
     localStorage.setItem(HOLIDAYS_KEY, JSON.stringify(filtered));
     return filtered;
 }
-
-/**
- * Check if a date string is in the holiday list
- * @param {string} dateStr - YYYY-MM-DD
- * @param {Array} mergedHolidays 
- */
-export function isHolidayDate(dateStr, mergedHolidays) {
-    return mergedHolidays.some(h => h.date === dateStr);
-}

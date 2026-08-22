@@ -4,7 +4,6 @@
  */
 
 const STORAGE_KEY = 'shift_analytics_data';
-const HISTORY_STORAGE_KEY = 'workShift_history';
 
 import { formatDate } from '../utils/dateUtils';
 
@@ -50,30 +49,6 @@ export function getShiftHistory(history) {
         stats: calculateStats(shifts),
         goals
     };
-}
-
-/**
- * Save a new shift (for backward compatibility or explicit save)
- */
-export function saveShift(shiftData) {
-    if (!shiftData || typeof shiftData !== 'object') return false;
-    const targetDate = shiftData.detectedDate || shiftData.date || new Date().toISOString().slice(0, 10);
-
-    const existingRaw = localStorage.getItem(HISTORY_STORAGE_KEY);
-    const existing = existingRaw ? JSON.parse(existingRaw) : {};
-    existing[targetDate] = {
-        startTime: shiftData.startTime || '00:00',
-        totalOutTime: shiftData.totalOutTime || 0,
-        effectiveWorkTime: shiftData.effectiveWorkTime || 0,
-        firstInTime: shiftData.firstInTime || shiftData.autoStartTime || null,
-        lastOutTime: shiftData.lastOutTime || null,
-        activeLeave: shiftData.activeLeave || null,
-        shortTimeOffMinutes: shiftData.shortTimeOffMinutes || 0,
-        shortTimeOffEntries: shiftData.shortTimeOffEntries || [],
-    };
-
-    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(existing));
-    return true;
 }
 
 /**
@@ -573,18 +548,6 @@ export function getGoals() {
         weeklyHoursTarget: 45,
         maxBreakMinutes: 60
     };
-}
-
-export function updateGoals(newGoals) {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    let data = stored ? JSON.parse(stored) : { shifts: [], stats: {}, goals: {} };
-    data.goals = { ...data.goals, ...newGoals };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-export function clearHistory() {
-    // We don't clear the main history here, only the analytics specific data (goals)
-    localStorage.removeItem(STORAGE_KEY);
 }
 
 /**

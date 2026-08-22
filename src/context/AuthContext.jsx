@@ -24,6 +24,12 @@ import { buildFirestoreLogDto } from '../utils/firestoreLogDto';
 
 const AuthContext = createContext();
 const googleProvider = new GoogleAuthProvider();
+const HAS_ACCOUNT_KEY = 'workshiftHasAccount';
+
+function markHasAccount() {
+  try { localStorage.setItem(HAS_ACCOUNT_KEY, 'true'); }
+  catch (_e) { /* private mode */ }
+}
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -59,6 +65,7 @@ export const AuthProvider = ({ children }) => {
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
+        markHasAccount();
         setUser({
           uid: firebaseUser.uid,
           name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',

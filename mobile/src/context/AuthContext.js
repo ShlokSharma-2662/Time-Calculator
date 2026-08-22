@@ -9,7 +9,6 @@ import {
 } from 'firebase/auth';
 import * as WebBrowser from 'expo-web-browser';
 import * as Google from 'expo-auth-session/providers/google';
-import { makeRedirectUri } from 'expo-auth-session';
 
 // Required for expo-auth-session to close the browser after login
 WebBrowser.maybeCompleteAuthSession();

@@ -4,7 +4,7 @@ import { useShiftCalculations } from '../hooks/useShiftCalculations';
 import { useHistory } from '../hooks/useHistory';
 import { getMonthToDateAdherence } from '../utils/shiftHistory';
 import { getLeaveForDate } from '../utils/leaveHistory';
-import { normalizeDate } from '../utils/dateUtils';
+import { getLocalISODate, normalizeDate, resolveEffectiveWorkDate } from '../utils/dateUtils';
 import { useAuth } from './AuthContext';
 
 const ShiftStateContext = createContext(null);
@@ -48,6 +48,16 @@ export function ShiftStateProvider({ children }) {
         catch (_e) { return false; }
     });
 
+    const today = useMemo(() => getLocalISODate(), []);
+
+    const [workDate, setWorkDate] = useState(() => {
+        try {
+            const saved = localStorage.getItem('workDate');
+            if (saved && /^\d{4}-\d{2}-\d{2}$/.test(saved)) return saved;
+        } catch (_e) { /* ignore */ }
+        return today;
+    });
+
     // --- Live Clock ---
     const [currentMinutes, setCurrentMinutes] = useState(() => {
         const now = new Date();
@@ -67,6 +77,7 @@ export function ShiftStateProvider({ children }) {
     useEffect(() => { localStorage.setItem('logInput', logInput); }, [logInput]);
     useEffect(() => { localStorage.setItem('shiftDuration', shiftDuration); }, [shiftDuration]);
     useEffect(() => { localStorage.setItem('use24Hour', use24Hour); }, [use24Hour]);
+    useEffect(() => { localStorage.setItem('workDate', workDate); }, [workDate]);
 
     // --- Derived Calculations ---
     const startTimeMinutes = useMemo(() => {
@@ -74,17 +85,23 @@ export function ShiftStateProvider({ children }) {
         return (h || 0) * 60 + (m || 0);
     }, [startTime]);
 
-    const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
-
     const currentParsedDate = useMemo(() => {
         const DATE_REGEX = /(\d{4}-\d{2}-\d{2})|(\d{1,2}[/-][A-Za-z]{3}[/-]\d{2,4})|(\d{1,2}[/-]\d{1,2}[/-]\d{2,4})/g;
         const match = logInput.match(DATE_REGEX);
-        return normalizeDate(match ? match[0] : today);
-    }, [logInput, today]);
+        const fromLog = match ? normalizeDate(match[0]) : null;
+        return resolveEffectiveWorkDate(fromLog, workDate, today);
+    }, [logInput, workDate, today]);
 
     const activeLeave = useMemo(() => getLeaveForDate(currentParsedDate), [currentParsedDate, history]);
 
-    const logStats = useLogParser(logInput, use24Hour, currentMinutes, startTimeMinutes, today, activeLeave);
+    const logStats = useLogParser(logInput, use24Hour, currentMinutes, startTimeMinutes, today, activeLeave, workDate);
+
+    useEffect(() => {
+        if (logStats.logDetectedDate && logStats.logDetectedDate !== workDate) {
+            setWorkDate(logStats.logDetectedDate);
+        }
+    }, [logStats.logDetectedDate, workDate]);
+
     const shiftDetails = useShiftCalculations(logStats.firstInTime || startTime, shiftDuration * 60, use24Hour, logStats.totalOutTime, currentParsedDate);
 
     const mtdProgress = useMemo(() => {
@@ -107,7 +124,7 @@ export function ShiftStateProvider({ children }) {
     useEffect(() => { activeLeaveRef.current = activeLeave; }, [activeLeave]);
 
     useEffect(() => {
-        const todayISO = new Date().toISOString().slice(0, 10);
+        const todayISO = today;
         const targetDate = logStats.detectedDate || todayISO;
 
         if (logInput.trim() !== "" || startTime !== "09:00") {
@@ -132,7 +149,7 @@ export function ShiftStateProvider({ children }) {
                     });
             }
         }
-    }, [startTime, logInput, logStats.totalOutTime, logStats.effectiveWorkTime, logStats.detectedDate, user]);
+    }, [startTime, logInput, logStats.totalOutTime, logStats.effectiveWorkTime, logStats.detectedDate, user, today]);
 
     const value = {
         // State + setters
@@ -140,6 +157,7 @@ export function ShiftStateProvider({ children }) {
         logInput, setLogInput,
         shiftDuration, setShiftDuration,
         use24Hour, setUse24Hour,
+        workDate, setWorkDate, today,
         currentMinutes,
         // History
         history, saveEntry, getAllEntries, exportToCSV, setFullHistory,

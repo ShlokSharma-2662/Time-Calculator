@@ -1,13 +1,14 @@
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     ClipboardList,
     Trash2,
     Copy,
-    Timer,
     CheckCircle2,
     ArrowRight,
     MapPin,
-    Activity
+    Activity,
+    ChevronDown
 } from 'lucide-react';
 import { Timeline } from './Timeline';
 import { GlassCard } from './GlassCard';
@@ -31,231 +32,150 @@ function formatPunchDuration(totalMinutes) {
 function SessionCard({ session, index, totalMinutes }) {
     const hasMachineJump = session.startMachine && session.endMachine && session.startMachine !== session.endMachine;
     const durationPercent = totalMinutes > 0 ? Math.min(100, Math.round((session.durationMinutes / totalMinutes) * 100)) : 0;
-    const percentBar = Math.max(3, Math.min(100, durationPercent));
 
     return (
-        <div className="rounded-2xl border border-slate-200/10 bg-slate-900/35 px-4 py-3 transition-all">
+        <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-xl bg-indigo-500/15 border border-indigo-300/20 text-indigo-300 text-[11px] font-black flex items-center justify-center">
-                        {index + 1}
-                    </span>
-                    <div className="leading-tight">
-                        <div className="text-xs uppercase tracking-[0.18em] text-indigo-200/80 font-black">Session {index + 1}</div>
-                        <div className="text-xl font-black text-slate-100 tabular-nums">
-                            {session.start}<span className="text-sm opacity-80"> → </span>{session.end}
-                        </div>
-                    </div>
+                <div>
+                    <p className="text-xs text-slate-400">Session {index + 1}</p>
+                    <p className="text-lg font-semibold text-slate-100 tabular-nums">
+                        {session.start}<span className="text-sm text-slate-500"> → </span>{session.end}
+                    </p>
                 </div>
-
                 <div className="flex items-center gap-2">
-                    <div className="px-3 py-1.5 rounded-full border border-emerald-300/30 bg-emerald-500/10 text-emerald-200 text-xs font-black uppercase tracking-widest">
+                    <span className="px-2.5 py-1 rounded-full border border-emerald-300/30 bg-emerald-500/10 text-emerald-200 text-xs">
                         {formatPunchDuration(session.durationMinutes)}
-                    </div>
+                    </span>
                     {hasMachineJump && (
-                        <div className="px-3 py-1.5 rounded-full border border-rose-300/35 bg-rose-500/10 text-rose-200 text-xs font-black uppercase tracking-wider inline-flex items-center gap-1.5">
+                        <span className="px-2.5 py-1 rounded-full border border-rose-300/35 bg-rose-500/10 text-rose-200 text-xs inline-flex items-center gap-1">
                             <MapPin className="w-3.5 h-3.5" />
-                            Changed
-                        </div>
+                            Machine changed
+                        </span>
                     )}
                 </div>
             </div>
-
-            <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-slate-300 font-semibold">
-                <div className="inline-flex items-center gap-1.5">
+            <div className="mt-2 flex items-center justify-between gap-2 text-xs text-slate-400">
+                <span className="inline-flex items-center gap-1">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-300" />
-                    In at {session.startMachine || 'Unknown'}
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
-                <div className="inline-flex items-center gap-1.5">
+                    {session.startMachine || 'Unknown'}
+                </span>
+                <ArrowRight className="w-3.5 h-3.5 text-slate-600" />
+                <span className="inline-flex items-center gap-1">
                     <Activity className="w-3.5 h-3.5 text-indigo-300" />
-                    Out at {session.endMachine || session.startMachine || 'Unknown'}
-                </div>
+                    {session.endMachine || session.startMachine || 'Unknown'}
+                </span>
             </div>
-
-            <div className="mt-3 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                <div
-                    className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-violet-400 transition-[width] duration-500"
-                    style={{ width: `${percentBar}%` }}
-                    aria-hidden="true"
-                />
-            </div>
-            <div className="mt-1 text-[10px] text-slate-500 text-right tracking-wide">{durationPercent}% of day shift</div>
+            <p className="mt-1 text-xs text-slate-500 text-right">{durationPercent}% of paired work</p>
         </div>
     );
 }
 
 export const LogAnalyzer = ({ logInput, setLogInput, stats, currentTimeMinutes }) => {
     const { showSuccess } = useUI();
+    const [showSessions, setShowSessions] = useState(false);
 
     const handleCopy = () => {
         if (!stats) return;
-
-        const sessionCount = Number(stats.sessionCount || 0);
-        const totalSessionMinutes = Number(stats.totalSessionMinutes || 0);
-        const shortTimeOffMinutes = Number(stats.shortTimeOffMinutes || 0);
-
-        const summary = `
-WorkShift Parsed Summary
-------------------
-First In: ${stats.firstInTime || 'Not found'}
-Detected Date: ${stats.detectedDate || 'Unknown'}
-Sessions: ${sessionCount}
-Worked (from punches): ${formatMinutes(totalSessionMinutes)}
-Total Breaks: ${formatMinutes(stats.totalOutTime)}
-Short Time-Off: ${shortTimeOffMinutes}m
-Effective Work (with short time-off): ${formatMinutes(stats.realTimeEffectiveWork)}
---------------------------------
-Generated by WorkShift Calc
-        `.trim();
-
+        const summary = [
+            'WorkShift summary',
+            `First in: ${stats.firstInTime || 'Not found'}`,
+            `Date: ${stats.detectedDate || 'Unknown'}`,
+            `Worked: ${formatMinutes(stats.totalSessionMinutes)}`,
+            `Breaks: ${formatMinutes(stats.totalOutTime)}`,
+            `Effective: ${formatMinutes(stats.realTimeEffectiveWork)}`,
+        ].join('\n');
         navigator.clipboard.writeText(summary);
-        showSuccess('Summary copied to clipboard!');
+        showSuccess('Summary copied.');
     };
 
     const hasEvents = Boolean(stats?.events && stats.events.length > 0);
     const sessions = Array.isArray(stats?.sessions) ? stats.sessions : [];
-    const sessionCount = Number(stats?.sessionCount || 0);
     const totalSessionMinutes = Number(stats?.totalSessionMinutes || 0);
-    const totalBreakMinutes = Number(stats?.totalOutTime || 0);
-    const shortTimeOffMinutes = Number(stats?.shortTimeOffMinutes || 0);
-    const handleClear = () => {
-        setLogInput('');
-    };
 
     const handlePaste = (event) => {
         const pastedText = event.clipboardData.getData('text/plain') || '';
         if (!pastedText) return;
-
         event.preventDefault();
-
         const parsed = parseAttendanceLogInput(pastedText);
         const cleaned = buildCleanAttendanceLog(parsed);
-
-        if (cleaned) {
-            setLogInput(cleaned);
-            return;
-        }
-
-        setLogInput((prev) => `${prev}${pastedText}`);
+        setLogInput(cleaned || ((prev) => `${prev}${pastedText}`));
     };
 
     return (
         <GlassCard
-            title="Attendance Session Ledger"
+            title="Paste today's punches"
             icon={ClipboardList}
-            subtitle="Paste your attendance entries here"
+            subtitle="HRMS rows are cleaned automatically"
+            hover={false}
         >
             <div className="absolute top-5 right-5 flex gap-2">
                 <button
-                    onClick={handleClear}
-                    className="p-2.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-300/25 transition-all"
-                    title="Clear Logs"
+                    type="button"
+                    onClick={() => setLogInput('')}
+                    className="p-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 border border-rose-300/25"
+                    title="Clear logs"
                 >
                     <Trash2 className="w-4 h-4 text-rose-300" />
                 </button>
                 <button
+                    type="button"
                     onClick={handleCopy}
-                    className="p-2.5 rounded-xl bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-300/25 transition-all"
-                    title="Copy Summary"
+                    className="p-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-300/25 disabled:opacity-40"
+                    title="Copy summary"
                     disabled={!stats}
                 >
                     <Copy className="w-4 h-4 text-emerald-300" />
                 </button>
             </div>
 
-            <div className="mt-6">
+            <div className="mt-2">
                 <textarea
                     value={logInput}
                     onChange={(e) => setLogInput(e.target.value)}
                     onPaste={handlePaste}
-                    placeholder="Paste HRMS Daily In Out Punch, then we parse and clean only the useful lines"
-                    className="w-full h-56 p-6 rounded-[1.5rem] bg-slate-950/50 border border-slate-200/10 focus:ring-4 focus:ring-indigo-500/20 focus:border-indigo-500/40 outline-none text-base font-black transition-all resize-none text-slate-200 placeholder:text-slate-500 dark:placeholder:text-slate-600 tabular-nums"
+                    placeholder="Paste Daily In / Out punch text here"
+                    className="w-full h-48 p-4 rounded-xl bg-slate-950/60 border border-white/10 outline-none text-sm tabular-nums text-slate-200 placeholder:text-slate-500 focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:border-indigo-400/60"
                 />
 
                 <AnimatePresence>
                     {hasEvents && (
                         <motion.div
-                            initial={{ opacity: 0, y: 10 }}
+                            initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 10 }}
-                            className="mt-8"
+                            exit={{ opacity: 0, y: 8 }}
+                            className="mt-6 space-y-4"
                         >
                             <Timeline events={stats.events} currentMinutes={currentTimeMinutes} />
 
-                            <div className="mt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-                                <div className="p-5 rounded-[1.2rem] bg-gradient-to-br from-indigo-500/20 to-violet-500/10 border border-indigo-400/25">
-                                    <p className="text-[10px] uppercase tracking-[0.2em] font-black text-indigo-200">Effective Work</p>
-                                    <div className="text-3xl font-black text-slate-100 tabular-nums mt-1.5">
-                                        {Math.floor(stats.realTimeEffectiveWork / 60)}<span className="text-lg opacity-40 ml-1 mr-2">h</span>
-                                        {stats.realTimeEffectiveWork % 60}<span className="text-lg opacity-40 ml-1">m</span>
-                                    </div>
-                                    <p className="text-[9px] text-indigo-100/80 mt-1.5">Real time + short time-off</p>
-                                </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowSessions((value) => !value)}
+                                className="w-full flex items-center justify-between text-sm text-slate-300 border border-white/10 rounded-xl px-3 py-2 hover:bg-white/5"
+                            >
+                                <span>Sessions ({sessions.length})</span>
+                                <ChevronDown className={`w-4 h-4 transition-transform ${showSessions ? 'rotate-180' : ''}`} />
+                            </button>
 
-                                <div className="p-5 rounded-[1.2rem] bg-slate-900/45 border border-slate-200/10">
-                                    <p className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-300">Worked from Punches</p>
-                                    <div className="text-3xl font-black text-slate-100 tabular-nums mt-1.5">
-                                        {Math.floor(totalSessionMinutes / 60)}<span className="text-lg opacity-40 ml-1 mr-2">h</span>
-                                        {totalSessionMinutes % 60}<span className="text-lg opacity-40 ml-1">m</span>
-                                    </div>
-                                    <p className="text-[9px] text-slate-400 mt-1.5">In-to-out paired sessions</p>
-                                </div>
-
-                                <div className="p-5 rounded-[1.2rem] bg-slate-900/45 border border-slate-200/10">
-                                    <p className="text-[10px] uppercase tracking-[0.2em] font-black text-slate-300">Session Count</p>
-                                    <div className="text-3xl font-black text-slate-100 tabular-nums mt-1.5">
-                                        {sessionCount}
-                                        <span className="text-lg opacity-40 ml-1">#</span>
-                                    </div>
-                                    <p className="text-[9px] text-slate-400 mt-1.5">Punch pairs that are valid</p>
-                                </div>
-
-                                <div className="p-5 rounded-[1.2rem] bg-amber-500/10 border border-amber-400/25">
-                                    <p className="text-[10px] uppercase tracking-[0.2em] font-black text-amber-200">Total Break</p>
-                                    <div className="text-3xl font-black text-slate-100 tabular-nums mt-1.5">
-                                        {Math.floor(totalBreakMinutes / 60)}<span className="text-lg opacity-40 ml-1 mr-2">h</span>
-                                        {totalBreakMinutes % 60}<span className="text-lg opacity-40 ml-1">m</span>
-                                    </div>
-                                    <p className="text-[9px] text-amber-100/80 mt-1.5">Out-to-In gap aggregation</p>
-                                </div>
-
-                                <div className="p-5 rounded-[1.2rem] bg-emerald-500/10 border border-emerald-400/25">
-                                    <p className="text-[10px] uppercase tracking-[0.2em] font-black text-emerald-200">Short Time-Off</p>
-                                    <div className="text-3xl font-black text-slate-100 tabular-nums mt-1.5">
-                                        {shortTimeOffMinutes}<span className="text-lg opacity-40 ml-1">m</span>
-                                    </div>
-                                    <p className="text-[9px] text-emerald-100/80 mt-1.5">Captured from HRMS request rows</p>
-                                </div>
-                            </div>
-
-                            <div className="mt-8">
-                                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                                    <p className="text-sm font-black text-slate-100 uppercase tracking-[0.18em]">Session Ledger</p>
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.18em]">
-                                        {sessions.length} records
-                                    </span>
-                                </div>
-
-                            <div className="space-y-2">
-                                {sessions.map((session, index) => (
-                                    <SessionCard
-                                        key={`${session.start}-${session.end}-${index}`}
-                                        session={session}
+                            {showSessions && (
+                                <div className="space-y-2">
+                                    {sessions.map((session, index) => (
+                                        <SessionCard
+                                            key={`${session.start}-${session.end}-${index}`}
+                                            session={session}
                                             index={index}
                                             totalMinutes={Math.max(1, totalSessionMinutes)}
-                                    />
-                                ))}
-                            </div>
-	                        </div>
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </motion.div>
                     )}
                 </AnimatePresence>
 
                 {!hasEvents && (
-                    <div className="mt-8 p-6 rounded-[1.5rem] border border-dashed border-slate-300/20 bg-slate-900/30 text-slate-300 text-sm font-semibold">
-                        Paste HRMS daily punch text to generate your session ledger.
-                    </div>
+                    <p className="mt-4 text-sm text-slate-400">
+                        Paste a log to see the timeline and punch health.
+                    </p>
                 )}
             </div>
         </GlassCard>
