@@ -9,6 +9,7 @@ export default defineConfig([
   globalIgnores([
     'dist',
     'extension/**',
+    'extension-src/**',
     'mobile/**',
     'server/**',
     'data/**',
