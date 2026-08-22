@@ -3,9 +3,8 @@ importScripts('lib/extractPunches.js');
 
 const { buildHrmsSyncPayload, formatSpineDate } = SpineExtract;
 
-const SPINE_HOME = 'https://rysun.spinehri.in/';
-const SPINE_REPORT =
-  'https://rysun.spinehri.in/Atten/MyAttendanceReport.aspx?mnusr=menu__10101';
+const DEFAULT_SPINE_ORIGIN = 'https://rysun.spinehri.in';
+const SPINE_REPORT_PATH = '/Atten/MyAttendanceReport.aspx?mnusr=menu__10101';
 
 const PWA_URL_PATTERNS = [
   /^http:\/\/localhost:5173\//i,
@@ -22,8 +21,43 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function isSpineHost(hostname = '') {
+  const host = String(hostname).toLowerCase();
+  return host.endsWith('.spinehri.in') || host.endsWith('.spinehrm.in');
+}
+
 function isSpineUrl(url = '') {
-  return String(url).toLowerCase().includes('rysun.spinehri.in');
+  try {
+    return isSpineHost(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+async function getSpineOrigin() {
+  const { spineOrigin } = await chrome.storage.local.get(['spineOrigin']);
+  const stored = String(spineOrigin || '').replace(/\/$/, '');
+  if (stored) return stored;
+
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.url && isSpineUrl(tab.url)) {
+      try {
+        return new URL(tab.url).origin;
+      } catch {
+        // keep looking
+      }
+    }
+  }
+  return DEFAULT_SPINE_ORIGIN;
+}
+
+async function getSpineHomeUrl() {
+  return `${await getSpineOrigin()}/`;
+}
+
+async function getSpineReportUrl() {
+  return `${await getSpineOrigin()}${SPINE_REPORT_PATH}`;
 }
 
 function isPwaUrl(url = '') {
@@ -73,7 +107,8 @@ async function ensureSpineTab() {
 
   if (!tab) {
     // Background worker tab only — never steals focus from WorkShift.
-    tab = await chrome.tabs.create({ url: SPINE_REPORT, active: false, pinned: true });
+    const reportUrl = await getSpineReportUrl();
+    tab = await chrome.tabs.create({ url: reportUrl, active: false, pinned: true });
     await rememberSpineTab(tab.id);
     await waitForTabComplete(tab.id);
     await sleep(600);
@@ -91,7 +126,7 @@ async function ensureSpineTab() {
   }
 
   // On some other Spine page (home/login) — navigate in background only.
-  await chrome.tabs.update(tab.id, { url: SPINE_REPORT, active: false });
+  await chrome.tabs.update(tab.id, { url: await getSpineReportUrl(), active: false });
   await waitForTabComplete(tab.id);
   await sleep(600);
   return chrome.tabs.get(tab.id);
@@ -184,8 +219,6 @@ async function sendToTab(tabId, message) {
 async function writePayloadToPwaTabs(payload) {
   const tabs = await findPwaTabs();
   if (!tabs.length) {
-    // Persist for next PWA open via chrome.storage; bridge will not auto-apply,
-    // but background keeps last payload for popup status.
     await chrome.storage.local.set({ lastHrmsPayload: payload, lastSyncAt: Date.now() });
     return {
       ok: true,
@@ -243,9 +276,9 @@ async function writePayloadToPwaTabs(payload) {
 }
 
 /**
- * Orchestrate Spine scrape for a specific date (dd-MMM-yy), defaulting to today.
+ * Scrape one Spine day and return a payload without writing to the PWA.
  */
-async function syncDate(dateLabel) {
+async function scrapeDatePayload(dateLabel) {
   const credentials = await getStoredCredentials();
   const label = dateLabel || formatSpineDate(new Date());
   let tab = await ensureSpineTab();
@@ -271,13 +304,12 @@ async function syncDate(dateLabel) {
     if (result?.ok && result.punchText) {
       const payload = buildHrmsSyncPayload(result.punchText);
       if (!payload) {
-        return { ok: false, message: 'Punch text was empty after scrape.' };
+        return { ok: false, message: `No punches found for ${label}.` };
       }
-      return writePayloadToPwaTabs(payload);
+      return { ok: true, payload };
     }
 
     if (result?.needsLogin) {
-      // Stay on WorkShift — do not force-open Spine. User can save creds or open Spine once.
       return {
         ok: false,
         needsLogin: true,
@@ -306,6 +338,105 @@ async function syncDate(dateLabel) {
   };
 }
 
+async function syncDate(dateLabel) {
+  const scraped = await scrapeDatePayload(dateLabel);
+  if (!scraped.ok) return scraped;
+  return writePayloadToPwaTabs(scraped.payload);
+}
+
+async function writeRangeToPwaTabs(payloads, applyDateLabel) {
+  await chrome.storage.local.set({
+    lastHrmsPayload: payloads[payloads.length - 1] || null,
+    lastRangePayloads: payloads,
+    lastSyncAt: Date.now(),
+  });
+
+  const tabs = await findPwaTabs();
+  if (!tabs.length) {
+    return {
+      ok: true,
+      wrote: false,
+      payloads,
+      message:
+        `Fetched ${payloads.length} day(s). Open WorkShift Calc to apply them to History.`,
+    };
+  }
+
+  let wrote = false;
+  let lastError = '';
+  for (const tab of tabs) {
+    try {
+      let response;
+      const message = { type: 'WRITE_HRMS_RANGE', payloads, applyDateLabel: applyDateLabel || null };
+      try {
+        response = await chrome.tabs.sendMessage(tab.id, message);
+      } catch {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['content/pwa-bridge.js'],
+        });
+        await sleep(150);
+        response = await chrome.tabs.sendMessage(tab.id, message);
+      }
+      if (response?.ok) wrote = true;
+      else if (response?.message) lastError = response.message;
+    } catch (err) {
+      lastError = err?.message || String(err);
+    }
+  }
+
+  if (!wrote) {
+    return {
+      ok: false,
+      message: lastError || 'Could not write range data into the WorkShift Calc tab.',
+      payloads,
+    };
+  }
+
+  return {
+    ok: true,
+    wrote: true,
+    payloads,
+    message: `Synced ${payloads.length} day(s) from Spine into History.`,
+  };
+}
+
+async function syncRange(dateLabels, applyDateLabel) {
+  const labels = Array.isArray(dateLabels) ? dateLabels.filter(Boolean) : [];
+  if (!labels.length) {
+    return { ok: false, message: 'No dates to sync.' };
+  }
+
+  const payloads = [];
+  const failures = [];
+  for (const label of labels) {
+    const scraped = await scrapeDatePayload(label);
+    if (scraped.ok && scraped.payload) {
+      payloads.push(scraped.payload);
+      continue;
+    }
+    failures.push({ dateLabel: label, message: scraped.message, needsLogin: scraped.needsLogin });
+    if (scraped.needsLogin) {
+      if (!payloads.length) return scraped;
+      break;
+    }
+  }
+
+  if (!payloads.length) {
+    return {
+      ok: false,
+      message: failures[0]?.message || 'No punches in that range.',
+      needsLogin: Boolean(failures[0]?.needsLogin),
+    };
+  }
+
+  const result = await writeRangeToPwaTabs(payloads, applyDateLabel || labels[labels.length - 1]);
+  if (failures.length && result.ok) {
+    result.message = `${result.message} Skipped ${failures.length} day(s) with no punches.`;
+  }
+  return result;
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (!message || typeof message !== 'object') return undefined;
 
@@ -326,9 +457,21 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
 
+  if (message.type === 'SYNC_RANGE') {
+    syncRange(message.dateLabels || [], message.applyDateLabel || null)
+      .then((result) => safeSendResponse(sendResponse, result))
+      .catch((err) =>
+        safeSendResponse(sendResponse, {
+          ok: false,
+          message: err?.message || String(err),
+        }),
+      );
+    return true;
+  }
+
   if (message.type === 'OPEN_SPINE') {
-    chrome.tabs
-      .create({ url: SPINE_HOME, active: true })
+    getSpineHomeUrl()
+      .then((url) => chrome.tabs.create({ url, active: true }))
       .then(() => safeSendResponse(sendResponse, { ok: true }))
       .catch((err) =>
         safeSendResponse(sendResponse, { ok: false, message: err?.message || String(err) }),
@@ -382,12 +525,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 
   if (message.type === 'GET_STATUS') {
     chrome.storage.local
-      .get(['lastSyncAt', 'lastHrmsPayload', 'spineSaveCredentials', 'spineUsername'])
+      .get(['lastSyncAt', 'lastHrmsPayload', 'lastRangePayloads', 'spineSaveCredentials', 'spineUsername'])
       .then((data) =>
         safeSendResponse(sendResponse, {
           ok: true,
           lastSyncAt: data.lastSyncAt || null,
           lastPayload: data.lastHrmsPayload || null,
+          lastRangePayloads: data.lastRangePayloads || null,
           credentialsSaved: Boolean(data.spineSaveCredentials && data.spineUsername),
         }),
       )

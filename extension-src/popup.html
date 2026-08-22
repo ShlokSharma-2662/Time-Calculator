@@ -15,8 +15,14 @@
 
       <p id="status" class="status">Ready.</p>
 
+      <label>
+        Date
+        <input id="syncDate" type="date" />
+      </label>
+
       <div class="actions">
-        <button id="btnSync" type="button" class="primary">Sync today</button>
+        <button id="btnSync" type="button" class="primary">Sync date</button>
+        <button id="btnSyncWeek" type="button" class="ghost">Last 7 days</button>
         <button id="btnOpen" type="button" class="ghost">Open Spine</button>
       </div>
 
@@ -26,6 +32,10 @@
           Prefer signing into Spine in your browser. Saved passwords are stored in
           <code>chrome.storage.local</code> (not as strong as OS DPAPI).
         </p>
+        <label>
+          Spine portal
+          <input id="origin" type="url" placeholder="https://rysun.spinehri.in" />
+        </label>
         <label>
           Username
           <input id="username" type="text" autocomplete="username" />

@@ -110,7 +110,9 @@ label.row {
 }
 
 input[type="text"],
-input[type="password"] {
+input[type="password"],
+input[type="url"],
+input[type="date"] {
   border-radius: 8px;
   border: 1px solid #334155;
   background: #020617;

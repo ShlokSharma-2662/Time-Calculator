@@ -6,6 +6,8 @@ export const Header = ({
     onOpenSettings,
     onLogout,
     isSyncing,
+    lastSyncedAt = null,
+    synced = false,
     onSync,
     onRestore,
     user,
@@ -28,6 +30,16 @@ export const Header = ({
         document.addEventListener('mousedown', onPointerDown);
         return () => document.removeEventListener('mousedown', onPointerDown);
     }, []);
+
+    const formatSyncLabel = () => {
+        if (isSyncing) return 'Syncing';
+        if (synced) return 'Synced';
+        if (!lastSyncedAt) return 'Sync';
+        const delta = Date.now() - lastSyncedAt;
+        if (delta < 60 * 1000) return 'Just now';
+        if (delta < 60 * 60 * 1000) return `${Math.floor(delta / 60000)}m ago`;
+        return `${Math.floor(delta / 3600000)}h ago`;
+    };
 
     const tabs = [
         { id: 'today', label: 'Today', icon: Briefcase },
@@ -68,8 +80,8 @@ export const Header = ({
                             disabled={isSyncing}
                             className="p-2 rounded-lg hover:bg-white/10 text-emerald-300 text-sm flex items-center gap-1.5"
                         >
-                            <Cloud className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                            <span className="hidden sm:inline">{isSyncing ? 'Syncing' : 'Sync'}</span>
+                            <Cloud className={`w-4 h-4 ${isSyncing ? 'animate-spin' : synced ? 'text-emerald-300' : ''}`} />
+                            <span className="hidden sm:inline">{formatSyncLabel()}</span>
                             <ChevronDown className="w-3.5 h-3.5 opacity-70" />
                         </button>
                         {syncOpen && (

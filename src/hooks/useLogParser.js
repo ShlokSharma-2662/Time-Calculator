@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useTimeHelpers } from './useTimeHelpers';
+import { minutesToTime } from './useTimeHelpers';
 import { LEAVE_TYPES } from '../utils/leaveHistory';
 import { parseAttendanceLogInput } from '../utils/attendanceLogParser';
 import { normalizeDate, resolveEffectiveWorkDate } from '../utils/dateUtils';
@@ -128,15 +128,75 @@ const getCurrentAbsoluteMinutes = (events, currentTimeMinutes, detectedDate, tod
     return currentTimeMinutes;
 };
 
-export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0, startTimeMinutes = null, today = null, leave = null, workDate = null) => {
-    const { minutesToTime } = useTimeHelpers();
+const toPublicStats = (parsed, liveFields) => {
+    const {
+        firstInAbsoluteMinutes: _firstInAbsoluteMinutes,
+        completedWork: _completedWork,
+        completedTotalOut: _completedTotalOut,
+        startTimeMinutes: _startTimeMinutes,
+        today: _today,
+        ...publicStats
+    } = parsed;
 
-    return useMemo(() => {
+    return {
+        ...publicStats,
+        ...liveFields,
+    };
+};
+
+const applyLiveClock = (parsed, currentTimeMinutes) => {
+    const {
+        events,
+        isHistorical,
+        detectedDate,
+        today,
+        firstInAbsoluteMinutes,
+        completedWork,
+        completedTotalOut,
+        leaveMinutes,
+        startTimeMinutes,
+    } = parsed;
+
+    if (isHistorical) {
+        const withLeave = Math.max(0, completedWork) + leaveMinutes;
+        return toPublicStats(parsed, {
+            currentTimeMinutes,
+            totalOutTime: completedTotalOut,
+            effectiveWorkTime: withLeave,
+            realTimeEffectiveWork: withLeave,
+        });
+    }
+
+    const firstIn = events.find((event) => event.type === 'IN');
+    const currentAbsoluteTime = getCurrentAbsoluteMinutes(events, currentTimeMinutes, detectedDate, today);
+    const totalOutToCurrent = getBreakMinutesToTime(events, currentAbsoluteTime);
+
+    let realTimeWork = 0;
+    if (firstIn && currentAbsoluteTime > firstInAbsoluteMinutes) {
+        realTimeWork = currentAbsoluteTime - firstInAbsoluteMinutes - totalOutToCurrent;
+    } else if (!firstIn && startTimeMinutes !== null && currentTimeMinutes > startTimeMinutes) {
+        realTimeWork = currentTimeMinutes - startTimeMinutes;
+    }
+
+    if (realTimeWork < 0) realTimeWork = 0;
+    const withLeave = realTimeWork + leaveMinutes;
+
+    return toPublicStats(parsed, {
+        currentTimeMinutes,
+        totalOutTime: totalOutToCurrent,
+        effectiveWorkTime: withLeave,
+        realTimeEffectiveWork: withLeave,
+    });
+};
+
+export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0, startTimeMinutes = null, today = null, leave = null, workDate = null) => {
+    const parsed = useMemo(() => {
         const parsedReport = parseAttendanceLogInput(logInput);
         const dateMatch = !parsedReport.detectedDate ? logInput.match(DATE_REGEX) : null;
         const logDetectedDate = parsedReport.detectedDate || (dateMatch ? normalizeDate(dateMatch[0]) : null);
         const detectedDate = resolveEffectiveWorkDate(logDetectedDate, workDate, today);
         const isHistorical = Boolean(detectedDate && today && detectedDate !== today);
+        const parsedLeaveMinutes = getLeaveMinutes(leave);
 
         if (parsedReport.hasPunchRows && parsedReport.punchCount >= 2) {
             const parsedEvents = parsedReport.events.map((event) => ({
@@ -154,39 +214,16 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
                 .sort((a, b) => (a.absoluteMinutes || 0) - (b.absoluteMinutes || 0));
             const firstIn = absoluteEvents.find((event) => event.type === 'IN');
             const firstInAbsoluteMinutes = firstIn ? firstIn.absoluteMinutes : null;
-            const currentAbsoluteTime = getCurrentAbsoluteMinutes(absoluteEvents, currentTimeMinutes, detectedDate, today);
 
             const lastEvent = absoluteEvents[absoluteEvents.length - 1];
             const lastOut = [...absoluteEvents].reverse().find((event) => event.type === 'OUT');
-            const totalOutToCurrent = isHistorical
-                ? parsedReport.totalOutMinutes
-                : getBreakMinutesToTime(absoluteEvents, currentAbsoluteTime);
 
-            let realTimeWork = 0;
-            if (!isHistorical) {
-                if (firstIn && currentAbsoluteTime > firstInAbsoluteMinutes) {
-                    const totalOutToNow = getBreakMinutesToTime(absoluteEvents, currentAbsoluteTime);
-                    realTimeWork = currentAbsoluteTime - firstInAbsoluteMinutes - totalOutToNow;
-                } else if (!firstIn && startTimeMinutes !== null && currentTimeMinutes > startTimeMinutes) {
-                    realTimeWork = currentTimeMinutes - startTimeMinutes;
-                }
-            } else {
-                realTimeWork = parsedReport.totalWorkMinutes;
-            }
-
-            if (realTimeWork < 0) realTimeWork = 0;
-
-            const parsedLeaveMinutes = getLeaveMinutes(leave);
             const shortTimeOffMinutes = Number(parsedReport.shortTimeOffMinutes) || 0;
             const leaveMinutes = parsedLeaveMinutes + shortTimeOffMinutes;
-
-            const effectiveWorkWithLeave = realTimeWork + leaveMinutes;
-            const realTimeWithLeave = realTimeWork + leaveMinutes;
 
             let virtualFirstInTime = firstIn ? firstIn.displayTime : (leave?.type === LEAVE_TYPES.FULL ? minutesToTime(startTimeMinutes || 540, use24Hour) : null);
 
             if (leave && leave.type === LEAVE_TYPES.HALF_1) {
-                // Priority: Configured Start Time > 8:01 AM (fallback)
                 const effectiveStartMins = (startTimeMinutes !== null) ? startTimeMinutes : 481;
                 virtualFirstInTime = minutesToTime(effectiveStartMins, use24Hour);
             } else if (leave && leave.type === LEAVE_TYPES.FULL) {
@@ -196,26 +233,27 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
             return {
                 events: absoluteEvents,
                 breaks: parsedReport.breaks,
-                totalOutTime: totalOutToCurrent,
                 sessions: parsedReport.sessions,
                 sessionCount: parsedReport.sessionCount,
                 totalSessionMinutes: parsedReport.totalWorkMinutes,
                 totalOutMinutes: parsedReport.totalOutMinutes,
                 autoStartTime: firstIn ? minutesToTime(firstIn.minutes, true) : null,
-                effectiveWorkTime: effectiveWorkWithLeave,
-                realTimeEffectiveWork: realTimeWithLeave,
                 firstInTime: virtualFirstInTime,
                 lastOutTime: lastOut ? lastOut.displayTime : null,
                 isCurrentlyOut: lastEvent ? lastEvent.type === 'OUT' : false,
                 detectedDate,
                 logDetectedDate,
                 isHistorical,
-                currentTimeMinutes,
                 leaveMinutes,
                 shortTimeOffMinutes,
                 shortTimeOffEntries: parsedReport.shortTimeOffEntries,
                 anomalies: parsedReport.anomalies,
                 blankApproverRemarks: parsedReport.blankApproverRemarks,
+                today,
+                firstInAbsoluteMinutes,
+                completedWork: parsedReport.totalWorkMinutes,
+                completedTotalOut: parsedReport.totalOutMinutes,
+                startTimeMinutes,
             };
         }
 
@@ -255,10 +293,6 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
         const firstIn = absoluteEvents.find((e) => e.type === 'IN');
         const firstInAbsoluteMinutes = firstIn ? firstIn.absoluteMinutes : null;
         const lastOut = [...absoluteEvents].reverse().find(e => e.type === 'OUT');
-        const currentAbsoluteTime = getCurrentAbsoluteMinutes(absoluteEvents, currentTimeMinutes, detectedDate, today);
-        const totalOutToCurrent = isHistorical
-            ? totalOut
-            : getBreakMinutesToTime(absoluteEvents, currentAbsoluteTime);
 
         let netWork = 0;
         if (firstIn && lastOut) {
@@ -266,30 +300,9 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
             netWork = totalDuration - getBreakMinutesToTime(absoluteEvents, lastOut.absoluteMinutes);
         }
 
-        // Calculate real-time effective work up to 'now'
-        let realTimeWork = 0;
-        if (!isHistorical) {
-            if (firstIn && currentAbsoluteTime > firstInAbsoluteMinutes) {
-                const totalOutToNow = getBreakMinutesToTime(absoluteEvents, currentAbsoluteTime);
-                realTimeWork = currentAbsoluteTime - firstInAbsoluteMinutes - totalOutToNow;
-            } else if (!firstIn && startTimeMinutes !== null && currentTimeMinutes > startTimeMinutes) {
-                realTimeWork = currentTimeMinutes - startTimeMinutes;
-            }
-        } else {
-            // For historical logs, realTimeWork IS the completed netWork
-            realTimeWork = netWork;
-        }
-
-        const parsedLeaveMinutes = getLeaveMinutes(leave);
-        const baseWork = Math.max(0, realTimeWork);
-        const effectiveWorkWithLeave = baseWork + parsedLeaveMinutes;
-        const realTimeWithLeave = baseWork + parsedLeaveMinutes;
-
-        // Virtual Shift Start (if 1st half leave)
         let virtualFirstInTime = firstIn ? firstIn.displayTime : (leave?.type === LEAVE_TYPES.FULL ? minutesToTime(startTimeMinutes || 540, use24Hour) : null);
 
         if (leave && leave.type === LEAVE_TYPES.HALF_1) {
-            // Priority: Configured Start Time > 8:01 AM (fallback)
             const effectiveStartMins = (startTimeMinutes !== null) ? startTimeMinutes : 481;
             virtualFirstInTime = minutesToTime(effectiveStartMins, use24Hour);
         } else if (leave && leave.type === LEAVE_TYPES.FULL) {
@@ -302,22 +315,28 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
             sessions,
             sessionCount,
             totalSessionMinutes,
-            totalOutTime: totalOutToCurrent,
             autoStartTime: firstIn ? minutesToTime(firstIn.minutes, true) : null,
-            effectiveWorkTime: effectiveWorkWithLeave,
-            realTimeEffectiveWork: realTimeWithLeave,
             firstInTime: virtualFirstInTime,
             lastOutTime: lastOut ? lastOut.displayTime : null,
             isCurrentlyOut: lastEvent ? lastEvent.type === 'OUT' : false,
             detectedDate,
             logDetectedDate,
             isHistorical,
-            currentTimeMinutes,
             leaveMinutes: parsedLeaveMinutes,
             shortTimeOffMinutes: 0,
             shortTimeOffEntries: [],
             anomalies: [],
-            blankApproverRemarks: []
+            blankApproverRemarks: [],
+            today,
+            firstInAbsoluteMinutes,
+            completedWork: netWork,
+            completedTotalOut: totalOut,
+            startTimeMinutes,
         };
-    }, [logInput, use24Hour, minutesToTime, currentTimeMinutes, startTimeMinutes, today, leave, workDate]);
+    }, [logInput, use24Hour, startTimeMinutes, today, leave, workDate]);
+
+    return useMemo(
+        () => applyLiveClock(parsed, currentTimeMinutes),
+        [parsed, currentTimeMinutes],
+    );
 };

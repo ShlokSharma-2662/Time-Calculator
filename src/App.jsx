@@ -17,12 +17,13 @@ import { ShiftStateProvider, useShiftState } from './context/ShiftStateContext';
 import { HeroSection } from './components/HeroSection';
 import { useLeaveNotification } from './hooks/useLeaveNotification';
 import { getTargetWorkMinutes } from './hooks/useShiftCalculations';
-import { WeeklyTrend } from './components/WeeklyTrend';
+import { canAccessLeaveView } from './utils/leaveAccess';
 
 const LogAnalyzer = lazy(() => import('./components/LogAnalyzer').then((module) => ({ default: module.LogAnalyzer })));
 const ShiftAnalytics = lazy(() => import('./components/ShiftAnalytics').then((module) => ({ default: module.ShiftAnalytics })));
 const LeaveManagement = lazy(() => import('./components/LeaveManagement').then((module) => ({ default: module.LeaveManagement })));
 const AttendanceLog = lazy(() => import('./components/AttendanceLog').then((module) => ({ default: module.AttendanceLog })));
+const WeeklyTrend = lazy(() => import('./components/WeeklyTrend').then((module) => ({ default: module.WeeklyTrend })));
 
 const HAS_ACCOUNT_KEY = 'workshiftHasAccount';
 
@@ -51,7 +52,7 @@ function PasteSkeleton() {
 }
 
 function AppContent() {
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, savePreferences } = useAuth();
   const {
     showError, showInfo, toasts, dismissToast,
     confirmDialog, closeConfirm
@@ -59,14 +60,21 @@ function AppContent() {
 
   const {
     startTime, setStartTime, logInput, setLogInput,
-    shiftDuration, setShiftDuration, use24Hour,
+    shiftDuration, setShiftDuration, use24Hour, setUse24Hour,
     workDate, setWorkDate, today,
     currentMinutes,
     history, saveEntry,
     activeLeave, logStats, shiftDetails, mtdProgress, currentDayProgress,
+    hrmsSync, clearHrmsSync,
   } = useShiftState();
 
-  const [shiftTarget, setShiftTarget] = useState('fullDay');
+  const [shiftTarget, setShiftTarget] = useState(() => {
+    try {
+      const saved = localStorage.getItem('shiftTarget');
+      if (saved === 'fullDay' || saved === 'halfDay' || saved === 'shortLeave') return saved;
+    } catch { /* ignore */ }
+    return 'fullDay';
+  });
   const targetWorkMinutes = getTargetWorkMinutes((shiftDuration || 9) * 60, shiftTarget);
   const exitLabel = shiftDetails?.isFullLeave
     ? '--:--'
@@ -96,8 +104,8 @@ function AppContent() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [activeView, setActiveView] = useState(readInitialView);
   const prefersReducedMotion = useReducedMotion();
-  const canAccessLeaveView = user?.email === 'suttamshlok@gmail.com';
-  const allowedViews = canAccessLeaveView
+  const canAccessLeaveViewFlag = canAccessLeaveView(user?.email);
+  const allowedViews = canAccessLeaveViewFlag
     ? ['today', 'history', 'analytics', 'leave']
     : ['today', 'history', 'analytics'];
   const effectiveActiveView = allowedViews.includes(activeView) ? activeView : 'today';
@@ -122,6 +130,25 @@ function AppContent() {
     document.documentElement.classList.add('dark');
     localStorage.setItem('theme', 'dark');
   }, []);
+
+  useEffect(() => {
+    localStorage.setItem('shiftTarget', shiftTarget);
+  }, [shiftTarget]);
+
+  useEffect(() => {
+    if (!user || typeof savePreferences !== 'function') return undefined;
+    const timer = window.setTimeout(() => {
+      Promise.resolve(savePreferences({
+        shiftDuration,
+        use24Hour,
+        startTime,
+        shiftTarget,
+      })).catch((err) => {
+        console.warn('[App] Failed to save preferences:', err?.message || err);
+      });
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [user, savePreferences, shiftDuration, use24Hour, startTime, shiftTarget]);
 
   useEffect(() => {
     localStorage.setItem('activeView', effectiveActiveView);
@@ -180,7 +207,7 @@ function AppContent() {
 
   return (
     <SyncManager>
-      {({ syncLogs, restoreFromCloud, isSyncing }) => (
+      {({ syncLogs, restoreFromCloud, isSyncing, synced, lastSyncedAt }) => (
         <div className="min-h-screen selection:bg-indigo-500/30 selection:text-white">
           <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
             <div className="absolute top-[-8%] right-[-8%] w-[36%] h-[36%] bg-indigo-500/10 blur-[110px] rounded-full" />
@@ -192,13 +219,15 @@ function AppContent() {
               onOpenSettings={() => setIsSettingsOpen(true)}
               onLogout={logout}
               isSyncing={isSyncing}
+              lastSyncedAt={lastSyncedAt}
+              synced={synced}
               onSync={syncLogs}
               onRestore={restoreFromCloud}
               user={user}
               activeView={effectiveActiveView}
               setActiveView={setActiveView}
               remainingLabel={remainingLabel}
-              canAccessLeaveView={canAccessLeaveView}
+              canAccessLeaveView={canAccessLeaveViewFlag}
             />
 
             <main className="mt-4">
@@ -224,6 +253,8 @@ function AppContent() {
                         today={today}
                         leaveNotify={leaveNotify}
                         onNotifyToggle={handleNotifyToggle}
+                        hrmsSync={hrmsSync}
+                        onClearHrmsSync={clearHrmsSync}
                       />
                     </ErrorBoundary>
                     <ErrorBoundary label="Log paste">
@@ -233,6 +264,7 @@ function AppContent() {
                           setLogInput={setLogInput}
                           stats={logStats}
                           currentTimeMinutes={currentMinutes}
+                          workDate={logStats.detectedDate || workDate}
                         />
                       </Suspense>
                     </ErrorBoundary>
@@ -251,9 +283,9 @@ function AppContent() {
 
                 {effectiveActiveView === 'analytics' && (
                   <MotionDiv key="view-analytics" initial={sectionEnter} animate={sectionShow} exit={sectionExit} className="space-y-6">
-                    <WeeklyTrend history={history} />
                     <ErrorBoundary label="Analytics">
                       <Suspense fallback={<PasteSkeleton />}>
+                        <WeeklyTrend history={history} />
                         <ShiftAnalytics
                           currentShift={{ ...logStats, startTime }}
                           history={history}
@@ -285,6 +317,8 @@ function AppContent() {
               setShiftDuration={setShiftDuration}
               startTime={startTime}
               setStartTime={setStartTime}
+              use24Hour={use24Hour}
+              setUse24Hour={setUse24Hour}
             />
 
             <ConfirmDialog

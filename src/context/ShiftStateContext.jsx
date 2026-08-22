@@ -5,9 +5,66 @@ import { useHistory } from '../hooks/useHistory';
 import { getMonthToDateAdherence } from '../utils/shiftHistory';
 import { getLeaveForDate } from '../utils/leaveHistory';
 import { getLocalISODate, normalizeDate, resolveEffectiveWorkDate } from '../utils/dateUtils';
+import { hrmsPayloadToHistoryEntry } from '../utils/spinePunchExtract';
 import { useAuth } from './AuthContext';
 
 const ShiftStateContext = createContext(null);
+const HRMS_SYNC_KEYS = [
+    'hrmsSelectedDate',
+    'hrmsSyncAt',
+    'hrmsIsToday',
+    'hrmsFirstIn',
+    'hrmsLastOut',
+    'hrmsBreakMin',
+    'hrmsPunchCount',
+    'hrmsStatus',
+    'hrmsSource',
+];
+
+function readHrmsSyncSnapshot() {
+    try {
+        const selectedDate = localStorage.getItem('hrmsSelectedDate') || '';
+        const syncAtRaw = localStorage.getItem('hrmsSyncAt');
+        const syncAt = Number(syncAtRaw);
+        const breakMinutesRaw = Number(localStorage.getItem('hrmsBreakMin'));
+        const punchCountRaw = Number(localStorage.getItem('hrmsPunchCount'));
+        const syncedLogInput = localStorage.getItem('logInput') || '';
+        const syncedStartTime = localStorage.getItem('startTime') || '';
+        const status = localStorage.getItem('hrmsStatus')
+            || (localStorage.getItem('hrmsIsToday') === 'true' ? 'today' : 'past');
+
+        return {
+            selectedDate,
+            syncedAt: Number.isFinite(syncAt) ? syncAt : null,
+            isToday: localStorage.getItem('hrmsIsToday') === 'true',
+            firstIn: localStorage.getItem('hrmsFirstIn') || '',
+            lastOut: localStorage.getItem('hrmsLastOut') || '',
+            breakMinutes: Number.isFinite(breakMinutesRaw) ? breakMinutesRaw : 0,
+            punchCount: Number.isFinite(punchCountRaw) ? punchCountRaw : 0,
+            status,
+            source: localStorage.getItem('hrmsSource') || 'spine-hrms',
+            syncedLogInput,
+            syncedStartTime,
+            hasData: Boolean(selectedDate && syncedLogInput.trim()),
+        };
+    } catch (e) {
+        console.warn('[ShiftState] Failed to read HRMS sync data:', e);
+        return {
+            selectedDate: '',
+            syncedAt: null,
+            isToday: false,
+            firstIn: '',
+            lastOut: '',
+            breakMinutes: 0,
+            punchCount: 0,
+            status: 'past',
+            source: 'spine-hrms',
+            syncedLogInput: '',
+            syncedStartTime: '',
+            hasData: false,
+        };
+    }
+}
 
 export function useShiftState() {
     const ctx = useContext(ShiftStateContext);
@@ -17,7 +74,7 @@ export function useShiftState() {
 
 export function ShiftStateProvider({ children }) {
     const { user, syncLogsToCloud } = useAuth();
-    const { history, saveEntry, getAllEntries, exportToCSV, setFullHistory } = useHistory();
+    const { history, saveEntry, mergeIncomingHistory, getAllEntries, exportToCSV, setFullHistory } = useHistory();
 
     // --- Persisted State ---
     const [startTime, setStartTime] = useState(() => {
@@ -58,6 +115,8 @@ export function ShiftStateProvider({ children }) {
         return today;
     });
 
+    const [hrmsSync, setHrmsSync] = useState(() => readHrmsSyncSnapshot());
+
     // --- Live Clock ---
     const [currentMinutes, setCurrentMinutes] = useState(() => {
         const now = new Date();
@@ -78,6 +137,88 @@ export function ShiftStateProvider({ children }) {
     useEffect(() => { localStorage.setItem('shiftDuration', shiftDuration); }, [shiftDuration]);
     useEffect(() => { localStorage.setItem('use24Hour', use24Hour); }, [use24Hour]);
     useEffect(() => { localStorage.setItem('workDate', workDate); }, [workDate]);
+
+    useEffect(() => {
+        const refreshHrmsSync = () => {
+            const next = readHrmsSyncSnapshot();
+            setHrmsSync((prev) => {
+                if (
+                    prev.selectedDate === next.selectedDate
+                    && prev.syncedAt === next.syncedAt
+                    && prev.isToday === next.isToday
+                    && prev.firstIn === next.firstIn
+                    && prev.lastOut === next.lastOut
+                    && prev.breakMinutes === next.breakMinutes
+                    && prev.punchCount === next.punchCount
+                    && prev.status === next.status
+                    && prev.source === next.source
+                    && prev.syncedLogInput === next.syncedLogInput
+                    && prev.syncedStartTime === next.syncedStartTime
+                    && prev.hasData === next.hasData
+                ) {
+                    return prev;
+                }
+                return next;
+            });
+        };
+
+        refreshHrmsSync();
+        const onStorage = (event) => {
+            if (!event.key || event.key === 'logInput' || HRMS_SYNC_KEYS.includes(event.key)) {
+                refreshHrmsSync();
+            }
+        };
+        const onHrmsBridge = () => refreshHrmsSync();
+
+        window.addEventListener('storage', onStorage);
+        window.addEventListener('workshift-hrms-sync', onHrmsBridge);
+        return () => {
+            window.removeEventListener('storage', onStorage);
+            window.removeEventListener('workshift-hrms-sync', onHrmsBridge);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!hrmsSync.hasData) return;
+        try {
+            if (hrmsSync.syncedLogInput) {
+                setLogInput(hrmsSync.syncedLogInput);
+            }
+            if (hrmsSync.syncedStartTime) {
+                setStartTime(hrmsSync.syncedStartTime);
+            }
+            const iso = normalizeDate(hrmsSync.selectedDate);
+            if (iso && /^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+                setWorkDate(iso);
+            }
+        } catch (e) {
+            console.warn('[ShiftState] Failed to hydrate HRMS synced values:', e);
+        }
+    }, [hrmsSync.hasData, hrmsSync.syncedAt, hrmsSync.syncedLogInput, hrmsSync.syncedStartTime, hrmsSync.selectedDate]);
+
+    useEffect(() => {
+        const onRange = (event) => {
+            const payloads = event.detail?.payloads;
+            if (!Array.isArray(payloads) || !payloads.length) return;
+            payloads.forEach((payload) => {
+                const iso = normalizeDate(payload.hrmsSelectedDate);
+                const entry = hrmsPayloadToHistoryEntry(payload);
+                if (!iso || !entry) return;
+                saveEntry(iso, entry);
+            });
+        };
+        window.addEventListener('workshift-hrms-range', onRange);
+        return () => window.removeEventListener('workshift-hrms-range', onRange);
+    }, [saveEntry]);
+
+    const clearHrmsSync = () => {
+        try {
+            HRMS_SYNC_KEYS.forEach((key) => localStorage.removeItem(key));
+            setHrmsSync(readHrmsSyncSnapshot());
+        } catch (e) {
+            console.warn('[ShiftState] Failed to clear HRMS sync data:', e);
+        }
+    };
 
     // --- Derived Calculations ---
     const startTimeMinutes = useMemo(() => {
@@ -114,42 +255,69 @@ export function ShiftStateProvider({ children }) {
         return Math.min(100, Math.round((logStats.effectiveWorkTime / targetMinutes) * 100));
     }, [logStats.effectiveWorkTime, shiftDuration]);
 
-    // --- Auto-save effect (uses refs to avoid stale closures) ---
+    // --- Auto-save: debounce local history; cloud only on hide/blur/pagehide ---
     const saveEntryRef = useRef(saveEntry);
     const syncLogsToCloudRef = useRef(syncLogsToCloud);
-    const activeLeaveRef = useRef(activeLeave);
+    const persistPayloadRef = useRef(null);
 
     useEffect(() => { saveEntryRef.current = saveEntry; }, [saveEntry]);
     useEffect(() => { syncLogsToCloudRef.current = syncLogsToCloud; }, [syncLogsToCloud]);
-    useEffect(() => { activeLeaveRef.current = activeLeave; }, [activeLeave]);
+
+    persistPayloadRef.current = {
+        shouldSave: logInput.trim() !== '' || startTime !== '09:00',
+        canCloud: Boolean(logStats.detectedDate && user),
+        targetDate: logStats.detectedDate || today,
+        entryData: {
+            startTime,
+            logInput,
+            totalOutTime: logStats.totalOutTime,
+            effectiveWorkTime: logStats.effectiveWorkTime,
+            firstInTime: logStats.firstInTime,
+            lastOutTime: logStats.lastOutTime,
+            activeLeave: activeLeave || null,
+            shortTimeOffMinutes: logStats.shortTimeOffMinutes || 0,
+            shortTimeOffEntries: logStats.shortTimeOffEntries || []
+        },
+    };
+
+    const flushLocalSave = () => {
+        const payload = persistPayloadRef.current;
+        if (!payload?.shouldSave) return;
+        saveEntryRef.current(payload.targetDate, payload.entryData);
+    };
+
+    const flushCloudSave = () => {
+        const payload = persistPayloadRef.current;
+        if (!payload?.shouldSave) return;
+        saveEntryRef.current(payload.targetDate, payload.entryData);
+        if (!payload.canCloud) return;
+        Promise.resolve(syncLogsToCloudRef.current([[payload.targetDate, payload.entryData]]))
+            .catch((err) => {
+                console.warn('[ShiftState] Auto-sync failed:', err?.message || err);
+            });
+    };
 
     useEffect(() => {
-        const todayISO = today;
-        const targetDate = logStats.detectedDate || todayISO;
+        if (!persistPayloadRef.current?.shouldSave) return undefined;
+        const timer = setTimeout(flushLocalSave, 400);
+        return () => clearTimeout(timer);
+    }, [startTime, logInput, logStats.detectedDate, logStats.shortTimeOffMinutes, today]);
 
-        if (logInput.trim() !== "" || startTime !== "09:00") {
-                const currentLeave = activeLeaveRef.current;
-                const entryData = {
-                    startTime,
-                    logInput,
-                    totalOutTime: logStats.totalOutTime,
-                    effectiveWorkTime: logStats.effectiveWorkTime,
-                    firstInTime: logStats.firstInTime,
-                    lastOutTime: logStats.lastOutTime,
-                    activeLeave: currentLeave || null,
-                    shortTimeOffMinutes: logStats.shortTimeOffMinutes || 0,
-                    shortTimeOffEntries: logStats.shortTimeOffEntries || []
-                };
-            saveEntryRef.current(targetDate, entryData);
+    useEffect(() => {
+        const onVisibility = () => {
+            if (document.visibilityState === 'hidden') flushCloudSave();
+        };
+        const onBlur = () => flushCloudSave();
 
-            if (logStats.detectedDate && user) {
-                Promise.resolve(syncLogsToCloudRef.current([[targetDate, entryData]]))
-                    .catch((err) => {
-                        console.warn('[ShiftState] Auto-sync failed:', err?.message || err);
-                    });
-            }
-        }
-    }, [startTime, logInput, logStats.totalOutTime, logStats.effectiveWorkTime, logStats.detectedDate, user, today]);
+        document.addEventListener('visibilitychange', onVisibility);
+        window.addEventListener('blur', onBlur);
+        window.addEventListener('pagehide', flushCloudSave);
+        return () => {
+            document.removeEventListener('visibilitychange', onVisibility);
+            window.removeEventListener('blur', onBlur);
+            window.removeEventListener('pagehide', flushCloudSave);
+        };
+    }, []);
 
     const value = {
         // State + setters
@@ -159,8 +327,9 @@ export function ShiftStateProvider({ children }) {
         use24Hour, setUse24Hour,
         workDate, setWorkDate, today,
         currentMinutes,
+        hrmsSync, clearHrmsSync,
         // History
-        history, saveEntry, getAllEntries, exportToCSV, setFullHistory,
+        history, saveEntry, mergeIncomingHistory, getAllEntries, exportToCSV, setFullHistory,
         // Derived
         activeLeave, logStats, shiftDetails, mtdProgress, currentDayProgress,
     };

@@ -3,9 +3,7 @@
  * Loads day details in the background, never leaves the day popup open.
  */
 (() => {
-  const REPORT_URL =
-    'https://rysun.spinehri.in/Atten/MyAttendanceReport.aspx?mnusr=menu__10101';
-  const SPINE_ORIGIN = 'https://rysun.spinehri.in';
+  const REPORT_URL = `${location.origin}/Atten/MyAttendanceReport.aspx?mnusr=menu__10101`;
   const HIDE_STYLE_ID = 'workshift-spine-silent-hide';
 
   function sleep(ms) {
@@ -28,6 +26,11 @@
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const dd = String(date.getDate()).padStart(2, '0');
     return `${dd}-${months[date.getMonth()]}-${String(date.getFullYear()).slice(-2)}`;
+  }
+
+  function isSpinePage() {
+    const host = (location.hostname || '').toLowerCase();
+    return host.endsWith('.spinehri.in') || host.endsWith('.spinehrm.in');
   }
 
   function isLoginPage() {
@@ -286,10 +289,7 @@
         };
       }
 
-      if (
-        !isLoggedInSurface() &&
-        !location.href.toLowerCase().includes(SPINE_ORIGIN.replace('https://', ''))
-      ) {
+      if (!isLoggedInSurface() && !isSpinePage()) {
         return { ok: false, message: 'Unexpected Spine page.' };
       }
 
