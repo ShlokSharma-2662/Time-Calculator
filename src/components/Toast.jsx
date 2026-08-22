@@ -35,6 +35,7 @@ export const Toast = ({ toasts, onDismiss }) => {
                             <button
                                 onClick={() => onDismiss(toast.id)}
                                 className="text-white/80 hover:text-white transition-colors"
+                                aria-label={toast.type === 'error' ? 'Dismiss error' : 'Dismiss'}
                             >
                                 <X className="w-4 h-4" />
                             </button>

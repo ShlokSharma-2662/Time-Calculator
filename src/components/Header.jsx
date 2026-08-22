@@ -1,126 +1,144 @@
-import { Settings, Calendar, Briefcase, Palmtree, RefreshCw, LogOut, Download } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { BarChart2, Briefcase, Calendar, ChevronDown, Cloud, LogOut, Palmtree, Settings } from 'lucide-react';
 import { motion, useReducedMotion } from 'framer-motion';
 
-export const Header = ({ onOpenSettings, onOpenHistory, activeView = 'shift', setActiveView, onLogout, isSyncing, onSync, onRestore, user }) => {
+export const Header = ({
+    onOpenSettings,
+    onLogout,
+    isSyncing,
+    onSync,
+    onRestore,
+    user,
+    activeView = 'today',
+    setActiveView,
+    remainingLabel,
+    canAccessLeaveView = false,
+}) => {
     const prefersReducedMotion = useReducedMotion();
     const MotionSpan = motion.span;
+    const [syncOpen, setSyncOpen] = useState(false);
+    const syncRef = useRef(null);
+
+    useEffect(() => {
+        const onPointerDown = (event) => {
+            if (syncRef.current && !syncRef.current.contains(event.target)) {
+                setSyncOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', onPointerDown);
+        return () => document.removeEventListener('mousedown', onPointerDown);
+    }, []);
+
+    const tabs = [
+        { id: 'today', label: 'Today', icon: Briefcase },
+        { id: 'history', label: 'History', icon: Calendar },
+        { id: 'analytics', label: 'Analytics', icon: BarChart2 },
+    ];
+    if (canAccessLeaveView) {
+        tabs.push({ id: 'leave', label: 'Leave', icon: Palmtree });
+    }
+
     return (
-        <div className="space-y-6 mb-10">
-            <header className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-5 animate-enter-up">
-                <div className="flex items-center gap-4 min-w-0">
+        <div className="space-y-4 mb-6">
+            <header className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
                     {user?.photoURL ? (
-                        <img src={user.photoURL} alt={user?.name || 'Profile'} className="w-12 h-12 rounded-2xl shadow-lg shadow-indigo-500/20 object-cover animate-pop-soft" />
+                        <img src={user.photoURL} alt="" className="w-10 h-10 rounded-xl object-cover" />
                     ) : (
-                        <div className="w-12 h-12 rounded-2xl bg-indigo-500 flex items-center justify-center shadow-lg shadow-indigo-500/20 animate-pop-soft">
-                            <Briefcase className="w-6 h-6 text-white" />
+                        <div className="w-10 h-10 rounded-xl bg-indigo-500 flex items-center justify-center">
+                            <Briefcase className="w-5 h-5 text-white" />
                         </div>
                     )}
                     <div className="min-w-0">
-                        <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">WorkShift <span className="text-indigo-400">Dashboard</span></h1>
-                        <div className="flex flex-wrap items-center gap-2 mt-1">
-                            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide leading-none">Performance tracker</p>
-                            <span className="w-1 h-1 rounded-full bg-slate-700"></span>
-                            <span className="text-xs text-indigo-300 font-semibold tracking-wide truncate max-w-52">{user?.name}</span>
-                        </div>
+                        <h1 className="text-lg sm:text-xl font-semibold text-white tracking-tight">
+                            WorkShift
+                        </h1>
+                        <p className="text-sm text-slate-400 truncate">{user?.name}</p>
+                        {remainingLabel && (
+                            <p className="text-sm text-indigo-200/90">{remainingLabel}</p>
+                        )}
                     </div>
                 </div>
 
-                <div className="flex w-full lg:w-auto flex-wrap items-center gap-1 p-1.5 glass rounded-2xl border-white/20">
-                    <button
-                        type="button"
-                        onClick={onSync} disabled={isSyncing}
-                        className="p-2.5 rounded-xl hover:bg-white/10 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-300/70 text-emerald-400 transition-all duration-200 font-bold text-xs flex items-center gap-2"
-                        title="Push to Cloud">
-                        <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
-                        <span className="hidden sm:inline uppercase">{isSyncing ? 'Syncing...' : 'Push'}</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onRestore} disabled={isSyncing}
-                        className="p-2.5 rounded-xl hover:bg-white/10 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70 text-sky-300 transition-all duration-200 font-bold text-xs flex items-center gap-2"
-                        title="Restore from Cloud">
-                        <Download className="w-4 h-4" />
-                        <span className="hidden sm:inline uppercase">Pull</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onOpenHistory}
-                        className="p-2.5 rounded-xl hover:bg-white/10 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70 text-slate-300 hover:text-indigo-300 transition-all duration-200 font-bold text-xs flex items-center gap-2"
-                        title="History">
-                        <Calendar className="w-4 h-4" />
-                        <span className="hidden sm:inline uppercase">History</span>
-                    </button>
-
+                <div className="flex w-full lg:w-auto flex-wrap items-center gap-1 p-1 glass rounded-xl border-white/15">
+                    <div className="relative" ref={syncRef}>
+                        <button
+                            type="button"
+                            onClick={() => setSyncOpen((value) => !value)}
+                            disabled={isSyncing}
+                            className="p-2 rounded-lg hover:bg-white/10 text-emerald-300 text-sm flex items-center gap-1.5"
+                        >
+                            <Cloud className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+                            <span className="hidden sm:inline">{isSyncing ? 'Syncing' : 'Sync'}</span>
+                            <ChevronDown className="w-3.5 h-3.5 opacity-70" />
+                        </button>
+                        {syncOpen && (
+                            <div className="absolute right-0 mt-2 w-40 rounded-xl border border-white/10 bg-slate-950 shadow-xl z-20 overflow-hidden">
+                                <button
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/10"
+                                    onClick={() => { setSyncOpen(false); onSync?.(); }}
+                                >
+                                    Push to cloud
+                                </button>
+                                <button
+                                    type="button"
+                                    className="w-full text-left px-3 py-2 text-sm text-slate-200 hover:bg-white/10"
+                                    onClick={() => { setSyncOpen(false); onRestore?.(); }}
+                                >
+                                    Pull from cloud
+                                </button>
+                            </div>
+                        )}
+                    </div>
                     <button
                         type="button"
                         onClick={onOpenSettings}
-                        className="p-2.5 rounded-xl hover:bg-white/10 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300/70 text-slate-300 hover:text-indigo-300 transition-all duration-200 font-bold text-xs flex items-center gap-2"
-                        title="Settings">
+                        className="p-2 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white text-sm flex items-center gap-1.5"
+                    >
                         <Settings className="w-4 h-4" />
-                        <span className="hidden sm:inline uppercase">Settings</span>
+                        <span className="hidden sm:inline">Settings</span>
                     </button>
-
-                    <div className="w-[1px] h-6 bg-white/10 mx-1"></div>
+                    <div className="w-px h-5 bg-white/10 mx-1" />
                     <button
                         type="button"
                         onClick={onLogout}
-                        className="p-2.5 rounded-xl hover:bg-rose-500/10 hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-300/70 text-rose-400 transition-all duration-200 font-bold text-xs flex items-center gap-2"
-                        title="Logout"
+                        className="p-2 rounded-lg hover:bg-rose-500/10 text-rose-300 text-sm flex items-center gap-1.5"
                     >
                         <LogOut className="w-4 h-4" />
-                        <span className="hidden sm:inline">EXIT</span>
+                        <span className="hidden sm:inline">Sign out</span>
                     </button>
                 </div>
             </header>
 
-            {/* Navigation Tabs */}
-            <nav className="flex gap-2 p-1.5 glass rounded-2xl border-white/10 max-w-sm mx-auto sm:mx-0 animate-enter-up [animation-delay:120ms]" aria-label="Main views">
-                <button
-                    type="button"
-                    onClick={() => setActiveView('shift')}
-                    aria-current={activeView === 'shift' ? 'page' : undefined}
-                    className={`relative isolate flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 ${activeView === 'shift'
-                        ? 'text-indigo-300'
-                        : 'text-slate-400 hover:text-slate-100'
-                        }`}
-                >
-                    {!prefersReducedMotion && activeView === 'shift' && (
-                        <MotionSpan
-                            layoutId="active-view-pill"
-                            className="absolute inset-1 rounded-xl bg-indigo-500/20 border border-indigo-500/40 -z-10"
-                            transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-                        />
-                    )}
-                    {prefersReducedMotion && activeView === 'shift' && (
-                        <span className="absolute inset-1 rounded-xl bg-indigo-500/20 border border-indigo-500/40 -z-10" />
-                    )}
-                    <Briefcase className="w-4 h-4" />
-                    Dashboard
-                </button>
-                {user?.email === 'suttamshlok@gmail.com' && (
-                    <button
-                        type="button"
-                        onClick={() => setActiveView('leave')}
-                        aria-current={activeView === 'leave' ? 'page' : undefined}
-                        className={`relative isolate flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all duration-200 ${activeView === 'leave'
-                            ? 'text-indigo-300'
-                            : 'text-slate-400 hover:text-slate-100'
-                            }`}
-                    >
-                        {!prefersReducedMotion && activeView === 'leave' && (
-                            <MotionSpan
-                                layoutId="active-view-pill"
-                                className="absolute inset-1 rounded-xl bg-indigo-500/20 border border-indigo-500/40 -z-10"
-                                transition={{ type: 'spring', stiffness: 340, damping: 30 }}
-                            />
-                        )}
-                        {prefersReducedMotion && activeView === 'leave' && (
-                            <span className="absolute inset-1 rounded-xl bg-indigo-500/20 border border-indigo-500/40 -z-10" />
-                        )}
-                        <Palmtree className="w-4 h-4" />
-                        Archive
-                    </button>
-                )}
+            <nav className="flex gap-1 p-1 glass rounded-xl border-white/10 overflow-x-auto" aria-label="Main views">
+                {tabs.map((tab) => {
+                    const Icon = tab.icon;
+                    const selected = activeView === tab.id;
+                    return (
+                        <button
+                            key={tab.id}
+                            type="button"
+                            onClick={() => setActiveView(tab.id)}
+                            aria-current={selected ? 'page' : undefined}
+                            className={`relative isolate flex-1 min-w-[7rem] flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm ${selected ? 'text-indigo-200' : 'text-slate-400 hover:text-slate-100'
+                                }`}
+                        >
+                            {!prefersReducedMotion && selected && (
+                                <MotionSpan
+                                    layoutId="active-view-pill"
+                                    className="absolute inset-1 rounded-lg bg-indigo-500/20 border border-indigo-500/40 -z-10"
+                                    transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+                                />
+                            )}
+                            {prefersReducedMotion && selected && (
+                                <span className="absolute inset-1 rounded-lg bg-indigo-500/20 border border-indigo-500/40 -z-10" />
+                            )}
+                            <Icon className="w-4 h-4" />
+                            {tab.label}
+                        </button>
+                    );
+                })}
             </nav>
         </div>
     );

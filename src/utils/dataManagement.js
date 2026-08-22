@@ -12,6 +12,8 @@ const APP_KEYS = [
     'logInput',
     'shiftDuration',
     'use24Hour',
+    'workDate',
+    'leaveNotifyEnabled',
     'theme',
     'activeView'
 ];

@@ -40,7 +40,7 @@ const ACCENTS = {
     },
 };
 
-export const GlassCard = ({ children, className = "", title, icon: Icon, subtitle, hover = true, animate = true, animationDelayMs = 0, accentColor = 'indigo' }) => {
+export const GlassCard = ({ children, className = "", title, icon: Icon, subtitle, hover = false, animate = true, animationDelayMs = 0, accentColor = 'indigo' }) => {
     const prefersReducedMotion = useReducedMotion();
     const hoverClass = hover && !prefersReducedMotion ? 'glass-card-hover' : '';
     const enterClass = animate && !prefersReducedMotion ? 'animate-enter-up' : '';
@@ -74,8 +74,8 @@ export const GlassCard = ({ children, className = "", title, icon: Icon, subtitl
                                 </div>
                             )}
                             <div>
-                                <h3 className="text-sm font-bold text-slate-100 tracking-tight">{title}</h3>
-                                {subtitle && <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase opacity-90">{subtitle}</p>}
+                                <h3 className="text-sm font-semibold text-slate-100 tracking-tight">{title}</h3>
+                                {subtitle && <p className="text-xs text-slate-400">{subtitle}</p>}
                             </div>
                         </div>
                     </div>

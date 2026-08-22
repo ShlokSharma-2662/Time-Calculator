@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform, animate } from 'framer-motion';
+import { motion, useMotionValue, useTransform, animate } from 'framer-motion';
 import {
-    ShieldCheck, Info, TrendingUp, Calendar, Zap,
-    Award, PieChart, Database, LayoutGrid, Sliders
+    ShieldCheck, TrendingUp, Calendar, Zap,
+    Award, PieChart, Database
 } from 'lucide-react';
 import { LeaveTracker } from './LeaveTracker';
 import { LeaveBalanceTable } from './LeaveBalanceTable';
@@ -13,6 +13,7 @@ import { LeaveHistoryLog } from './LeaveHistoryLog';
 import { calculateMonthlyAccrual } from '../utils/elCalculations';
 import { calculateCOStatus, getLeaveHistory } from '../utils/leaveHistory';
 import { INITIAL_BALANCES } from '../data/seedHistory';
+import { getLocalISODate } from '../utils/dateUtils';
 import {
     formatFinancialYearLabel,
     getAvailableFinancialYears,
@@ -52,7 +53,7 @@ export function LeaveManagement() {
         }
     }, [financialYearOptions, selectedFYStartYear]);
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalISODate();
     const fyLabel = formatFinancialYearLabel(selectedFYStartYear);
     const fyRange = useMemo(
         () => getFinancialYearRange(selectedFYStartYear),
@@ -175,16 +176,11 @@ export function LeaveManagement() {
                 />
             </div>
 
-            {/* Action Header */}
             <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6 mb-2">
                 <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_8px_rgba(99,102,241,0.6)]" />
-                        <h2 className="text-sm font-black text-indigo-400 uppercase tracking-[0.3em]">Leave Management</h2>
-                    </div>
-                    <h1 className="text-3xl font-black text-white tracking-tighter">Your Financial & Leave Dashboard</h1>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-2">
-                        Active Financial Year: FY {fyLabel}
+                    <h1 className="text-2xl font-semibold text-white tracking-tight">Leave</h1>
+                    <p className="text-sm text-slate-400 mt-1">
+                        FY {fyLabel}
                     </p>
                 </div>
 
@@ -192,7 +188,7 @@ export function LeaveManagement() {
                     <select
                         value={selectedFYStartYear}
                         onChange={(event) => setSelectedFYStartYear(Number(event.target.value))}
-                        className="px-4 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/10 text-xs font-black uppercase tracking-wider transition-all cursor-pointer"
+                        className="px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 text-sm cursor-pointer"
                     >
                         {financialYearOptions.map((fyStart) => (
                             <option key={fyStart} value={fyStart} className="bg-slate-900">
@@ -201,15 +197,13 @@ export function LeaveManagement() {
                         ))}
                     </select>
                     <button
+                        type="button"
                         onClick={() => setIsImportOpen(true)}
-                        className="flex items-center gap-2.5 px-6 py-3 bg-white/5 hover:bg-white/10 text-white rounded-2xl border border-white/10 transition-all group"
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 group"
                     >
-                        <Database className="w-4 h-4 text-indigo-400 group-hover:scale-110 transition-transform" />
-                        <span className="text-xs font-black uppercase tracking-widest">Migrate Legacy Data</span>
+                        <Database className="w-4 h-4 text-indigo-400" />
+                        <span className="text-sm">Import HR file</span>
                     </button>
-                    <div className="p-3 bg-white/5 rounded-2xl border border-white/10 text-slate-500 hover:text-white cursor-pointer transition-colors">
-                        <Sliders className="w-5 h-5" />
-                    </div>
                 </div>
             </div>
 
@@ -222,8 +216,7 @@ export function LeaveManagement() {
             <div className="relative z-10 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <motion.div
                     variants={itemVariants}
-                    whileHover={{ y: -5, scale: 1.02, backgroundColor: "rgba(255, 255, 255, 0.05)" }}
-                    className="glass-card glass-card-hover relative overflow-hidden group border-indigo-500/20"
+                    className="glass-card relative overflow-hidden group border-indigo-500/20"
                 >
                     <motion.div
                         animate={{ opacity: [0.1, 0.3, 0.1] }}
@@ -238,8 +231,8 @@ export function LeaveManagement() {
                             <ShieldCheck className="w-6 h-6 text-indigo-500" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-0.5">Total Leave Available</p>
-                            <h4 className="text-3xl font-black neon-text-indigo">
+                            <p className="text-xs text-slate-400">Available</p>
+                            <h4 className="text-3xl font-semibold neon-text-indigo">
                                 <CountUp value={stats.totalAvailable} />
                             </h4>
                         </div>
@@ -248,8 +241,7 @@ export function LeaveManagement() {
 
                 <motion.div
                     variants={itemVariants}
-                    whileHover={{ y: -5, scale: 1.02, backgroundColor: "rgba(255, 255, 255, 0.05)" }}
-                    className="glass-card glass-card-hover relative overflow-hidden group border-violet-500/20"
+                    className="glass-card relative overflow-hidden group border-violet-500/20"
                 >
                     <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                         <PieChart className="w-12 h-12 text-violet-500" />
@@ -259,8 +251,8 @@ export function LeaveManagement() {
                             <Calendar className="w-6 h-6 text-violet-500" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-0.5">Total Taken</p>
-                            <h4 className="text-3xl font-black neon-text-violet">
+                            <p className="text-xs text-slate-400">Taken</p>
+                            <h4 className="text-3xl font-semibold neon-text-violet">
                                 <CountUp value={stats.totalTaken} />
                             </h4>
                         </div>
@@ -269,8 +261,7 @@ export function LeaveManagement() {
 
                 <motion.div
                     variants={itemVariants}
-                    whileHover={{ y: -5, scale: 1.02, backgroundColor: "rgba(255, 255, 255, 0.05)" }}
-                    className="glass-card glass-card-hover relative overflow-hidden group border-rose-500/20"
+                    className="glass-card relative overflow-hidden group border-rose-500/20"
                 >
                     <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
                         <Award className="w-12 h-12 text-rose-500" />
@@ -280,8 +271,8 @@ export function LeaveManagement() {
                             <TrendingUp className="w-6 h-6 text-rose-500" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest pl-0.5">Monthly Accrual</p>
-                            <h4 className="text-3xl font-black text-rose-500" style={{ textShadow: '0 0 10px rgba(244, 63, 94, 0.3)' }}>
+                            <p className="text-xs text-slate-400">Monthly accrual</p>
+                            <h4 className="text-3xl font-semibold text-rose-400">
                                 <CountUp value={accruedEL.toFixed(1)} />
                             </h4>
                         </div>
@@ -313,7 +304,7 @@ export function LeaveManagement() {
                             <div className="p-2 bg-indigo-500/20 rounded-lg">
                                 <Zap className="w-4 h-4 text-indigo-400" />
                             </div>
-                            <h4 className="text-sm font-black text-white uppercase tracking-wider">Quick Register</h4>
+                            <h4 className="text-sm font-semibold text-white">Quick register</h4>
                         </div>
                         <LeaveTracker />
                     </motion.div>

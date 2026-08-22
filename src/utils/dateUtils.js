@@ -42,3 +42,28 @@ export function formatDate(dateStr) {
     const [year, month, day] = dateStr.split('-');
     return `${day}-${month}-${year}`;
 }
+
+/**
+ * Calendar date in the user's timezone (not UTC).
+ * `toISOString().slice(0, 10)` is wrong near midnight in IST.
+ */
+export function getLocalISODate(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+export function shiftLocalISODate(isoDate, dayDelta) {
+    const [year, month, day] = String(isoDate || '').split('-').map(Number);
+    if (!year || !month || !day) return isoDate;
+    const next = new Date(year, month - 1, day + dayDelta);
+    return getLocalISODate(next);
+}
+
+/**
+ * Punch-log date wins when present; otherwise the picker / today.
+ */
+export function resolveEffectiveWorkDate(logDetectedDate, selectedDate, today) {
+    return logDetectedDate || selectedDate || today || null;
+}

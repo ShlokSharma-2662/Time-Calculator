@@ -182,7 +182,7 @@ export function AttendanceLog() {
     };
 
     return (
-        <div className="glass-card mt-8 overflow-hidden border-indigo-500/20 bg-gradient-to-br from-slate-900/85 via-slate-900/55 to-indigo-500/10 shadow-[0_0_60px_rgba(99,102,241,0.08)]">
+        <div className="glass-card overflow-hidden border-indigo-500/20">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                 <div className="flex items-center gap-4">
                     <button
@@ -196,11 +196,11 @@ export function AttendanceLog() {
                     </button>
                     <div>
                         <div className="flex items-center gap-2 mb-0.5">
-                            <h3 className="text-lg font-black text-white tracking-tight">Attendance Log</h3>
-                            <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-400 text-[8px] font-black uppercase tracking-widest border border-indigo-500/20">Live</span>
+                            <h3 className="text-lg font-semibold text-white tracking-tight">History</h3>
+                            <span className="px-2 py-0.5 rounded-md bg-indigo-500/20 text-indigo-300 text-xs border border-indigo-500/20">Live</span>
                         </div>
-                        <p className="text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                            {filteredShifts.length} Shifts Tracked • Page {currentPage} of {totalPages}
+                        <p className="text-sm text-slate-400">
+                            {filteredShifts.length} shifts · page {currentPage} of {totalPages}
                         </p>
                     </div>
                 </div>
@@ -353,8 +353,8 @@ export function AttendanceLog() {
                                                 <div className="flex flex-col items-center gap-4 opacity-20">
                                                     <Timer className="w-12 h-12 text-slate-400" />
                                                     <div>
-                                                        <p className="text-sm font-black uppercase tracking-widest text-slate-400">Zero Attendance Nodes</p>
-                                                        <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mt-1">Initialize your first shift to begin tracking</p>
+                                                        <p className="text-sm text-slate-300">No shifts yet</p>
+                                                        <p className="text-xs text-slate-500 mt-1">Save a day from Analytics or paste a log on Today.</p>
                                                     </div>
                                                 </div>
                                             </td>

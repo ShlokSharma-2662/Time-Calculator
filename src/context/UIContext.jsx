@@ -8,11 +8,14 @@ export const UIProvider = ({ children }) => {
 
     // Toast Methods
     const showToast = useCallback((message, type = 'info') => {
-        const id = Date.now();
+        const id = Date.now() + Math.random();
         setToasts(prev => [...prev, { id, message, type }]);
+        // Errors stay until dismissed so a failed save is not missed.
+        if (type === 'error') return;
+        const duration = type === 'success' ? 3000 : 4000;
         setTimeout(() => {
             setToasts(prev => prev.filter(t => t.id !== id));
-        }, 3000);
+        }, duration);
     }, []);
 
     const showSuccess = useCallback((msg) => showToast(msg, 'success'), [showToast]);

@@ -2,6 +2,13 @@ import { useMemo } from 'react';
 import { useTimeHelpers } from './useTimeHelpers';
 import { getLeaveForDate, LEAVE_TYPES } from '../utils/leaveHistory';
 
+export function getTargetWorkMinutes(fullDayDurationMinutes, targetKey = 'fullDay') {
+    const full = Math.max(0, Number(fullDayDurationMinutes) || 540);
+    if (targetKey === 'halfDay') return Math.floor(full / 2);
+    if (targetKey === 'shortLeave') return Math.max(full - 90, 0);
+    return full;
+}
+
 export const useShiftCalculations = (
     startTime,
     fullDayDuration = 540,

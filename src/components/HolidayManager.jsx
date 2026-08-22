@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Plus, Trash2, ShieldAlert } from 'lucide-react';
 import { getMergedHolidays, addCustomHoliday, removeCustomHoliday } from '../utils/holidayPersistence';
-import { HOLIDAYS_BY_FY, refreshHolidays } from '../utils/sandwichLeaveLogic';
+import { HOLIDAYS_BY_FY } from '../utils/sandwichLeaveLogic';
 import { useUI } from '../context/UIContext';
 import { formatDate } from '../utils/dateUtils';
 
@@ -32,7 +32,6 @@ export function HolidayManager() {
 
         try {
             addCustomHoliday(newDate, sanitizedName);
-            refreshHolidays();
             loadHolidays();
             setNewDate('');
             setNewName('');
@@ -48,7 +47,6 @@ export function HolidayManager() {
             message: `Are you sure you want to remove "${name}"?`,
             onConfirm: () => {
                 removeCustomHoliday(date);
-                refreshHolidays();
                 loadHolidays();
                 showSuccess('Holiday removed.');
             }
@@ -58,37 +56,37 @@ export function HolidayManager() {
     return (
         <div className="space-y-6">
             <div className="flex items-center gap-2 mb-4">
-                <Calendar className="w-5 h-5 text-indigo-500" />
-                <h4 className="text-sm font-bold text-slate-800 dark:text-white uppercase tracking-wider">Public Holidays</h4>
+                <Calendar className="w-5 h-5 text-indigo-400" />
+                <h4 className="text-sm font-semibold text-white">Public holidays</h4>
             </div>
 
             {/* Add Form */}
-            <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-11 gap-2 items-end bg-slate-50 dark:bg-slate-900/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
+            <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-11 gap-2 items-end bg-slate-900/50 p-3 rounded-xl border border-white/10">
                 <div className="md:col-span-4">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Date</label>
+                    <label className="block text-xs text-slate-400 mb-1 ml-1">Date</label>
                     <input
                         type="date"
                         value={newDate}
                         onChange={(e) => setNewDate(e.target.value)}
-                        className="w-full p-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full p-2 text-sm rounded-lg border border-white/10 bg-slate-950 text-slate-100 outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                         required
                     />
                 </div>
                 <div className="md:col-span-5">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1 ml-1">Holiday Name</label>
+                    <label className="block text-xs text-slate-400 mb-1 ml-1">Holiday name</label>
                     <input
                         type="text"
                         placeholder="e.g. New Year's Day"
                         value={newName}
                         onChange={(e) => setNewName(e.target.value)}
-                        className="w-full p-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full p-2 text-sm rounded-lg border border-white/10 bg-slate-950 text-slate-100 outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
                         required
                     />
                 </div>
                 <div className="md:col-span-2">
                     <button
                         type="submit"
-                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold text-sm shadow-lg shadow-indigo-500/20"
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 text-sm"
                     >
                         <Plus className="w-4 h-4" />
                         Add
@@ -101,18 +99,18 @@ export function HolidayManager() {
                 {holidays.map((h, idx) => (
                     <div
                         key={`${h.date}-${idx}`}
-                        className={`group flex items-center justify-between p-3 rounded-xl border transition-all ${h.isCustom
-                            ? 'bg-indigo-50/30 dark:bg-indigo-900/10 border-indigo-100/50 dark:border-indigo-500/20'
-                            : 'bg-slate-50/50 dark:bg-slate-800/20 border-slate-100 dark:border-slate-700/50'
+                        className={`group flex items-center justify-between p-3 rounded-xl border ${h.isCustom
+                            ? 'bg-indigo-900/10 border-indigo-500/20'
+                            : 'bg-slate-800/20 border-white/10'
                             }`}
                     >
                         <div className="flex items-center gap-3">
                             <div className={`w-2 h-2 rounded-full ${h.isCustom ? 'bg-indigo-500' : 'bg-slate-400'}`} />
                             <div>
-                                <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{h.name}</p>
-                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-tight">
+                                <p className="text-sm font-medium text-slate-200">{h.name}</p>
+                                <p className="text-xs text-slate-400">
                                     {formatDate(h.date)}
-                                    {!h.isCustom && ` • ${h.fy}`}
+                                    {!h.isCustom && ` · ${h.fy}`}
                                 </p>
                             </div>
                         </div>
@@ -120,13 +118,13 @@ export function HolidayManager() {
                         {h.isCustom ? (
                             <button
                                 onClick={() => handleDelete(h.date, h.name)}
-                                className="opacity-0 group-hover:opacity-100 p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                                className="opacity-0 group-hover:opacity-100 p-2 text-red-400 hover:bg-red-900/20 rounded-lg"
                                 title="Remove holiday"
                             >
                                 <Trash2 className="w-4 h-4" />
                             </button>
                         ) : (
-                            <span className="text-[9px] font-black text-slate-300 dark:text-slate-600 uppercase border border-slate-200 dark:border-slate-700 px-1.5 py-0.5 rounded">System</span>
+                            <span className="text-[10px] text-slate-500 border border-white/10 px-1.5 py-0.5 rounded">System</span>
                         )}
                     </div>
                 ))}
@@ -140,7 +138,7 @@ export function HolidayManager() {
             </div>
 
             <p className="text-[10px] text-slate-400 italic text-center px-4">
-                Note: Custom holidays will be prioritized over system holidays if dates overlap. They are used in the dashboard, heatmap, and leave checker.
+                Note: Custom holidays override system holidays on the same date. They affect leave calculations and the heatmap.
             </p>
         </div>
     );

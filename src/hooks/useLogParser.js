@@ -2,16 +2,10 @@ import { useMemo } from 'react';
 import { useTimeHelpers } from './useTimeHelpers';
 import { LEAVE_TYPES } from '../utils/leaveHistory';
 import { parseAttendanceLogInput } from '../utils/attendanceLogParser';
+import { normalizeDate, resolveEffectiveWorkDate } from '../utils/dateUtils';
 
 const LOG_REGEX = /(\d{1,2}:\d{2})\s*(AM|PM)?\s*(IN|OUT)/gi;
 const DATE_REGEX = /(\d{4}-\d{2}-\d{2})|(\d{1,2}[-/][A-Za-z]{3}[-/]\d{2,4})|(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})/g;
-
-const detectDate = (logInput) => {
-    const parsed = parseAttendanceLogInput(logInput);
-    if (parsed.detectedDate) return parsed.detectedDate;
-    const dateMatch = logInput.match(DATE_REGEX);
-    return dateMatch ? dateMatch[0] : null;
-};
 
 const getLeaveMinutes = (leave) => {
     if (!leave) return 0;
@@ -134,13 +128,15 @@ const getCurrentAbsoluteMinutes = (events, currentTimeMinutes, detectedDate, tod
     return currentTimeMinutes;
 };
 
-export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0, startTimeMinutes = null, today = null, leave = null) => {
+export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0, startTimeMinutes = null, today = null, leave = null, workDate = null) => {
     const { minutesToTime } = useTimeHelpers();
 
     return useMemo(() => {
         const parsedReport = parseAttendanceLogInput(logInput);
-        const detectedDate = detectDate(logInput);
-        const isHistorical = detectedDate && today && detectedDate !== today;
+        const dateMatch = !parsedReport.detectedDate ? logInput.match(DATE_REGEX) : null;
+        const logDetectedDate = parsedReport.detectedDate || (dateMatch ? normalizeDate(dateMatch[0]) : null);
+        const detectedDate = resolveEffectiveWorkDate(logDetectedDate, workDate, today);
+        const isHistorical = Boolean(detectedDate && today && detectedDate !== today);
 
         if (parsedReport.hasPunchRows && parsedReport.punchCount >= 2) {
             const parsedEvents = parsedReport.events.map((event) => ({
@@ -212,6 +208,7 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
                 lastOutTime: lastOut ? lastOut.displayTime : null,
                 isCurrentlyOut: lastEvent ? lastEvent.type === 'OUT' : false,
                 detectedDate,
+                logDetectedDate,
                 isHistorical,
                 currentTimeMinutes,
                 leaveMinutes,
@@ -313,6 +310,7 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
             lastOutTime: lastOut ? lastOut.displayTime : null,
             isCurrentlyOut: lastEvent ? lastEvent.type === 'OUT' : false,
             detectedDate,
+            logDetectedDate,
             isHistorical,
             currentTimeMinutes,
             leaveMinutes: parsedLeaveMinutes,
@@ -321,5 +319,5 @@ export const useLogParser = (logInput, use24Hour = false, currentTimeMinutes = 0
             anomalies: [],
             blankApproverRemarks: []
         };
-    }, [logInput, use24Hour, minutesToTime, currentTimeMinutes, startTimeMinutes, today, leave]);
+    }, [logInput, use24Hour, minutesToTime, currentTimeMinutes, startTimeMinutes, today, leave, workDate]);
 };

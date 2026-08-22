@@ -1,72 +1,123 @@
 import React, { useState, useEffect, lazy, Suspense, useMemo } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
+import { Briefcase } from 'lucide-react';
 import { LoginPage } from './components/auth/LoginPage';
 import { RegisterPage } from './components/auth/RegisterPage';
 import { useAuth } from './context/AuthContext';
-import { Dashboard } from './components/Dashboard';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
-import { ShiftCalculator } from './components/ShiftCalculator';
+import { TodayStrip } from './components/TodayStrip';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { SyncManager } from './components/SyncManager';
 import { SettingsModal } from './components/SettingsModal';
-import { HistoryModal } from './components/HistoryModal';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { Toast } from './components/Toast';
 import { UIProvider, useUI } from './context/UIContext';
 import { ShiftStateProvider, useShiftState } from './context/ShiftStateContext';
-import { RefreshCw } from 'lucide-react';
 import { HeroSection } from './components/HeroSection';
+import { useLeaveNotification } from './hooks/useLeaveNotification';
+import { getTargetWorkMinutes } from './hooks/useShiftCalculations';
+import { WeeklyTrend } from './components/WeeklyTrend';
 
 const LogAnalyzer = lazy(() => import('./components/LogAnalyzer').then((module) => ({ default: module.LogAnalyzer })));
 const ShiftAnalytics = lazy(() => import('./components/ShiftAnalytics').then((module) => ({ default: module.ShiftAnalytics })));
 const LeaveManagement = lazy(() => import('./components/LeaveManagement').then((module) => ({ default: module.LeaveManagement })));
 const AttendanceLog = lazy(() => import('./components/AttendanceLog').then((module) => ({ default: module.AttendanceLog })));
 
+const HAS_ACCOUNT_KEY = 'workshiftHasAccount';
+
+function readInitialView() {
+  const stored = localStorage.getItem('activeView');
+  if (stored === 'shift') return 'today';
+  if (stored === 'leave' || stored === 'history' || stored === 'analytics' || stored === 'today') return stored;
+  return 'today';
+}
+
+function formatRemaining(minutes) {
+  const value = Math.max(0, Math.floor(Number(minutes) || 0));
+  const hours = Math.floor(value / 60);
+  const mins = value % 60;
+  if (hours <= 0) return `${mins}m`;
+  return `${hours}h ${mins}m`;
+}
+
+function PasteSkeleton() {
+  return (
+    <div className="glass-card space-y-3" aria-hidden="true">
+      <div className="h-4 w-40 rounded bg-slate-800/80" />
+      <div className="h-48 rounded-xl bg-slate-900/70 border border-white/10 animate-pulse" />
+    </div>
+  );
+}
+
 function AppContent() {
   const { user, loading, logout } = useAuth();
   const {
-    showSuccess, toasts, dismissToast,
-    confirm, confirmDialog, closeConfirm
+    showError, showInfo, toasts, dismissToast,
+    confirmDialog, closeConfirm
   } = useUI();
 
   const {
     startTime, setStartTime, logInput, setLogInput,
-    shiftDuration, setShiftDuration, use24Hour, setUse24Hour,
+    shiftDuration, setShiftDuration, use24Hour,
+    workDate, setWorkDate, today,
     currentMinutes,
-    history, getAllEntries, exportToCSV, saveEntry,
+    history, saveEntry,
     activeLeave, logStats, shiftDetails, mtdProgress, currentDayProgress,
   } = useShiftState();
 
-  const allHistoryEntries = useMemo(() => getAllEntries(), [getAllEntries]);
+  const [shiftTarget, setShiftTarget] = useState('fullDay');
+  const targetWorkMinutes = getTargetWorkMinutes((shiftDuration || 9) * 60, shiftTarget);
+  const exitLabel = shiftDetails?.isFullLeave
+    ? '--:--'
+    : (shiftDetails?.[`${shiftTarget}Adjusted`] || shiftDetails?.activeTargetAdjusted);
+
+  const remainingMinutes = useMemo(() => {
+    const worked = Number(logStats.realTimeEffectiveWork || 0);
+    if (worked >= targetWorkMinutes) return 0;
+    return Math.max(0, targetWorkMinutes - worked);
+  }, [targetWorkMinutes, logStats.realTimeEffectiveWork]);
+
+  const isOvertime = Number(logStats.realTimeEffectiveWork || 0) >= targetWorkMinutes;
+
+  const leaveNotify = useLeaveNotification({
+    remainingMinutes,
+    exitLabel,
+    workDate: logStats.detectedDate || workDate || today,
+    isHistorical: Boolean(logStats.isHistorical),
+    hasShift: Boolean(logStats.firstInTime && (logStats.events?.length > 0 || logInput.trim())),
+  });
 
   const [authMode, setAuthMode] = useState('login');
-  const [showHero, setShowHero] = useState(true);
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [activeView, setActiveView] = useState(() => {
-    return localStorage.getItem('activeView') || 'shift';
+  const [showHero, setShowHero] = useState(() => {
+    try { return localStorage.getItem(HAS_ACCOUNT_KEY) !== 'true'; }
+    catch (_e) { return true; }
   });
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activeView, setActiveView] = useState(readInitialView);
   const prefersReducedMotion = useReducedMotion();
   const canAccessLeaveView = user?.email === 'suttamshlok@gmail.com';
-  const effectiveActiveView = canAccessLeaveView ? activeView : 'shift';
+  const allowedViews = canAccessLeaveView
+    ? ['today', 'history', 'analytics', 'leave']
+    : ['today', 'history', 'analytics'];
+  const effectiveActiveView = allowedViews.includes(activeView) ? activeView : 'today';
   const MotionDiv = motion.div;
-  const sectionEnter = prefersReducedMotion
-    ? {}
-    : { opacity: 0, y: 18, scale: 0.995 };
+  const sectionEnter = prefersReducedMotion ? {} : { opacity: 0, y: 12 };
   const sectionShow = prefersReducedMotion
     ? {}
-    : {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: { duration: 0.45, ease: [0.22, 1, 0.36, 1] }
-    };
+    : { opacity: 1, y: 0, transition: { duration: 0.3, ease: [0.22, 1, 0.36, 1] } };
   const sectionExit = prefersReducedMotion
     ? {}
-    : { opacity: 0, y: 10, transition: { duration: 0.2 } };
+    : { opacity: 0, y: 8, transition: { duration: 0.15 } };
 
-  // --- Effects ---
+  const remainingLabel = logStats.isHistorical
+    ? 'Historical day'
+    : isOvertime
+      ? `+${formatRemaining(Number(logStats.realTimeEffectiveWork || 0) - targetWorkMinutes)} overtime`
+      : remainingMinutes === 0
+        ? `Leave at ${exitLabel || '--:--'}`
+        : `${formatRemaining(remainingMinutes)} left`;
+
   useEffect(() => {
     document.documentElement.classList.add('dark');
     localStorage.setItem('theme', 'dark');
@@ -76,30 +127,8 @@ function AppContent() {
     localStorage.setItem('activeView', effectiveActiveView);
   }, [effectiveActiveView]);
 
-  const SectionFallback = ({ label }) => (
-    <div className="glass-card">
-      <div className="flex items-center gap-3">
-        <RefreshCw className="w-4 h-4 text-indigo-400 animate-spin" />
-        <p className="text-sm text-slate-300 font-semibold">Loading {label}...</p>
-      </div>
-    </div>
-  );
-
-  const handleLoadEntryAttempt = (entry) => {
-    confirm({
-      title: "Load Entry?",
-      message: "This will replace your current workspace logs with the data from this historical entry. Any unsaved changes will be lost.",
-      onConfirm: () => {
-        setIsHistoryOpen(false);
-        setStartTime(entry.startTime || "00:00");
-        setLogInput(entry.logInput || "");
-        showSuccess('📥 Entry loaded from local history.');
-      }
-    });
-  };
-
   const handleSaveCurrentShift = () => {
-    const targetDate = logStats?.detectedDate || new Date().toISOString().slice(0, 10);
+    const targetDate = logStats?.detectedDate || today;
     saveEntry(targetDate, {
       startTime,
       logInput,
@@ -113,7 +142,6 @@ function AppContent() {
     });
   };
 
-  // Auto-detect start time from parsed logs
   const { autoStartTime } = logStats;
   useEffect(() => {
     if (autoStartTime && autoStartTime !== startTime) {
@@ -121,10 +149,22 @@ function AppContent() {
     }
   }, [autoStartTime, startTime, setStartTime]);
 
+  const handleNotifyToggle = async (nextEnabled) => {
+    const granted = await leaveNotify.setEnabled(nextEnabled);
+    if (nextEnabled && granted) {
+      showInfo("We'll ping 15 minutes before exit.");
+    } else if (nextEnabled && !granted) {
+      showError('Notifications were blocked by the browser.');
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin" />
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center gap-3">
+        <div className="w-12 h-12 rounded-xl bg-indigo-500 flex items-center justify-center">
+          <Briefcase className="w-6 h-6 text-white" />
+        </div>
+        <p className="text-sm text-slate-400">Checking session…</p>
       </div>
     );
   }
@@ -140,115 +180,94 @@ function AppContent() {
 
   return (
     <SyncManager>
-      {({ syncLogs, restoreFromCloud, isSyncing, synced }) => (
-        <div className="min-h-screen transition-colors duration-500 selection:bg-indigo-100 selection:text-indigo-700">
+      {({ syncLogs, restoreFromCloud, isSyncing }) => (
+        <div className="min-h-screen selection:bg-indigo-500/30 selection:text-white">
           <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
-            <div className="absolute top-[-5%] right-[-5%] w-[40%] h-[40%] bg-indigo-500/15 blur-[100px] rounded-full animate-float"></div>
-            <div className="absolute bottom-[-5%] left-[-5%] w-[40%] h-[40%] bg-violet-500/10 blur-[100px] rounded-full animate-float [animation-delay:2s]"></div>
+            <div className="absolute top-[-8%] right-[-8%] w-[36%] h-[36%] bg-indigo-500/10 blur-[110px] rounded-full" />
+            <div className="absolute bottom-[-8%] left-[-8%] w-[36%] h-[36%] bg-violet-500/8 blur-[110px] rounded-full" />
           </div>
 
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
             <Header
               onOpenSettings={() => setIsSettingsOpen(true)}
-              onOpenHistory={() => setIsHistoryOpen(true)}
               onLogout={logout}
               isSyncing={isSyncing}
               onSync={syncLogs}
               onRestore={restoreFromCloud}
               user={user}
               activeView={effectiveActiveView}
-              setActiveView={(nextView) => {
-                if (nextView === 'leave' && !canAccessLeaveView) {
-                  return;
-                }
-                setActiveView(nextView);
-              }}
+              setActiveView={setActiveView}
+              remainingLabel={remainingLabel}
+              canAccessLeaveView={canAccessLeaveView}
             />
 
-            <main className="mt-8">
+            <main className="mt-4">
               <AnimatePresence mode="wait" initial={!prefersReducedMotion}>
-                {effectiveActiveView === 'shift' ? (
-                  <MotionDiv
-                    key="view-shift"
-                    initial={sectionEnter}
-                    animate={sectionShow}
-                    exit={sectionExit}
-                    className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-start"
-                  >
-                    <div className="xl:col-span-8 space-y-8">
-                      <MotionDiv initial={sectionEnter} animate={sectionShow}>
-                        <ErrorBoundary label="Dashboard">
-                          <Dashboard
-                            workProgress={currentDayProgress}
-                            shiftDetails={shiftDetails}
-                            logStats={logStats}
-                            isOvertime={logStats.isOvertime}
-                            activeLeave={activeLeave}
-                            mtdProgress={mtdProgress}
-                            history={history}
-                            shiftDuration={shiftDuration}
-                            use24Hour={use24Hour}
-                          />
-                        </ErrorBoundary>
-                      </MotionDiv>
-                      <MotionDiv initial={sectionEnter} animate={sectionShow}>
-                        <ErrorBoundary label="Log Analyzer">
-                          <Suspense fallback={<SectionFallback label="log analyzer" />}>
-                            <LogAnalyzer
-                              logInput={logInput}
-                              setLogInput={setLogInput}
-                              stats={logStats}
-                              currentTimeMinutes={currentMinutes}
-                            />
-                          </Suspense>
-                        </ErrorBoundary>
-                      </MotionDiv>
-                      <MotionDiv initial={sectionEnter} animate={sectionShow}>
-                        <ErrorBoundary label="Shift Analytics">
-                          <Suspense fallback={<SectionFallback label="shift analytics" />}>
-                            <ShiftAnalytics
-                              currentShift={{ ...logStats, startTime }}
-                              history={history}
-                              onSaveShift={handleSaveCurrentShift}
-                            />
-                          </Suspense>
-                        </ErrorBoundary>
-                      </MotionDiv>
-
-                      {/* Universal Logs (Attendance) */}
-                      <MotionDiv className="space-y-8" initial={sectionEnter} animate={sectionShow}>
-                        <ErrorBoundary label="Attendance Log">
-                          <Suspense fallback={<SectionFallback label="attendance log" />}>
-                            <AttendanceLog />
-                          </Suspense>
-                        </ErrorBoundary>
-                      </MotionDiv>
-                    </div>
-
-                    <MotionDiv
-                      className="xl:col-span-4 sticky top-8"
-                      initial={sectionEnter}
-                      animate={sectionShow}
-                    >
-                      <div className="space-y-8">
-                        <ShiftCalculator
-                          startTime={startTime}
-                          setStartTime={setStartTime}
-                          synced={synced}
-                          shiftDetails={shiftDetails}
+                {effectiveActiveView === 'today' && (
+                  <MotionDiv key="view-today" initial={sectionEnter} animate={sectionShow} exit={sectionExit} className="space-y-6">
+                    <ErrorBoundary label="Today">
+                      <TodayStrip
+                        shiftDetails={shiftDetails}
+                        logStats={logStats}
+                        workProgress={currentDayProgress}
+                        activeLeave={activeLeave}
+                        mtdProgress={mtdProgress}
+                        shiftDuration={shiftDuration}
+                        shiftTarget={shiftTarget}
+                        setShiftTarget={setShiftTarget}
+                        remainingMinutes={remainingMinutes}
+                        isOvertime={isOvertime}
+                        exitLabel={exitLabel}
+                        use24Hour={use24Hour}
+                        workDate={logStats.detectedDate || workDate}
+                        setWorkDate={setWorkDate}
+                        today={today}
+                        leaveNotify={leaveNotify}
+                        onNotifyToggle={handleNotifyToggle}
+                      />
+                    </ErrorBoundary>
+                    <ErrorBoundary label="Log paste">
+                      <Suspense fallback={<PasteSkeleton />}>
+                        <LogAnalyzer
+                          logInput={logInput}
+                          setLogInput={setLogInput}
+                          stats={logStats}
+                          currentTimeMinutes={currentMinutes}
                         />
-                      </div>
-                    </MotionDiv>
+                      </Suspense>
+                    </ErrorBoundary>
                   </MotionDiv>
-                ) : (
-                  <MotionDiv
-                    key="view-leave"
-                    initial={sectionEnter}
-                    animate={sectionShow}
-                    exit={sectionExit}
-                  >
-                    <ErrorBoundary label="Leave Management">
-                      <Suspense fallback={<SectionFallback label="leave management" />}>
+                )}
+
+                {effectiveActiveView === 'history' && (
+                  <MotionDiv key="view-history" initial={sectionEnter} animate={sectionShow} exit={sectionExit}>
+                    <ErrorBoundary label="History">
+                      <Suspense fallback={<PasteSkeleton />}>
+                        <AttendanceLog />
+                      </Suspense>
+                    </ErrorBoundary>
+                  </MotionDiv>
+                )}
+
+                {effectiveActiveView === 'analytics' && (
+                  <MotionDiv key="view-analytics" initial={sectionEnter} animate={sectionShow} exit={sectionExit} className="space-y-6">
+                    <WeeklyTrend history={history} />
+                    <ErrorBoundary label="Analytics">
+                      <Suspense fallback={<PasteSkeleton />}>
+                        <ShiftAnalytics
+                          currentShift={{ ...logStats, startTime }}
+                          history={history}
+                          onSaveShift={handleSaveCurrentShift}
+                        />
+                      </Suspense>
+                    </ErrorBoundary>
+                  </MotionDiv>
+                )}
+
+                {effectiveActiveView === 'leave' && (
+                  <MotionDiv key="view-leave" initial={sectionEnter} animate={sectionShow} exit={sectionExit}>
+                    <ErrorBoundary label="Leave">
+                      <Suspense fallback={<PasteSkeleton />}>
                         <LeaveManagement />
                       </Suspense>
                     </ErrorBoundary>
@@ -264,18 +283,8 @@ function AppContent() {
               onClose={() => setIsSettingsOpen(false)}
               shiftDuration={shiftDuration}
               setShiftDuration={setShiftDuration}
-              use24Hour={use24Hour}
-              setUse24Hour={setUse24Hour}
-            />
-
-            <HistoryModal
-              isOpen={isHistoryOpen}
-              onClose={() => setIsHistoryOpen(false)}
-              historyEntries={allHistoryEntries}
-              history={history}
-              onLoadEntry={handleLoadEntryAttempt}
-              onExport={exportToCSV}
-              showSuccess={showSuccess}
+              startTime={startTime}
+              setStartTime={setStartTime}
             />
 
             <ConfirmDialog
