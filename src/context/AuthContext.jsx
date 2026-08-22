@@ -171,10 +171,26 @@ export const AuthProvider = ({ children }) => {
     return unsubscribe;
   };
 
+  const savePreferences = async (preferences) => {
+    if (!user) return;
+    if (!db) return;
+    await setDoc(
+      doc(db, 'users', user.uid, 'settings', 'preferences'),
+      {
+        shiftDuration: Number(preferences.shiftDuration) || 9,
+        use24Hour: Boolean(preferences.use24Hour),
+        startTime: preferences.startTime || '09:00',
+        shiftTarget: preferences.shiftTarget || 'fullDay',
+        updatedAt: new Date().toISOString(),
+      },
+      { merge: true },
+    );
+  };
+
   return (
     <AuthContext.Provider value={{
       user, loading, login, loginWithGoogle, register, logout,
-      syncLogsToCloud, fetchLogsFromCloud, subscribeToLogs
+      syncLogsToCloud, fetchLogsFromCloud, subscribeToLogs, savePreferences
     }}>
       {children}
     </AuthContext.Provider>

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     Clock, Calendar, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
     Search, Filter, LayoutGrid, Timer, AlertCircle, CheckCircle2,
-    Coffee, Zap, TrendingUp, Edit2, Check, X, Eye
+    Coffee, Zap, TrendingUp, Edit2, Check, X, Eye, Download
 } from 'lucide-react';
 import { transformHistoryToShifts, getGoals } from '../utils/shiftHistory';
 import { useAuth } from '../context/AuthContext';
@@ -24,7 +24,7 @@ const emptyEditValues = {
 
 export function AttendanceLog() {
     const { syncLogsToCloud, user } = useAuth();
-    const { history, saveEntry } = useShiftState();
+    const { history, saveEntry, exportToCSV } = useShiftState();
     const { showError } = useUI();
     const [searchTerm, setSearchTerm] = useState('');
     const [filterStatus, setFilterStatus] = useState('All');
@@ -230,6 +230,14 @@ export function AttendanceLog() {
                             <option value="Short Shift" className="bg-slate-950">Short</option>
                         </select>
                     </div>
+                    <button
+                        type="button"
+                        onClick={() => exportToCSV()}
+                        className="px-3 py-2 rounded-xl border border-indigo-400/20 bg-slate-900/40 text-xs text-indigo-200 inline-flex items-center gap-1.5 hover:border-indigo-400/50"
+                    >
+                        <Download className="w-3.5 h-3.5" />
+                        Export CSV
+                    </button>
                 </div>
             </div>
 

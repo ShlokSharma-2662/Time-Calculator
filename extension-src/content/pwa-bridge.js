@@ -40,7 +40,7 @@
     'hrmsSource',
   ];
 
-  const EXTENSION_VERSION = '1.0.9';
+  const EXTENSION_VERSION = '1.1.0';
   const REFRESH_HINT =
     'Extension was reloaded. Refresh this page, then click Sync again.';
 
@@ -180,6 +180,57 @@
     }
   }
 
+  function shouldApplyPayload(payload) {
+    if (!payload?.hrmsSyncAt && !payload?.logInput) return false;
+    const incomingAt = Number(payload.hrmsSyncAt || 0);
+    const localAt = Number(localStorage.getItem('hrmsSyncAt') || 0);
+    if (incomingAt && localAt && incomingAt <= localAt) return false;
+    return true;
+  }
+
+  function writeHrmsRange(payloads, applyDateLabel) {
+    if (!Array.isArray(payloads) || payloads.length === 0) {
+      return { ok: false, message: 'Missing range payloads.' };
+    }
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent('workshift-hrms-range', {
+          detail: { payloads, at: Date.now() },
+        }),
+      );
+
+      const apply = payloads.find((item) => item?.hrmsSelectedDate === applyDateLabel)
+        || payloads.find((item) => item?.hrmsIsToday === 'true')
+        || payloads[payloads.length - 1];
+
+      const written = writeHrmsPayload(apply);
+      return written.ok ? { ok: true, appliedDate: apply?.hrmsSelectedDate || '' } : written;
+    } catch (err) {
+      return { ok: false, message: err?.message || String(err) };
+    }
+  }
+
+  async function replayCachedPayloads() {
+    if (retired || !isContextValid()) return;
+    const status = await runtimeSendMessage({ type: 'GET_STATUS' });
+    if (!status?.ok) return;
+
+    const range = Array.isArray(status.lastRangePayloads) ? status.lastRangePayloads : [];
+    if (range.length) {
+      const newest = range.reduce((max, item) => Math.max(max, Number(item?.hrmsSyncAt || 0)), 0);
+      const localAt = Number(localStorage.getItem('hrmsSyncAt') || 0);
+      if (!localAt || newest > localAt) {
+        writeHrmsRange(range, null);
+        return;
+      }
+    }
+
+    if (status.lastPayload && shouldApplyPayload(status.lastPayload)) {
+      writeHrmsPayload(status.lastPayload);
+    }
+  }
+
   function clearHrmsPayload() {
     try {
       HRMS_KEYS.forEach((key) => localStorage.removeItem(key));
@@ -264,6 +315,46 @@
       markExtensionPresent();
     }
     return last;
+  }
+
+  async function handlePageRangeRequest(requestId, dateLabels, applyDateLabel) {
+    try {
+      const result = await runtimeSendMessageWithRetry({
+        type: 'SYNC_RANGE',
+        source: 'pwa',
+        requestId: requestId || null,
+        dateLabels: dateLabels || [],
+        applyDateLabel: applyDateLabel || null,
+      });
+
+      window.postMessage(
+        {
+          type: 'WORKSHIFT_SPINE_SYNC_RESULT',
+          requestId: requestId || null,
+          ok: Boolean(result?.ok),
+          result,
+        },
+        '*',
+      );
+    } catch (err) {
+      const messageText = err?.message || String(err);
+      if (isContextInvalidatedError(messageText)) {
+        retireBridge(messageText);
+      }
+      window.postMessage(
+        {
+          type: 'WORKSHIFT_SPINE_SYNC_RESULT',
+          requestId: requestId || null,
+          ok: false,
+          result: {
+            ok: false,
+            message: isContextInvalidatedError(messageText) ? REFRESH_HINT : messageText,
+            needsRefresh: isContextInvalidatedError(messageText),
+          },
+        },
+        '*',
+      );
+    }
   }
 
   async function handlePageSyncRequest(requestId, dateLabel) {
@@ -353,6 +444,24 @@
         return;
       }
       handlePageSyncRequest(data.requestId || null, data.dateLabel || null);
+      return;
+    }
+
+    if (data.type === 'WORKSHIFT_SPINE_SYNC_RANGE') {
+      if (!isContextValid()) {
+        retireBridge('Extension context invalidated.');
+        window.postMessage(
+          {
+            type: 'WORKSHIFT_SPINE_SYNC_RESULT',
+            requestId: data.requestId || null,
+            ok: false,
+            result: { ok: false, message: REFRESH_HINT, needsRefresh: true },
+          },
+          '*',
+        );
+        return;
+      }
+      handlePageRangeRequest(data.requestId || null, data.dateLabels || [], data.applyDateLabel || null);
     }
   }
 
@@ -378,6 +487,11 @@
 
       if (message.type === 'WRITE_HRMS_SYNC') {
         sendResponse(writeHrmsPayload(message.payload));
+        return false;
+      }
+
+      if (message.type === 'WRITE_HRMS_RANGE') {
+        sendResponse(writeHrmsRange(message.payloads, message.applyDateLabel || null));
         return false;
       }
 
@@ -411,6 +525,7 @@
       if (isContextValid()) {
         chrome.runtime.onMessage.addListener(onRuntimeMessage);
         markExtensionPresent();
+        replayCachedPayloads().catch(() => {});
       } else {
         retireBridge('Extension context invalidated.');
       }

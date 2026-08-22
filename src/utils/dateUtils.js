@@ -37,6 +37,36 @@ export function normalizeDate(dateStr) {
     return dateStr;
 }
 
+/**
+ * Convert YYYY-MM-DD / Date / dd-MMM-yy into Spine link label (dd-MMM-yy).
+ */
+export function toSpineDateLabel(input) {
+    if (!input) return null;
+
+    if (input instanceof Date && !Number.isNaN(input.getTime())) {
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const dd = String(input.getDate()).padStart(2, '0');
+        return `${dd}-${months[input.getMonth()]}-${String(input.getFullYear()).slice(-2)}`;
+    }
+
+    const raw = String(input).trim();
+    const spineMatch = raw.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2})$/);
+    if (spineMatch) {
+        const day = spineMatch[1].padStart(2, '0');
+        const mon = spineMatch[2][0].toUpperCase() + spineMatch[2].slice(1).toLowerCase();
+        return `${day}-${mon}-${spineMatch[3]}`;
+    }
+
+    const iso = normalizeDate(raw);
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null;
+
+    const [year, month, day] = iso.split('-');
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthIndex = Number(month) - 1;
+    if (monthIndex < 0 || monthIndex > 11) return null;
+    return `${day}-${months[monthIndex]}-${year.slice(-2)}`;
+}
+
 export function formatDate(dateStr) {
     if (!dateStr || !dateStr.includes('-')) return dateStr;
     const [year, month, day] = dateStr.split('-');

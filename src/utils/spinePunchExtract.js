@@ -3,6 +3,7 @@
  * Shared by unit tests and documented for the extension scraper (same algorithm).
  */
 
+import { parseAttendanceLogInput } from './attendanceLogParser.js';
 const PUNCH_ROW_RE = /^(.+?)\t(.+?)\t(In|Out)\s*$/i;
 
 /**
@@ -280,6 +281,26 @@ export function buildHrmsSyncPayload(punchText, options = {}) {
     hrmsPunchCount: String(summary.punchCount),
     hrmsStatus: isToday ? 'today' : 'past',
     hrmsSource: 'spine-hrms',
+  };
+}
+
+export function hrmsPayloadToHistoryEntry(payload) {
+  if (!payload || typeof payload !== 'object') return null;
+  const logInput = String(payload.logInput || '').trim();
+  if (!logInput) return null;
+  const parsed = parseAttendanceLogInput(logInput);
+  const firstIn = parsed.events?.find((event) => event.type === 'IN');
+  const lastOut = [...(parsed.events || [])].reverse().find((event) => event.type === 'OUT');
+  return {
+    startTime: payload.startTime || '09:00',
+    logInput,
+    totalOutTime: Number(payload.hrmsBreakMin) || parsed.totalOutMinutes || 0,
+    effectiveWorkTime: parsed.totalWorkMinutes || 0,
+    firstInTime: firstIn?.displayTime || payload.hrmsFirstIn || null,
+    lastOutTime: lastOut?.displayTime || payload.hrmsLastOut || null,
+    activeLeave: null,
+    shortTimeOffMinutes: Number(parsed.shortTimeOffMinutes) || 0,
+    shortTimeOffEntries: parsed.shortTimeOffEntries || [],
   };
 }
 

@@ -14,19 +14,33 @@ import { useShiftState } from '../context/ShiftStateContext';
 export function SyncManager({ children }) {
     const { user, syncLogsToCloud, fetchLogsFromCloud, subscribeToLogs } = useAuth();
     const { showSuccess, showError, showInfo } = useUI();
-    const { getAllEntries, saveEntry, setFullHistory } = useShiftState();
+    const { getAllEntries, saveEntry, mergeIncomingHistory } = useShiftState();
 
     const [isSyncing, setIsSyncing] = useState(false);
     const [synced, setSynced] = useState(false);
+    const [lastSyncedAt, setLastSyncedAt] = useState(() => {
+        try {
+            const raw = Number(localStorage.getItem('lastCloudSyncAt'));
+            return Number.isFinite(raw) && raw > 0 ? raw : null;
+        } catch {
+            return null;
+        }
+    });
 
-    // Refs to avoid stale closures
     const subscribeToLogsRef = useRef(subscribeToLogs);
-    const setFullHistoryRef = useRef(setFullHistory);
+    const mergeIncomingHistoryRef = useRef(mergeIncomingHistory);
 
     useEffect(() => { subscribeToLogsRef.current = subscribeToLogs; }, [subscribeToLogs]);
-    useEffect(() => { setFullHistoryRef.current = setFullHistory; }, [setFullHistory]);
+    useEffect(() => { mergeIncomingHistoryRef.current = mergeIncomingHistory; }, [mergeIncomingHistory]);
 
-    // --- Manual Sync (push) ---
+    const markSynced = () => {
+        const at = Date.now();
+        setLastSyncedAt(at);
+        try { localStorage.setItem('lastCloudSyncAt', String(at)); } catch { /* ignore */ }
+        setSynced(true);
+        window.setTimeout(() => setSynced(false), 2000);
+    };
+
     const syncLogs = async () => {
         if (!user) return;
         const entries = getAllEntries();
@@ -34,6 +48,7 @@ export function SyncManager({ children }) {
         setIsSyncing(true);
         try {
             await syncLogsToCloud(entries);
+            markSynced();
             showSuccess("☁️ Synced to Firebase");
         } catch (err) {
             showError("Sync failed: " + (err.message || "Unknown error"));
@@ -42,28 +57,27 @@ export function SyncManager({ children }) {
         }
     };
 
-    // --- Real-Time Firestore Listener ---
     useEffect(() => {
         if (!user) return;
 
         const unsubscribe = subscribeToLogsRef.current((cloudLogsArray) => {
             if (!cloudLogsArray || cloudLogsArray.length === 0) return;
 
-            const newHistory = {};
-            cloudLogsArray.forEach(log => {
+            const incoming = {};
+            cloudLogsArray.forEach((log) => {
                 const { date, id: _id, updatedAt: _updatedAt, ...rest } = log;
-                newHistory[date] = rest.raw ? rest.raw : rest;
+                const key = date || log.id;
+                if (!key) return;
+                incoming[key] = rest.raw ? rest.raw : rest;
             });
 
-            setFullHistoryRef.current(newHistory);
-            setSynced(true);
-            setTimeout(() => setSynced(false), 2000);
+            mergeIncomingHistoryRef.current(incoming);
+            markSynced();
         });
 
         return () => unsubscribe();
     }, [user]);
 
-    // --- Cloud Restore (pull) — batch-safe with per-entry error handling ---
     const restoreFromCloud = async () => {
         if (!user) return;
         setIsSyncing(true);
@@ -105,6 +119,7 @@ export function SyncManager({ children }) {
                 ? `☁️ Restored ${cloudLogs.length} entries (${leaveErrors} leave entries failed)`
                 : `☁️ Restored ${cloudLogs.length} entries from cloud`;
             showSuccess(msg);
+            markSynced();
         } catch (err) {
             showError('Restore failed: ' + (err.message || 'Unknown error'));
         } finally {
@@ -112,5 +127,5 @@ export function SyncManager({ children }) {
         }
     };
 
-    return children({ syncLogs, restoreFromCloud, isSyncing, synced, setSynced });
+    return children({ syncLogs, restoreFromCloud, isSyncing, synced, lastSyncedAt, setSynced });
 }

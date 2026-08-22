@@ -25,6 +25,11 @@ export const useHistory = () => {
         }));
     }, []);
 
+    const mergeIncomingHistory = useCallback((incoming) => {
+        if (!incoming || typeof incoming !== 'object') return;
+        setHistory((prev) => ({ ...prev, ...incoming }));
+    }, []);
+
     const getAllEntries = useCallback(() => {
         return Object.entries(history).sort((a, b) => new Date(b[0]) - new Date(a[0]));
     }, [history]);
@@ -68,5 +73,5 @@ export const useHistory = () => {
         setHistory(newHistoryObj);
     }, []);
 
-    return { history, saveEntry, getAllEntries, exportToCSV, setFullHistory };
+    return { history, saveEntry, mergeIncomingHistory, getAllEntries, exportToCSV, setFullHistory };
 };

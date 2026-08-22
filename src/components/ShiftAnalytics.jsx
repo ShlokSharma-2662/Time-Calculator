@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     TrendingUp, Clock, Coffee, Calendar, Target,
@@ -27,43 +27,48 @@ export function ShiftAnalytics({ currentShift, history, onSaveShift }) {
     const { showSuccess, showInfo } = useUI();
     const [expanded, setExpanded] = useState(true);
     const [activeTab, setActiveTab] = useState('overview');
-    const [analyticsData, setAnalyticsData] = useState(null);
 
-    const refreshStats = useCallback(() => {
-        setAnalyticsData({
-            stats: getQuickStats(history),
-            weeklySummary: getWeeklySummary(history),
-            monthlySummary: getMonthlySummary(history),
+    const overview = useMemo(() => ({
+        stats: getQuickStats(history),
+        weeklySummary: getWeeklySummary(history),
+        monthlySummary: getMonthlySummary(history),
+    }), [history]);
+
+    const trends = useMemo(() => {
+        if (activeTab !== 'trends') return null;
+        return {
             trendData: getHoursTrend(history, 14),
+            monthlyComp: getMonthlyComparison(history),
+        };
+    }, [activeTab, history]);
+
+    const patterns = useMemo(() => {
+        if (activeTab !== 'patterns') return null;
+        return {
             breakPatterns: analyzeBreakPatterns(history),
             punctualityScore: getPunctualityScore(history),
-            monthlyComp: getMonthlyComparison(history),
             consistencyRating: calculateConsistencyRating(history),
-            recommendations: getRecommendations(history),
+        };
+    }, [activeTab, history]);
+
+    const goals = useMemo(() => {
+        if (activeTab !== 'goals') return null;
+        return {
             goalProgress: checkGoalProgress(history),
-        });
-    }, [history]);
+            recommendations: getRecommendations(history),
+        };
+    }, [activeTab, history]);
 
-    // Load stats
-    useEffect(() => {
-        refreshStats();
-    }, [history, refreshStats]); // Refresh when history changes
-
-    // Save current shift
     const handleSaveShift = () => {
         if (currentShift && currentShift.startTime) {
             if (typeof onSaveShift === 'function') {
                 onSaveShift();
             }
-            refreshStats();
-            showSuccess('Shift saved successfully! (done)');
+            showSuccess('Shift saved.');
         }
     };
 
-    if (!analyticsData) return null;
-
-    const { stats, weeklySummary, monthlySummary, trendData, breakPatterns,
-        punctualityScore, monthlyComp, consistencyRating, recommendations, goalProgress } = analyticsData;
+    const { stats, weeklySummary, monthlySummary } = overview;
 
     const weeklyGoal = 45;
     const weeklyProgress = weeklySummary ? (weeklySummary.totalHours / weeklyGoal) * 100 : 0;
@@ -153,28 +158,29 @@ export function ShiftAnalytics({ currentShift, history, onSaveShift }) {
                                     />
                                 )}
 
-                                {activeTab === 'trends' && (
+                                {activeTab === 'trends' && trends && (
                                     <TrendsTab
-                                        trendData={trendData}
-                                        monthlyComp={monthlyComp}
+                                        trendData={trends.trendData}
+                                        monthlyComp={trends.monthlyComp}
                                         history={history}
                                     />
                                 )}
 
-                                {activeTab === 'patterns' && (
+                                {activeTab === 'patterns' && patterns && (
                                     <PatternsTab
-                                        breakPatterns={breakPatterns}
-                                        punctualityScore={punctualityScore}
-                                        consistencyRating={consistencyRating}
+                                        breakPatterns={patterns.breakPatterns}
+                                        punctualityScore={patterns.punctualityScore}
+                                        consistencyRating={patterns.consistencyRating}
                                     />
                                 )}
 
-                                {activeTab === 'goals' && (
+                                {activeTab === 'goals' && goals && (
                                     <GoalsTab
-                                        goalProgress={goalProgress}
-                                        recommendations={recommendations}
+                                        goalProgress={goals.goalProgress}
+                                        recommendations={goals.recommendations}
                                         showSuccess={showSuccess}
                                         showInfo={showInfo}
+                                        history={history}
                                     />
                                 )}
                             </AnimatePresence>
@@ -708,9 +714,9 @@ function StatCard({ icon, label, value, color, delay }) {
 }
 
 // Goals Tab
-function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
+function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo, history }) {
     const handleExportCSV = () => {
-        const csv = exportToCSV();
+        const csv = exportToCSV(history);
         if (csv) {
             const blob = new Blob([csv], { type: 'text/csv' });
             const url = URL.createObjectURL(blob);
@@ -726,7 +732,7 @@ function GoalsTab({ goalProgress, recommendations, showSuccess, showInfo }) {
     };
 
     const handleCopyStats = () => {
-        const stats = getStatsForClipboard();
+        const stats = getStatsForClipboard(history);
         navigator.clipboard.writeText(stats);
         showSuccess('Copied to clipboard!');
     };

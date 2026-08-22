@@ -16,6 +16,8 @@ export const SettingsModal = ({
     setShiftDuration,
     startTime,
     setStartTime,
+    use24Hour = false,
+    setUse24Hour,
 }) => {
     const { showSuccess, showError, confirm } = useUI();
     const { settings, updateSettings, isPrivacyMode, togglePrivacy, hasPasscode, setPasscode } = useFinancialSettings();
@@ -116,6 +118,21 @@ export const SettingsModal = ({
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+
+                            <div className={panelClass}>
+                                <div>
+                                    <p className="text-sm text-slate-200">24-hour time</p>
+                                    <p className="text-xs text-slate-500">Show 18:00 instead of 6:00 PM</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setUse24Hour?.(!use24Hour)}
+                                    className={`w-12 h-7 rounded-full p-1 ${use24Hour ? 'bg-indigo-500' : 'bg-slate-700'}`}
+                                    aria-pressed={use24Hour}
+                                >
+                                    <div className={`w-5 h-5 rounded-full bg-white transition-transform ${use24Hour ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
                             </div>
 
                             <div className={panelClass}>

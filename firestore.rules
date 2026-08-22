@@ -156,6 +156,14 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow write: if isOwner(userId) && isLeaveHistoryPayloadValid();
       }
+
+      match /leaveBalances/{balanceId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      match /importMeta/{metaId} {
+        allow read, write: if isOwner(userId);
+      }
     }
   }
 }

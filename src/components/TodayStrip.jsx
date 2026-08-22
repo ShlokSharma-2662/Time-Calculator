@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Bell, BellOff, Briefcase, Clock, Coffee, LogIn, LogOut, Sun, Sparkles, Timer } from 'lucide-react';
+import { Bell, BellOff, Briefcase, Clock, Cloud, Coffee, LogIn, LogOut, Sun, Sparkles, Timer, X } from 'lucide-react';
 import { useTimeHelpers } from '../hooks/useTimeHelpers';
 import { getTargetWorkMinutes } from '../hooks/useShiftCalculations';
 import { getHolidayName } from '../utils/sandwichLeaveLogic';
@@ -33,6 +33,8 @@ export function TodayStrip({
     today,
     leaveNotify,
     onNotifyToggle,
+    hrmsSync = null,
+    onClearHrmsSync,
 }) {
     const { minutesToTime } = useTimeHelpers();
     const activeTarget = shiftTarget || 'fullDay';
@@ -142,6 +144,23 @@ export function TodayStrip({
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-400/35 bg-amber-500/10 text-xs text-amber-100">
                             <Sun className="w-3.5 h-3.5" />
                             {holidayName}
+                        </span>
+                    )}
+                    {hrmsSync?.hasData && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-sky-400/35 bg-sky-500/10 text-xs text-sky-100">
+                            <Cloud className="w-3.5 h-3.5" />
+                            Spine {hrmsSync.punchCount || 0} punches
+                            {hrmsSync.syncedAt ? ` · ${new Date(hrmsSync.syncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                            {onClearHrmsSync && (
+                                <button
+                                    type="button"
+                                    onClick={onClearHrmsSync}
+                                    className="ml-0.5 p-0.5 rounded hover:bg-white/10"
+                                    title="Clear Spine sync badge"
+                                >
+                                    <X className="w-3 h-3" />
+                                </button>
+                            )}
                         </span>
                     )}
                 </div>
